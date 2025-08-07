@@ -38,7 +38,7 @@ This task implements a two-armed bandit paradigm where participants choose betwe
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/bandit-task.git
+git clone https://github.com/DVS-Lab/bandit-task.git
 cd bandit-task
 ```
 
