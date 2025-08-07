@@ -222,17 +222,6 @@ This implementation is converted from a MATLAB/Neurostim version. Key difference
 - **Stimulation**: Modular design allows easy swapping of stimulation protocols
 - **Analysis**: Python-native analysis tools with pandas/matplotlib
 
-## Citation
-
-If you use this task in your research, please cite:
-```
-[Your citation here]
-```
-
-## License
-
-MIT License - See LICENSE file for details
-
 ## Contributing
 
 Contributions are welcome! Please:
