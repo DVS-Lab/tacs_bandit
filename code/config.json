@@ -85,9 +85,9 @@
     }
   },
   "paths": {
-    "data_dir": "../data",
-    "stimuli_dir": "../stimuli/images",
-    "log_dir": "../logs"
+    "data_dir": "./../data",
+    "stimuli_dir": "./../stimuli/images",
+    "log_dir": "./../logs"
   },
   "data_output": {
     "save_format": "csv",
