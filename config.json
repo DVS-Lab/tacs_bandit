@@ -1,0 +1,97 @@
+{
+  "experiment": {
+    "mode": "THETA_NIC",
+    "run_duration_minutes": 6,
+    "run_types": {
+      "1": "baseline",
+      "2": "stimulation",
+      "3": "stimulation",
+      "4": "post_stimulation",
+      "5": "baseline",
+      "6": "stimulation",
+      "7": "stimulation",
+      "8": "post_stimulation"
+    },
+    "counterbalance_stimulation": true,
+    "break_after_run_4_minutes": 5
+  },
+  "task": {
+    "min_trials_same_contingency": 25,
+    "contingency_jitter": 4,
+    "win_fraction": 0.75,
+    "reversal_learning": true
+  },
+  "timing": {
+    "fixation_duration": 0.5,
+    "max_response_time": 2.0,
+    "choice_highlight_duration": 0.5,
+    "wait_duration_min": 2.0,
+    "wait_duration_max": 2.0,
+    "outcome_duration": 1.0,
+    "iti_duration": 0.25
+  },
+  "timing_modes": {
+    "THETA_NIC": {
+      "max_response_time": 2.0,
+      "outcome_duration": 1.0,
+      "wait_duration_min": 2.0,
+      "wait_duration_max": 2.0,
+      "iti_duration": 0.25,
+      "iti_jitter": false
+    },
+    "DC_NIC": {
+      "max_response_time": 2.0,
+      "outcome_duration": 1.0,
+      "wait_duration_min": 2.0,
+      "wait_duration_max": 4.0,
+      "iti_mean": 2.0,
+      "iti_jitter": true
+    },
+    "BEHAVIORAL": {
+      "max_response_time": 1.5,
+      "outcome_duration": 0.5,
+      "wait_duration_min": 0.05,
+      "wait_duration_max": 0.05,
+      "iti_duration": 0.125
+    }
+  },
+  "stimuli": {
+    "fixation_size": 0.02,
+    "slot_size": 0.15,
+    "slot_separation": 0.4,
+    "feedback_size": 0.1,
+    "use_images": false,
+    "flower_indices": [1, 2],
+    "randomize_positions": true
+  },
+  "display": {
+    "background_color": [0, 0, 0],
+    "text_color": [1, 1, 1],
+    "window_width": 1024,
+    "window_height": 768,
+    "fullscreen": false
+  },
+  "stimulation": {
+    "enabled": false,
+    "type": "tACS",
+    "frequency": 6,
+    "amplitude_central": 750,
+    "amplitude_return": 250,
+    "transition_ms": 2000,
+    "protocols": {
+      "lpfc": [0, 0, 0, 0, 250, 250, 250, 750],
+      "rtpj": [750, 250, 250, 250, 0, 0, 0, 0],
+      "sham": [0, 0, 0, 0, 0, 0, 0, 0]
+    }
+  },
+  "paths": {
+    "data_dir": "./data",
+    "stimuli_dir": "./stimuli/images",
+    "log_dir": "./logs"
+  },
+  "data_output": {
+    "save_format": "csv",
+    "include_timestamps": true,
+    "include_model_values": false
+  }
+}

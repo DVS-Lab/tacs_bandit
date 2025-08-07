@@ -1,0 +1,20 @@
+# Minimal requirements without PsychoPy version constraints
+# For use when PsychoPy is already installed or with alternative implementations
+
+# Core numerical and data libraries
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Analysis and visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# For alternative GUI (Pygame-based task)
+pygame>=2.5.0
+
+# Optional: For advanced analysis
+scikit-learn>=1.3.0
+
+# Optional: For configuration management
+pyyaml>=6.0
