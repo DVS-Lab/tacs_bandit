@@ -245,7 +245,7 @@ Contributions are welcome! Please:
 
 For questions or issues:
 - Open an issue on GitHub
-- Contact: [your-email@example.com]
+- Contact: [james.wyngaarden@temple.edu]
 
 ## Acknowledgments
 
