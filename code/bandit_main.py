@@ -1,34 +1,3 @@
-        # Determine run type and stimulation condition
-        run_types = self.config['experiment']['run_types']
-        self.run_type = run_types.get(str(self.run_number), 'unknown')
-        
-        # Get stimulation condition from stimulation manager if available
-        if self.stimulation_enabled and self.stimulation_manager:
-            # Set up counterbalancing first
-            self.stimulation_manager.setup_counterbalancing(
-                self.subject_info['subject_id'],
-                self.subject_info['session']
-            )
-            self.stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
-        else:
-            # Fallback to original counterbalancing logic for non-stimulation runs
-            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
-            if subject_num % 2 == 0:
-                # Even: runs 2-3 are theta, 6-7 are sham
-                if self.run_number in [2, 3]:
-                    self.stim_condition = 'active'
-                elif self.run_number in [6, 7]:
-                    self.stim_condition = 'sham'
-                else:
-                    self.stim_condition = 'baseline'
-            else:
-                # Odd: runs 2-3 are sham, 6-7 are theta
-                if self.run_number in [2, 3]:
-                    self.stim_condition = 'sham'
-                elif self.run_number in [6, 7]:
-                    self.stim_condition = 'active'
-                else:
-                    self.stim_condition = 'baseline'#!/usr/bin/env python3
 """
 Two-Armed Bandit Task - Pygame Implementation
 Matches MATLAB/Neurostim version timing and structure
