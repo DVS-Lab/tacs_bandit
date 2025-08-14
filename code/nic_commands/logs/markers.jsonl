@@ -1,0 +1,4 @@
+{"marker_code": 100, "label": "run_start", "timestamp": "2025-08-14T13:13:38.871516", "instruction": "Event marker: 100 - run_start"}
+{"marker_code": 10, "label": "trial_start_trial_0", "timestamp": "2025-08-14T13:13:38.872391", "instruction": "Event marker: 10 - trial_start_trial_0"}
+{"marker_code": 33, "label": "feedback_miss_trial_0", "timestamp": "2025-08-14T13:13:43.399465", "instruction": "Event marker: 33 - feedback_miss_trial_0"}
+{"marker_code": 10, "label": "trial_start_trial_1", "timestamp": "2025-08-14T13:13:44.658976", "instruction": "Event marker: 10 - trial_start_trial_1"}

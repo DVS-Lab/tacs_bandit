@@ -70,31 +70,15 @@ class LSLStimulationTrigger:
             
         try:
             print("LSL: Looking for NIC-2 marker streams...")
-            streams = pylsl.resolve_streams(wait_time=5.0)
+            streams = pylsl.resolve_stream('type', 'Markers', timeout=5.0)
             
             if not streams:
-                print("LSL: No streams found. Make sure LSL is enabled in NIC-2.")
+                print("LSL: No marker streams found. Make sure LSL is enabled in NIC-2.")
                 return False
-            
-            # Look for marker streams specifically
-            marker_streams = [s for s in streams if s.type() == 'Markers']
-            
-            if not marker_streams:
-                print(f"LSL: Found {len(streams)} streams but no marker streams:")
-                for i, s in enumerate(streams):
-                    print(f"  Stream {i}: {s.name()} (type: {s.type()})")
-                print("LSL: Looking for ANY stream with markers...")
-                # Try first available stream
-                if streams:
-                    self.inlet = pylsl.StreamInlet(streams[0])
-                    print(f"LSL: Connected to stream '{streams[0].name()}' (type: {streams[0].type()})")
-                else:
-                    return False
-            else:
-                print(f"LSL: Found {len(marker_streams)} marker stream(s)")
-                self.inlet = pylsl.StreamInlet(marker_streams[0])
-                print(f"LSL: Connected to marker stream '{marker_streams[0].name()}'")
                 
+            print(f"LSL: Found {len(streams)} marker stream(s)")
+            self.inlet = pylsl.StreamInlet(streams[0])
+            print("LSL: Connected to marker stream successfully")
             return True
             
         except Exception as e:

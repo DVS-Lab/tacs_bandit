@@ -31,8 +31,8 @@
     "iti_duration": 0.25
   },
   "stimulation": {
-    "enabled": false,
-    "test_mode": true,
+    "enabled": true,
+    "test_mode": false,
     "communication_type": "lsl_triggered",
     "command_directory": "./nic_commands",
     "protocols": {
