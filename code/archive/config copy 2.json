@@ -31,20 +31,13 @@
     "iti_duration": 0.25
   },
   "stimulation": {
-    "enabled": false,
+    "enabled": true,
     "test_mode": true,
-    "communication_type": "lsl_triggered",
+    "communication_type": "file_based",
     "command_directory": "./nic_commands",
     "protocols": {
       "active": "DLPFC_Active",
       "sham": "DLPFC_Sham"
-    },
-    "lsl": {
-      "enabled": true,
-      "marker_stream_timeout": 5.0,
-      "task_start_marker": 201,
-      "stimulation_start_marker": 203,
-      "stimulation_stop_marker": 204
     },
     "markers": {
       "enabled": true,
