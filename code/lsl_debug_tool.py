@@ -52,14 +52,14 @@ def list_lsl_streams():
 def test_marker_stream(stream):
     """Test receiving data from a marker stream"""
     print(f"\n🧪 Testing marker stream: {stream.name()}")
-    print("Listening for markers for 10 seconds...")
+    print("Listening for markers for 45 seconds...")
     print("(Start/stop stimulation in NIC-2 to generate markers)")
     
     inlet = pylsl.StreamInlet(stream)
     start_time = time.time()
     marker_count = 0
     
-    while time.time() - start_time < 10.0:
+    while time.time() - start_time < 45.0:
         try:
             sample, timestamp = inlet.pull_sample(timeout=0.1)
             if sample:
