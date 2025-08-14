@@ -49,8 +49,8 @@ class LSLStimulationTrigger:
         self.STIMULATION_START = 203
         self.STIMULATION_STOP = 204
         
-        # We trigger task start on stimulation start (203) - works for both active and sham
-        self.TASK_START_MARKER = 203  # Stimulation start
+        # We trigger task start on ramp-up for perfect 6-minute alignment
+        self.TASK_START_MARKER = 201  # Ramp-up start
         
     def connect(self) -> bool:
         """
@@ -166,8 +166,8 @@ class LSLStimulationTrigger:
                 # Check for markers
                 marker_code, timestamp = self.marker_queue.get(timeout=0.1)
                 
-                if marker_code == self.TASK_START_MARKER:  # Stimulation start (203)
-                    print("LSL: Stimulation START detected! Starting task now!")
+                if marker_code == self.TASK_START_MARKER:  # Ramp-up start
+                    print("LSL: Stimulation RAMP-UP detected! Starting task now for perfect 6-min alignment!")
                     return True
                 elif marker_code == self.STIMULATION_START:
                     print("LSL: Full stimulation detected (ramp-up complete)")
@@ -525,15 +525,16 @@ class TwoArmedBanditTask:
             
         print(f"\n** READY FOR RUN {self.run_number} **")
         print(f"Protocol: {self.stimulation_manager.nic.protocols[self.stim_condition]}")
-        print("Waiting for stimulation to start...")
-        print("(Start the protocol in NIC-2 when ready)")
-        print("Task will begin when stimulation marker (203) is received")
+        print("Waiting for stimulation ramp-up to begin...")
+        print("(Start the 6-minute protocol in NIC-2 when ready)")
+        print("Task will begin immediately when ramp-up starts")
         
         # Wait for stimulation start signal
         success = self.lsl_trigger.wait_for_stimulation_start()
         
         if success:
-            print("Stimulation started (marker 203)! Beginning bandit task NOW!")
+            print("Stimulation ramp-up started! Beginning bandit task NOW!")
+            print("Perfect 6-minute alignment: task + stimulation protocol")
             return True
         else:
             print("No stimulation signal received. Starting task anyway.")

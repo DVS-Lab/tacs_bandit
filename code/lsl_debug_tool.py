@@ -68,7 +68,7 @@ def test_marker_stream(stream):
         except:
             pass
     
-    print(f"\n📊 Received {marker_count} markers in 10 seconds")
+    print(f"\n📊 Received {marker_count} markers in 45 seconds")
     if marker_count == 0:
         print("⚠️  No markers received - check NIC-2 LSL settings")
     else:
