@@ -1,3 +1,34 @@
+        # Determine run type and stimulation condition
+        run_types = self.config['experiment']['run_types']
+        self.run_type = run_types.get(str(self.run_number), 'unknown')
+        
+        # Get stimulation condition from stimulation manager if available
+        if self.stimulation_enabled and self.stimulation_manager:
+            # Set up counterbalancing first
+            self.stimulation_manager.setup_counterbalancing(
+                self.subject_info['subject_id'],
+                self.subject_info['session']
+            )
+            self.stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
+        else:
+            # Fallback to original counterbalancing logic for non-stimulation runs
+            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
+            if subject_num % 2 == 0:
+                # Even: runs 2-3 are theta, 6-7 are sham
+                if self.run_number in [2, 3]:
+                    self.stim_condition = 'active'
+                elif self.run_number in [6, 7]:
+                    self.stim_condition = 'sham'
+                else:
+                    self.stim_condition = 'baseline'
+            else:
+                # Odd: runs 2-3 are sham, 6-7 are theta
+                if self.run_number in [2, 3]:
+                    self.stim_condition = 'sham'
+                elif self.run_number in [6, 7]:
+                    self.stim_condition = 'active'
+                else:
+                    self.stim_condition = 'baseline'#!/usr/bin/env python3
 """
 Two-Armed Bandit Task - Pygame Implementation
 Matches MATLAB/Neurostim version timing and structure
@@ -197,23 +228,24 @@ class TwoArmedBanditTask:
         """Initialize stimulation components"""
         try:
             # Import here to avoid dependency issues if stimulation not used
-            from enhanced_starstim_module import NICSoftwareInterface, StimulationManager, NICError
+            from local_starstim_module import LocalNICInterface, StimulationManager, NICError
             
             stim_config = self.config['stimulation']
             
-            # Initialize NIC interface
-            self.nic_interface = NICSoftwareInterface(
-                host=stim_config['nic_host'],
-                port=stim_config['nic_port'],
+            # Initialize local NIC interface
+            self.nic_interface = LocalNICInterface(
+                command_dir=stim_config.get('command_directory', './nic_commands'),
                 test_mode=stim_config.get('test_mode', True)
             )
             
             # Initialize stimulation manager
             self.stimulation_manager = StimulationManager(self.nic_interface)
             
-            print("Stimulation system initialized")
+            print("Stimulation system initialized (file-based communication)")
             if stim_config.get('test_mode', True):
                 print("WARNING: Running in stimulation TEST MODE")
+            else:
+                print("READY: Commands will be written to files for manual execution")
             
         except ImportError:
             print("Warning: Stimulation module not found. Continuing without stimulation.")

@@ -30,11 +30,38 @@
     "outcome_duration": 1.0,
     "iti_duration": 0.25
   },
+  "timing_modes": {
+    "THETA_NIC": {
+      "max_response_time": 2.0,
+      "outcome_duration": 1.0,
+      "wait_duration_min": 2.0,
+      "wait_duration_max": 2.0,
+      "iti_duration": 0.25,
+      "iti_jitter": false
+    },
+    "DC_NIC": {
+      "max_response_time": 2.0,
+      "outcome_duration": 1.0,
+      "wait_duration_min": 2.0,
+      "wait_duration_max": 4.0,
+      "iti_mean": 2.0,
+      "iti_jitter": true
+    },
+    "BEHAVIORAL": {
+      "max_response_time": 1.5,
+      "outcome_duration": 0.5,
+      "wait_duration_min": 0.05,
+      "wait_duration_max": 0.05,
+      "iti_duration": 0.125
+    }
+  },
   "stimulation": {
-    "enabled": false,
+    "enabled": true,
     "test_mode": true,
-    "communication_type": "file_based",
-    "command_directory": "./nic_commands",
+    "nic_host": "192.168.1.100",
+    "nic_port": 1234,
+    "connection_timeout": 5.0,
+    "command_timeout": 3.0,
     "protocols": {
       "active": "DLPFC_Active",
       "sham": "DLPFC_Sham"
@@ -49,9 +76,10 @@
       "run_start": 100,
       "run_end": 200
     },
-    "instructions": {
-      "show_manual_steps": true,
-      "pause_for_confirmation": false
+    "safety": {
+      "max_run_duration_minutes": 7,
+      "abort_on_connection_loss": true,
+      "require_confirmation": true
     }
   },
   "stimuli": {
