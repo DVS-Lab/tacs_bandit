@@ -55,40 +55,13 @@
       "iti_duration": 0.125
     }
   },
-  "stimulation": {
-    "enabled": true,
-    "test_mode": true,
-    "nic_host": "192.168.1.100",
-    "nic_port": 1234,
-    "connection_timeout": 5.0,
-    "command_timeout": 3.0,
-    "protocols": {
-      "active": "DLPFC_Active",
-      "sham": "DLPFC_Sham"
-    },
-    "markers": {
-      "enabled": true,
-      "trial_start": 10,
-      "choice": 20,
-      "feedback_win": 31,
-      "feedback_loss": 32,
-      "feedback_miss": 33,
-      "run_start": 100,
-      "run_end": 200
-    },
-    "safety": {
-      "max_run_duration_minutes": 7,
-      "abort_on_connection_loss": true,
-      "require_confirmation": true
-    }
-  },
   "stimuli": {
     "fixation_size": 0.02,
     "slot_size": 0.15,
     "slot_separation": 0.4,
     "feedback_size": 0.1,
-    "use_images": true,
-    "flower_indices": [1, 50],
+    "use_images": false,
+    "flower_indices": [1, 2],
     "randomize_positions": true
   },
   "display": {
@@ -98,14 +71,27 @@
     "window_height": 768,
     "fullscreen": false
   },
+  "stimulation": {
+    "enabled": false,
+    "type": "tACS",
+    "frequency": 6,
+    "amplitude_central": 750,
+    "amplitude_return": 250,
+    "transition_ms": 2000,
+    "protocols": {
+      "lpfc": [0, 0, 0, 0, 250, 250, 250, 750],
+      "rtpj": [750, 250, 250, 250, 0, 0, 0, 0],
+      "sham": [0, 0, 0, 0, 0, 0, 0, 0]
+    }
+  },
   "paths": {
-    "data_dir": "../data",
-    "stimuli_dir": "../stimuli/images",
-    "log_dir": "../logs"
+    "data_dir": "./../data",
+    "stimuli_dir": "./../stimuli/images",
+    "log_dir": "./../logs"
   },
   "data_output": {
     "save_format": "csv",
     "include_timestamps": true,
-    "include_stimulation_info": true
+    "include_model_values": false
   }
 }
