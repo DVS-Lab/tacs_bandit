@@ -1,243 +1,315 @@
-# Two-Armed Bandit Task
+# LSL-Triggered Two-Armed Bandit Task
 
-A Python implementation of a reinforcement learning task with reversal learning, designed for cognitive neuroscience research with EEG/tACS stimulation support.
+A Python implementation of a reinforcement learning task with reversal learning, designed for cognitive neuroscience research with real-time EEG/tACS stimulation integration via Lab Streaming Layer (LSL).
 
 ## Overview
 
-This task implements a two-armed bandit paradigm where participants choose between two options ("slot machines") to maximize rewards. The reward probabilities reverse periodically, requiring participants to adapt their choices. The implementation supports integration with Neuroelectrics Starstim devices for brain stimulation.
+This task implements a two-armed bandit paradigm where participants choose between two flower images to maximize rewards. The reward probabilities reverse periodically, requiring participants to adapt their choices. The implementation features automatic synchronization with Neuroelectrics Starstim devices via LSL markers for precise timing in brain stimulation experiments.
 
-## Features
+## Key Features
 
-- **Core Task**
-  - Two-choice bandit task with configurable reward probabilities
-  - Reversal learning with pseudorandom contingency durations
-  - Configurable timing parameters for all task phases
-  - Support for different response devices (keyboard, button box)
+### **Core Task**
+- Two-choice bandit task with configurable reward probabilities (default 75/25%)
+- Reversal learning with pseudorandom contingency durations (25±4 trials)
+- Flower images as stimuli with unique combinations per run
+- Configurable timing optimized for different experimental protocols (behavioral, fMRI, EEG)
+- Multiple response modalities (keyboard: 1/2 or A/L keys)
 
-- **Stimulation Support**
-  - Integration with Neuroelectrics Starstim devices
-  - tACS (transcranial alternating current stimulation) protocols
-  - Sham stimulation controls
-  - Multiple electrode montages (lPFC, rTPJ)
-  - Test mode for development without hardware
+### **LSL-Triggered Stimulation Integration**
+- **Real-time synchronization** with Neuroelectrics Starstim via Lab Streaming Layer
+- **Automatic task triggering** when stimulation protocols start (marker 203)
+- **Double-blind compatible** - researcher loads protocols without knowing condition
+- **Perfect timing alignment** - task and stimulation run simultaneously
+- Support for both tACS (active) and sham stimulation protocols
+- Comprehensive event marker logging for EEG analysis
 
-- **Data & Analysis**
-  - Comprehensive trial-by-trial data logging
-  - Built-in reinforcement learning models (Rescorla-Wagner, WSLS, Choice Kernel)
-  - Automated analysis scripts with visualizations
-  - CSV output format for compatibility
+### **Experimental Protocols**
+- **8-run counterbalanced design** with baseline and stimulation blocks
+- **DLPFC stimulation protocols** (active vs sham, counterbalanced across subjects)
+- **Multiple timing modes**: THETA_NIC, DC_NIC, BEHAVIORAL
+- **Test mode** for development and training without hardware
+
+### **Data & Analysis**
+- Trial-by-trial data logging with stimulation synchronization info
+- Contingency reversal tracking and performance metrics
+- CSV output compatible with standard analysis pipelines
+- Event marker logs for EEG/stimulation analysis
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- PsychoPy (for stimulus presentation)
+- **Python 3.8+**
+- **macOS/Linux** (tested on macOS)
+- **Neuroelectrics NIC-2 software** (for stimulation integration)
+- **Lab Streaming Layer (LSL)** for real-time data streaming
 
 ### Setup
 
-1. Clone the repository:
+1. **Clone the repository:**
 ```bash
-git clone https://github.com/DVS-Lab/bandit-task.git
-cd bandit-task
+git clone https://github.com/your-username/tacs_bandit.git
+cd tacs_bandit
 ```
 
-2. Create a virtual environment:
+2. **Install Python dependencies:**
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install pygame pandas numpy pylsl
 ```
 
-3. Install dependencies:
+3. **Install LSL library (macOS):**
 ```bash
-pip install -r requirements.txt
+# Using Homebrew
+brew install labstreaminglayer/tap/lsl
+
+# Set environment variable
+export DYLD_LIBRARY_PATH=/opt/homebrew/lib
 ```
+
+4. **Setup stimuli:**
+   - Place flower images in `stimuli/images/` as `001-flowers.png` through `050-flowers.png`
+   - Add feedback images: `001-win.png` through `009-win.png`, `001-loss.png` through `009-loss.png`
+   - Include `question-mark.png` for missed trials
 
 ## Usage
 
-### Basic Usage
+### Basic Usage (No Stimulation)
 
-Run the task with default settings:
 ```bash
+cd code/
 python bandit_main.py
 ```
 
-### Configuration
+**Test parameters:**
+- Subject ID: Any number
+- Run: 1, 4, 5, or 8 (baseline runs)
 
-Edit `config.json` to customize task parameters:
+### LSL-Triggered Stimulation Mode
 
-```json
-{
-  "task": {
-    "n_blocks": 4,
-    "trials_per_block": 50,
-    "win_fraction": 0.75,
-    "min_trials_same_contingency": 25
-  },
-  "timing": {
-    "max_response_time": 1.5,
-    "outcome_duration": 0.5,
-    "iti_mean": 0.25
-  }
-}
-```
-
-### Stimulation Setup
-
-To use with Starstim device:
-
-1. Set stimulation parameters in `config.json`:
+1. **Configure stimulation in `config.json`:**
 ```json
 {
   "stimulation": {
     "enabled": true,
-    "type": "tACS",
-    "frequency": 6,
-    "protocol": "theta"
+    "test_mode": false
   }
 }
 ```
 
-2. Run with stimulation:
-```python
-from starstim import StarstimController
-controller = StarstimController(config, test_mode=False)
-controller.connect()
+2. **Start NIC-2 software and enable LSL:**
+   - Protocol Settings → LSL Server → Enable
+   - Load appropriate protocol (DLPFC_Active or DLPFC_Sham)
+
+3. **Run the task:**
+```bash
+python bandit_main.py
 ```
 
-### Test Mode
+4. **Follow the workflow:**
+   - Task shows which protocol to load (based on counterbalancing)
+   - Task waits: "Waiting for stimulation to start..."
+   - Start protocol in NIC-2 → Task begins automatically!
 
-For development and testing without hardware:
-```python
-task = TwoArmedBanditTask(config)
-task.subject_info['mode'] = 'test'
-task.run()
+### Counterbalancing
+
+**Even subject IDs (2, 4, 6, 8...):**
+- Runs 2-3: DLPFC_Active
+- Runs 6-7: DLPFC_Sham
+
+**Odd subject IDs (1, 3, 5, 7...):**
+- Runs 2-3: DLPFC_Sham  
+- Runs 6-7: DLPFC_Active
+
+### Configuration
+
+Edit `code/config.json` to customize parameters:
+
+```json
+{
+  "experiment": {
+    "run_duration_minutes": 6,
+    "mode": "THETA_NIC"
+  },
+  "task": {
+    "min_trials_same_contingency": 25,
+    "contingency_jitter": 4,
+    "win_fraction": 0.75
+  },
+  "timing": {
+    "fixation_duration": 0.5,
+    "max_response_time": 2.0,
+    "wait_duration_min": 2.0,
+    "wait_duration_max": 2.0,
+    "outcome_duration": 1.0,
+    "iti_duration": 0.25
+  },
+  "stimulation": {
+    "enabled": false,
+    "test_mode": true,
+    "protocols": {
+      "active": "DLPFC_Active",
+      "sham": "DLPFC_Sham"
+    }
+  }
+}
 ```
+
+## Experimental Workflow
+
+### Standard 8-Run Protocol
+
+1. **Run 1**: Baseline (6 min)
+2. **Runs 2-3**: First stimulation condition (6 min each)
+3. **Run 4**: Post-stimulation baseline (6 min)
+4. **Run 5**: Baseline (6 min)
+5. **Runs 6-7**: Second stimulation condition (6 min each)
+6. **Run 8**: Final baseline (6 min)
+
+### Per-Run Procedure
+
+1. **Setup**: Load correct protocol in NIC-2 (as instructed by task)
+2. **Start task**: `python bandit_main.py`
+3. **Enter subject info** and run number
+4. **Wait for trigger**: Task displays "Waiting for stimulation..."
+5. **Start stimulation**: Click start in NIC-2 → Task begins immediately
+6. **Monitor**: Task runs for exactly 6 minutes
+7. **Data saved**: Automatic CSV export with performance summary
 
 ## Data Output
 
-Data is saved in CSV format with the following structure:
-- `trial_num`: Trial number
-- `block_num`: Block number
-- `choice`: Participant's choice (1 or 2)
-- `rt`: Reaction time in milliseconds
-- `correct`: Whether the better option was chosen
-- `reward`: Whether reward was received
-- `current_good`: Which option had higher reward probability
+### File Structure
+```
+data/
+└── sub-{ID}/
+    ├── sub-{ID}_ses-{SESSION}_run-{RUN}_task-bandit_{TIMESTAMP}.csv
+    └── ...
+```
+
+### Data Columns
+- `trial_num`: Trial number within run
+- `run`, `run_type`, `stim_condition`: Experimental condition info
+- `choice`, `rt`: Participant response and reaction time
+- `correct`, `reward`: Trial outcome
+- `current_good`: Which flower had higher reward probability
 - `trial_in_contingency`: Trials since last reversal
+- `flower1`, `flower2`: Specific flower images used
+- `slot1_position`, `slot2_position`: Left/right randomization
+- `timestamp`: Time relative to run start
 
-### File Naming Convention
-```
-sub-{ID}_ses-{SESSION}_run-{RUN}_task-bandit_{TIMESTAMP}.csv
-```
+### LSL Event Markers
+Event markers are logged for EEG analysis:
+- `100`: Run start
+- `10`: Trial start  
+- `20`: Choice made
+- `31/32/33`: Feedback (win/loss/miss)
+- `200`: Run end
 
-## Analysis
+## Technical Details
 
-### Quick Analysis
+### LSL Integration
+- **Marker stream**: `LSLOutletStreamName-Markers`
+- **Trigger marker**: 203 (stimulation start)
+- **Auto-detection**: Task automatically finds NIC-2 marker streams
+- **Fallback**: Graceful degradation if LSL unavailable
 
-Analyze a single data file:
+### Timing Precision
+- **Stimulation sync**: Task starts exactly when NIC-2 sends marker 203
+- **Duration matching**: Both task and stimulation run for 6 minutes
+- **Event logging**: Sub-millisecond precision for all task events
+
+## Troubleshooting
+
+### LSL Connection Issues
+
+**Check LSL streams:**
 ```bash
-python analysis.py data/sub-001_ses-1_run-1_task-bandit_2024-01-01_10-00-00.csv
+python lsl_debug_tool.py
 ```
 
-### Detailed Analysis
+**Common fixes:**
+- Enable LSL Server in NIC-2 Protocol Settings
+- Ensure Starstim device is connected and powered
+- Check that marker sending is enabled in NIC-2
 
-```python
-from analysis import BanditAnalyzer
+### Window Focus Issues
+After starting stimulation, click the task window to ensure participant responses work.
 
-# Load data
-analyzer = BanditAnalyzer('path/to/data.csv')
-
-# Get summary statistics
-stats = analyzer.calculate_summary_stats()
-
-# Plot learning curves
-analyzer.plot_learning_curve()
-
-# Analyze reversal behavior
-analyzer.plot_reversal_analysis()
-
-# Export full analysis
-analyzer.export_summary('output/directory')
-```
-
-## Reinforcement Learning Models
-
-The package includes several RL models for fitting and simulation:
-
-```python
-from rl_model import RescorlaWagner, WinStayLoseShift
-
-# Fit Rescorla-Wagner model
-model = RescorlaWagner(learning_rate=0.3, inverse_temperature=3.0)
-
-# Simulate choices
-for trial in trials:
-    choice_prob = model.get_choice_probability()
-    choice = model.simulate_choice()
-    model.update(choice, reward)
-```
+### Image Loading Issues
+- Verify image files are named correctly (`001-flowers.png`, etc.)
+- Check file paths in `config.json`
+- Ensure images are in `stimuli/images/` directory
 
 ## Project Structure
 
 ```
-bandit-task/
-├── bandit_main.py          # Main task script
-├── config.json             # Configuration file
-├── rl_model.py            # Reinforcement learning models
-├── starstim.py            # Starstim device interface
-├── analysis.py            # Analysis utilities
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-├── data/                 # Data output directory
-├── stimuli/              # Stimulus images
-│   └── images/
-│       ├── flowers/      # Slot machine images
-│       └── feedback/     # Win/loss images
-└── logs/                 # Log files
+tacs_bandit/
+├── code/
+│   ├── bandit_main.py           # Main LSL-triggered task
+│   ├── local_starstim_module.py # Stimulation interface
+│   ├── lsl_debug_tool.py        # LSL debugging utility
+│   └── config.json              # Configuration file
+├── data/                        # Data output directory
+├── stimuli/
+│   └── images/                  # Flower and feedback images
+├── logs/                        # LSL event logs
+└── README.md                    # This file
 ```
 
-## Troubleshooting
+## Testing
 
-### Common Issues
-
-1. **PsychoPy window doesn't open**: Ensure you have proper graphics drivers installed
-2. **Starstim connection fails**: Check that NIC software is running and device is connected
-3. **Data not saving**: Ensure write permissions for the data directory
-
-### Debug Mode
-
-Enable verbose logging:
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
+### Test Mode (No Hardware)
+```json
+{
+  "stimulation": {
+    "enabled": true,
+    "test_mode": true
+  }
+}
 ```
+Press ENTER when prompted to simulate stimulation trigger.
 
-## Converting from MATLAB
+### Hardware Testing
+1. **Basic connectivity**: `python lsl_debug_tool.py`
+2. **Stimulation trigger**: Test with real protocol start/stop
+3. **Full integration**: Complete run with oscilloscope verification
 
-This implementation is converted from a MATLAB/Neurostim version. Key differences:
+## Hardware Requirements
 
-- **Timing**: PsychoPy handles timing differently than Neurostim
-- **File I/O**: Uses CSV instead of MATLAB .mat files
-- **Stimulation**: Modular design allows easy swapping of stimulation protocols
-- **Analysis**: Python-native analysis tools with pandas/matplotlib
+### Neuroelectrics Setup
+- **Starstim device** (8-channel or tES)
+- **NIC-2 software** with LSL enabled
+- **Electrode montage** appropriate for DLPFC stimulation
+- **6-minute protocols** configured in NIC-2
+
+### Computer Requirements
+- **macOS/Linux** (Windows possible with modifications)
+- **Python 3.8+** with LSL support
+- **Sufficient processing power** for real-time LSL streaming
+- **Reliable network connection** between task and NIC-2 computers
 
 ## Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For questions or issues:
-- Open an issue on GitHub
-- Contact: [james.wyngaarden@temple.edu]
+This implementation follows research-grade standards for timing precision and experimental control. Contributions should maintain:
+- **Millisecond-precise timing**
+- **Double-blind compatibility**  
+- **Robust error handling**
+- **Comprehensive data logging**
 
 ## Acknowledgments
 
-- Original MATLAB implementation by [Original Authors]
-- PsychoPy development team
-- Neuroelectrics for device support documentation
+- Original MATLAB/Neurostim implementation
+- Neuroelectrics for LSL integration documentation
+- Lab Streaming Layer development team
+- Research protocols adapted from cognitive neuroscience literature
+
+## Support
+
+For technical issues:
+- Check LSL connectivity with debug tools
+- Verify NIC-2 configuration settings
+- Ensure proper timing protocol selection
+- Contact: [your.email@institution.edu]
+
+---
+
+**Note**: This implementation prioritizes timing precision and experimental control suitable for publication-quality neuroscience research. The LSL integration ensures sub-millisecond synchronization between brain stimulation and behavioral measurements.
