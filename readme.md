@@ -308,7 +308,7 @@ For technical issues:
 - Check LSL connectivity with debug tools
 - Verify NIC-2 configuration settings
 - Ensure proper timing protocol selection
-- Contact: [your.email@institution.edu]
+- Contact: [james.wyngaarden@temple.edu]
 
 ---
 

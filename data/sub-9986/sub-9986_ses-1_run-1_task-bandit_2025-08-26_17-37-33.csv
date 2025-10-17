@@ -1,0 +1,6 @@
+trial_num,run,run_type,stim_condition,trial_in_contingency,current_good,contingency_trials,flower1,flower2,slot1_position,slot2_position,choice,rt,correct,reward,wait_time,iti,timestamp,trial_start_time,subject_id,session,age,gender,date
+0,1,baseline,baseline,0,2,26,25,44,right,left,2,910.4571342468262,True,True,2000.0,250.0,5.17297625541687,5.172972202301025,9986,1,31,m,2025-08-26_17-37-33
+1,1,baseline,baseline,1,2,26,25,44,left,right,2,0.3178119659423828,True,True,2000.0,250.0,9.430636882781982,9.430633306503296,9986,1,31,m,2025-08-26_17-37-33
+2,1,baseline,baseline,2,2,26,25,44,right,left,2,920.6552505493164,True,True,2000.0,250.0,14.608209371566772,14.608206987380981,9986,1,31,m,2025-08-26_17-37-33
+3,1,baseline,baseline,3,2,26,25,44,right,left,1,666.806697845459,False,False,2000.0,250.0,19.532347202301025,19.532342672348022,9986,1,31,m,2025-08-26_17-37-33
+4,1,baseline,baseline,4,2,26,25,44,right,left,2,329.8201560974121,True,True,2000.0,250.0,24.118383169174194,24.118380546569824,9986,1,31,m,2025-08-26_17-37-33
