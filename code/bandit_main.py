@@ -2,6 +2,7 @@
 """
 LSL-Triggered Two-Armed Bandit Task
 Waits for stimulation start signal from NIC-2 before beginning task
+Version 16: Multi-run support, display options, double-blinding
 """
 
 import pygame
@@ -70,7 +71,21 @@ class LSLStimulationTrigger:
             
         try:
             print("LSL: Looking for NIC-2 marker streams...")
-            streams = pylsl.resolve_streams(wait_time=5.0)
+            
+            # CHANGE #1 FIX: Suppress verbose network interface output from pylsl
+            # Save stderr and redirect to devnull
+            stderr_fd = sys.stderr.fileno()
+            old_stderr = os.dup(stderr_fd)
+            devnull_fd = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull_fd, stderr_fd)
+            
+            try:
+                streams = pylsl.resolve_streams(wait_time=5.0)
+            finally:
+                # Restore stderr
+                os.dup2(old_stderr, stderr_fd)
+                os.close(old_stderr)
+                os.close(devnull_fd)
             
             if not streams:
                 print("LSL: No streams found. Make sure LSL is enabled in NIC-2.")
@@ -229,7 +244,8 @@ class TwoArmedBanditTask:
         
         # Task variables
         self.subject_info = {}
-        self.trial_data = []
+        self.all_trial_data = []  # Store all runs
+        self.trial_data = []  # Current run
         self.current_trial = 0
         self.run_number = 0
         self.current_good = np.random.randint(1, 3)
@@ -250,6 +266,10 @@ class TwoArmedBanditTask:
         self.stimulation_manager = None
         self.lsl_trigger = None
         self.stimulation_enabled = self.config.get('stimulation', {}).get('enabled', False)
+        
+        # Display settings
+        self.screen = None
+        self.display_choice = None
         
         # Colors
         self.BLACK = (0, 0, 0)
@@ -452,9 +472,12 @@ class TwoArmedBanditTask:
             'gender': input("Gender (M/F/Other): ")
         }
         
-        # Get run number
+        # CHANGE #7: Get display preferences
+        self.get_display_preferences()
+        
+        # Get starting run number
         while True:
-            run_input = input("Run number (1-8): ")
+            run_input = input("Starting run number (1-8): ")
             try:
                 run_num = int(run_input)
                 if 1 <= run_num <= 8:
@@ -465,87 +488,76 @@ class TwoArmedBanditTask:
             except ValueError:
                 print("Please enter a valid number")
         
-        # Determine run type and stimulation condition
-        run_types = self.config['experiment']['run_types']
-        self.run_type = run_types.get(str(self.run_number), 'unknown')
-        
-        # Get stimulation condition from stimulation manager if available
+        # CHANGE #2 FIX: Setup counterbalancing silently (for internal tracking only)
         if self.stimulation_enabled and self.stimulation_manager:
-            self.stimulation_manager.setup_counterbalancing(
-                self.subject_info['subject_id'],
-                self.subject_info['session']
-            )
-            self.stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
-        else:
-            # Fallback logic
-            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
-            if subject_num % 2 == 0:
-                if self.run_number in [2, 3]:
-                    self.stim_condition = 'active'
-                elif self.run_number in [6, 7]:
-                    self.stim_condition = 'sham'
-                else:
-                    self.stim_condition = 'baseline'
-            else:
-                if self.run_number in [2, 3]:
-                    self.stim_condition = 'sham'
-                elif self.run_number in [6, 7]:
-                    self.stim_condition = 'active'
-                else:
-                    self.stim_condition = 'baseline'
+            # Suppress output from setup_counterbalancing
+            old_stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+            try:
+                self.stimulation_manager.setup_counterbalancing(
+                    self.subject_info['subject_id'],
+                    self.subject_info['session']
+                )
+            finally:
+                sys.stdout.close()
+                sys.stdout = old_stdout
         
-        self.subject_info['run'] = str(self.run_number)
-        self.subject_info['run_type'] = self.run_type
-        self.subject_info['stim_condition'] = self.stim_condition
         self.subject_info['date'] = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        
-        print(f"\nRun {self.run_number}: {self.run_type}")
-        if self.stim_condition != 'baseline':
-            print(f"Stimulation: {self.stim_condition}")
-            if self.stimulation_enabled:
-                protocol_name = self.stimulation_manager.nic.protocols[self.stim_condition]
-                print(f"** RESEARCHER: Please load protocol '{protocol_name}' in NIC-2 **")
-        print(f"Duration: {self.config['experiment']['run_duration_minutes']} minutes")
         
         # Create data directory
         self.data_dir = Path(self.config['paths']['data_dir']) / f"sub-{self.subject_info['subject_id']}"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
-        return self.select_flowers_for_run()
+        return True
     
-    def wait_for_stimulation_trigger(self):
-        """Wait for stimulation start trigger before beginning task"""
-        if not self.stimulation_enabled or self.stim_condition == 'baseline':
-            print("No stimulation for this run - starting task immediately")
-            return True
-            
-        if not self.lsl_trigger:
-            print("LSL trigger not available - starting task immediately")
-            return True
-            
-        print(f"\n** READY FOR RUN {self.run_number} **")
-        print(f"Protocol: {self.stimulation_manager.nic.protocols[self.stim_condition]}")
-        print("Waiting for stimulation to start...")
-        print("(Start the protocol in NIC-2 when ready)")
-        print("Task will begin when stimulation marker (203) is received")
+    def get_display_preferences(self):
+        """CHANGE #7: Get display and fullscreen preferences"""
+        print("\n=== Display Setup ===")
         
-        # Wait for stimulation start signal
-        success = self.lsl_trigger.wait_for_stimulation_start()
+        # Detect available displays
+        pygame.display.init()
+        num_displays = pygame.display.get_num_displays()
         
-        if success:
-            print("Stimulation started (marker 203)! Beginning bandit task NOW!")
-            return True
+        if num_displays > 1:
+            print(f"Detected {num_displays} displays")
+            while True:
+                display_choice = input(f"Select display (0-{num_displays-1}, default: {num_displays-1} for extended): ") or str(num_displays - 1)
+                try:
+                    display_idx = int(display_choice)
+                    if 0 <= display_idx < num_displays:
+                        self.display_choice = display_idx
+                        break
+                    else:
+                        print(f"Display must be between 0 and {num_displays-1}")
+                except ValueError:
+                    print("Please enter a valid number")
         else:
-            print("No stimulation signal received. Starting task anyway.")
-            return True
-    
-    # [Include all the existing display methods: setup_display, show_text, show_fixation, 
-    #  show_slots, get_response, show_feedback, etc. - keeping them exactly the same]
+            print(f"Detected {num_displays} display")
+            self.display_choice = 0
+        
+        # Get fullscreen preference
+        while True:
+            fullscreen_choice = input("Display mode (1=Fullscreen, 2=Windowed, default: 1): ") or "1"
+            if fullscreen_choice in ['1', '2']:
+                self.config['display']['fullscreen'] = (fullscreen_choice == '1')
+                break
+            else:
+                print("Please enter 1 or 2")
+        
+        print(f"Using display {self.display_choice}, {'fullscreen' if self.config['display']['fullscreen'] else 'windowed'} mode")
     
     def setup_display(self):
         """Setup Pygame display"""
+        # CHANGE #7: Setup display with monitor selection
+        os.environ['SDL_VIDEO_WINDOW_POS'] = f"{self.display_choice * 1920},0"  # Approximate positioning
+        
         if self.config['display']['fullscreen']:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            # Use fullscreen on selected display
+            flags = pygame.FULLSCREEN
+            if self.display_choice > 0:
+                # For secondary display, use fullscreen on that display
+                flags |= pygame.NOFRAME
+            self.screen = pygame.display.set_mode((0, 0), flags, display=self.display_choice)
             self.width, self.height = self.screen.get_size()
         else:
             self.width = self.config['display']['window_width']
@@ -610,14 +622,18 @@ class TwoArmedBanditTask:
         if self.current_flowers[0] in self.flower_images:
             flower1 = self.flower_images[self.current_flowers[0]]
             self.screen.blit(flower1, self.slot1_rect)
+            # CHANGE #4: Use circle instead of rectangle for highlight
             if highlight == 1:
-                pygame.draw.rect(self.screen, self.WHITE, self.slot1_rect, 5)
+                center = (self.slot1_rect.centerx, self.slot1_rect.centery)
+                pygame.draw.circle(self.screen, self.WHITE, center, self.slot_size // 2 + 5, 5)
         
         if self.current_flowers[1] in self.flower_images:
             flower2 = self.flower_images[self.current_flowers[1]]
             self.screen.blit(flower2, self.slot2_rect)
+            # CHANGE #4: Use circle instead of rectangle for highlight
             if highlight == 2:
-                pygame.draw.rect(self.screen, self.WHITE, self.slot2_rect, 5)
+                center = (self.slot2_rect.centerx, self.slot2_rect.centery)
+                pygame.draw.circle(self.screen, self.WHITE, center, self.slot_size // 2 + 5, 5)
         
         pygame.display.flip()
     
@@ -690,11 +706,36 @@ class TwoArmedBanditTask:
             if elapsed >= max_duration:
                 return False
         
+        # Determine stim condition for this run
+        run_types = self.config['experiment']['run_types']
+        run_type = run_types.get(str(self.run_number), 'unknown')
+        
+        # Get stimulation condition from stimulation manager if available
+        if self.stimulation_enabled and self.stimulation_manager:
+            stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
+        else:
+            # Fallback logic
+            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
+            if subject_num % 2 == 0:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'active'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'sham'
+                else:
+                    stim_condition = 'baseline'
+            else:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'sham'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'active'
+                else:
+                    stim_condition = 'baseline'
+        
         trial_info = {
             'trial_num': self.current_trial,
             'run': self.run_number,
-            'run_type': self.run_type,
-            'stim_condition': self.stim_condition,
+            'run_type': run_type,
+            'stim_condition': stim_condition,
             'trial_in_contingency': self.trial_in_contingency,
             'current_good': self.current_good,
             'contingency_trials': self.contingency_trials,
@@ -713,6 +754,10 @@ class TwoArmedBanditTask:
             self.stimulation_manager.send_trial_marker('trial_start', self.current_trial)
         
         self.show_fixation(timing['fixation_duration'])
+        
+        # CHANGE #5: Clear event queue before showing slots to prevent premature responses
+        pygame.event.clear()
+        
         self.show_slots()
         choice, rt = self.get_response(timing['max_response_time'])
         
@@ -786,46 +831,89 @@ class TwoArmedBanditTask:
         return True
     
     def show_waiting_screen(self):
-        """Show waiting for stimulation screen"""
-        self.screen.fill(self.BLACK)
-        
-        if self.stim_condition == 'baseline':
-            waiting_text = [
-                f"Two-Armed Bandit Task - Run {self.run_number}",
-                f"({self.run_type})",
-                "",
-                "No stimulation for this run",
-                "",
-                "Press SPACE to begin task"
-            ]
+        """Show waiting screen - wait for LSL trigger OR spacebar to start"""
+        # Determine stim condition (for LSL checking only, not display)
+        if self.stimulation_enabled and self.stimulation_manager:
+            stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
         else:
-            protocol_name = self.stimulation_manager.nic.protocols[self.stim_condition]
-            waiting_text = [
-                f"Two-Armed Bandit Task - Run {self.run_number}",
-                f"({self.run_type} - {self.stim_condition})",
-                "",
-                f"Protocol: {protocol_name}",
-                "",
-                "Waiting for stimulation ramp-up...",
-                "",
-                "Start the 6-minute protocol in NIC-2 when ready",
-                "(Task begins when ramp-up starts)"
-            ]
+            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
+            if subject_num % 2 == 0:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'active'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'sham'
+                else:
+                    stim_condition = 'baseline'
+            else:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'sham'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'active'
+                else:
+                    stim_condition = 'baseline'
+        
+        # Always show same waiting screen (double-blind)
+        self.screen.fill(self.BLACK)
+        waiting_text = [
+            f"Two-Armed Bandit Task - Run {self.run_number}",
+            "",
+            "Waiting for experimenter to start task...",
+            "",
+            "Press SPACE to begin task now",
+            "Press ESC to exit"
+        ]
         
         for i, line in enumerate(waiting_text):
             font = self.font_large if i == 0 else self.font_small
-            y_offset = -150 + i * 40
+            y_offset = -100 + i * 50
             self.show_text(line, y_offset, font)
         
         pygame.display.flip()
+        
+        # Wait for LSL trigger OR spacebar
+        # Only check LSL for non-baseline runs, but don't indicate this to user
+        check_lsl = (stim_condition != 'baseline' and self.stimulation_enabled and self.lsl_trigger)
+        
+        if check_lsl:
+            print(f"\n** READY FOR RUN {self.run_number} **")
+            print("Waiting for LSL trigger or SPACE to start...")
+        
+        clock = pygame.time.Clock()
+        waiting = True
+        
+        while waiting:
+            # Check for keyboard input
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        print("Task started by SPACE press")
+                        return True
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+            
+            # Check for LSL trigger if applicable
+            if check_lsl:
+                try:
+                    marker_code, timestamp = self.lsl_trigger.marker_queue.get_nowait()
+                    if marker_code == self.lsl_trigger.TASK_START_MARKER:
+                        print("LSL: Stimulation START detected! Beginning task!")
+                        return True
+                except queue.Empty:
+                    pass
+            
+            clock.tick(60)  # Run at 60 FPS
+        
+        return False
     
     def show_instructions(self):
-        """Show task instructions"""
+        """Show task instructions and wait for spacebar"""
         self.screen.fill(self.BLACK)
         
+        # CHANGE #1: Removed stim condition from instructions
         instructions = [
             f"Two-Armed Bandit Task - Run {self.run_number}",
-            f"({self.run_type})",
             "",
             "Choose between two flowers using keys 1 and 2",
             "(or A for left, L for right)",
@@ -836,11 +924,8 @@ class TwoArmedBanditTask:
             "",
             f"This run will last {self.config['experiment']['run_duration_minutes']} minutes",
             "",
-            "Task will begin when stimulation starts"
+            "Press SPACE when ready to begin"
         ]
-        
-        if self.stim_condition != 'baseline':
-            instructions.insert(2, f"Stimulation: {self.stim_condition.upper()}")
         
         for i, line in enumerate(instructions):
             font = self.font_large if i == 0 else self.font_small
@@ -849,23 +934,23 @@ class TwoArmedBanditTask:
         
         pygame.display.flip()
         
-        # Wait for space (only for baseline runs)
-        if self.stim_condition == 'baseline':
-            waiting = True
-            while waiting:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        self.cleanup()
-                        sys.exit()
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_SPACE:
-                            waiting = False
-                        elif event.key == pygame.K_ESCAPE:
-                            self.cleanup()
-                            sys.exit()
+        # Wait for spacebar or escape
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        return True
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+        
+        return True
     
     def show_run_complete(self):
-        """Show run completion message"""
+        """CHANGE #6: Show run completion with option to continue"""
         run_trials = [t for t in self.trial_data if t['run'] == self.run_number]
         responses = [t for t in run_trials if t['choice'] is not None]
         
@@ -880,60 +965,85 @@ class TwoArmedBanditTask:
                 if run_trials[i]['current_good'] != run_trials[i-1]['current_good']:
                     reversals += 1
             
-            feedback = [
-                f"Run {self.run_number} Complete!",
-                "",
-                f"Trials completed: {n_trials}",
-                f"Response rate: {n_responses}/{n_trials} ({100*n_responses/n_trials:.1f}%)",
-                f"Correct choices: {correct_pct:.1f}%",
-                f"Rewards earned: {reward_pct:.1f}%",
-                f"Contingency reversals: {reversals}",
-                f"Flowers used: {self.current_flowers}",
-                "",
-                "Data saved successfully",
-                "",
-                "Press SPACE to exit"
-            ]
+            # Check if there are more runs to do
+            if self.run_number < 8:
+                feedback = [
+                    f"Run {self.run_number} Complete!",
+                    "",
+                    f"Trials completed: {n_trials}",
+                    f"Response rate: {n_responses}/{n_trials} ({100*n_responses/n_trials:.1f}%)",
+                    f"Correct choices: {correct_pct:.1f}%",
+                    f"Rewards earned: {reward_pct:.1f}%",
+                    f"Contingency reversals: {reversals}",
+                    "",
+                    "Data saved successfully",
+                    "",
+                    "Press SPACE to continue to next run",
+                    "Press ESC to exit"
+                ]
+            else:
+                feedback = [
+                    f"Run {self.run_number} Complete!",
+                    "",
+                    "*** ALL RUNS COMPLETE ***",
+                    "",
+                    f"Trials completed: {n_trials}",
+                    f"Response rate: {n_responses}/{n_trials} ({100*n_responses/n_trials:.1f}%)",
+                    f"Correct choices: {correct_pct:.1f}%",
+                    f"Rewards earned: {reward_pct:.1f}%",
+                    "",
+                    "Data saved successfully",
+                    "",
+                    "Press SPACE to exit"
+                ]
         else:
-            feedback = ["Run complete", "", "Press SPACE to exit"]
+            if self.run_number < 8:
+                feedback = [
+                    "Run complete",
+                    "",
+                    "Press SPACE to continue to next run",
+                    "Press ESC to exit"
+                ]
+            else:
+                feedback = [
+                    "Run complete",
+                    "",
+                    "*** ALL RUNS COMPLETE ***",
+                    "",
+                    "Press SPACE to exit"
+                ]
         
         self.screen.fill(self.BLACK)
         for i, line in enumerate(feedback):
-            font = self.font_large if i == 0 else self.font_small
-            y_offset = -200 + i * 35
+            font = self.font_large if i == 0 or "ALL RUNS" in line else self.font_small
+            y_offset = -250 + i * 35
             self.show_text(line, y_offset, font)
         pygame.display.flip()
         
+        # CHANGE #6: Wait for space or escape
         waiting = True
+        continue_to_next = False
         while waiting:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     waiting = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
+                        continue_to_next = True
                         waiting = False
+                    elif event.key == pygame.K_ESCAPE:
+                        waiting = False
+        
+        return continue_to_next
     
-    def save_data(self):
-        """Save trial data to CSV"""
-        if not self.trial_data:
-            return
-        
-        df = pd.DataFrame(self.trial_data)
-        
-        for key, value in self.subject_info.items():
-            if key not in df.columns:
-                df[key] = value
-        
-        filename = (
-            f"sub-{self.subject_info['subject_id']}_"
-            f"ses-{self.subject_info['session']}_"
-            f"run-{self.subject_info['run']}_"
-            f"task-bandit_{self.subject_info['date']}.csv"
-        )
-        
-        filepath = self.data_dir / filename
-        df.to_csv(filepath, index=False)
-        print(f"\nData saved to: {filepath}")
+    def reset_for_new_run(self):
+        """Reset variables for a new run"""
+        self.trial_data = []
+        self.current_trial = 0
+        self.current_good = np.random.randint(1, 3)
+        self.trial_in_contingency = 0
+        self.contingency_trials = self._get_contingency_duration()
+        self.task_should_stop = False
     
     def cleanup(self):
         """Clean up and close"""
@@ -950,66 +1060,197 @@ class TwoArmedBanditTask:
         
         pygame.quit()
     
+    def save_data(self):
+        """Save trial data to CSV"""
+        if not self.trial_data:
+            return
+        
+        df = pd.DataFrame(self.trial_data)
+        
+        for key, value in self.subject_info.items():
+            if key not in df.columns:
+                df[key] = value
+        
+        filename = (
+            f"sub-{self.subject_info['subject_id']}_"
+            f"ses-{self.subject_info['session']}_"
+            f"run-{self.run_number:02d}_"
+            f"task-bandit_{self.subject_info['date']}.csv"
+        )
+        
+        filepath = self.data_dir / filename
+        df.to_csv(filepath, index=False)
+        print(f"\nData saved to: {filepath}")
+    
+    def wait_for_stimulation_trigger(self):
+        """Wait for stimulation start trigger before beginning task"""
+        # Determine stim condition
+        if self.stimulation_enabled and self.stimulation_manager:
+            stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
+        else:
+            subject_num = int(self.subject_info['subject_id']) if self.subject_info['subject_id'].isdigit() else 0
+            if subject_num % 2 == 0:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'active'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'sham'
+                else:
+                    stim_condition = 'baseline'
+            else:
+                if self.run_number in [2, 3]:
+                    stim_condition = 'sham'
+                elif self.run_number in [6, 7]:
+                    stim_condition = 'active'
+                else:
+                    stim_condition = 'baseline'
+        
+        if not self.stimulation_enabled or stim_condition == 'baseline':
+            print("No stimulation for this run - starting task immediately")
+            return True
+            
+        if not self.lsl_trigger:
+            print("LSL trigger not available - starting task immediately")
+            return True
+            
+        print(f"\n** READY FOR RUN {self.run_number} **")
+        # CHANGE #2: Don't print protocol name (double-blind)
+        print("Waiting for stimulation to start...")
+        print("(Start the protocol in NIC-2 when ready)")
+        print("Task will begin when stimulation marker (203) is received")
+        
+        # Wait for stimulation start signal
+        success = self.lsl_trigger.wait_for_stimulation_start()
+        
+        if success:
+            print("Stimulation started (marker 203)! Beginning bandit task NOW!")
+            return True
+        else:
+            print("No stimulation signal received. Starting task anyway.")
+            return True
+    
+    def reset_for_new_run(self):
+        """Reset variables for a new run"""
+        self.trial_data = []
+        self.current_trial = 0
+        self.current_good = np.random.randint(1, 3)
+        self.trial_in_contingency = 0
+        self.contingency_trials = self._get_contingency_duration()
+        self.task_should_stop = False
+    
+    def cleanup(self):
+        """Clean up and close"""
+        self.save_data()
+        
+        if self.lsl_trigger:
+            self.lsl_trigger.stop_listening()
+        
+        if self.stimulation_enabled and self.nic_interface:
+            try:
+                self.nic_interface.disconnect()
+            except Exception as e:
+                print(f"Warning: Error disconnecting stimulation: {e}")
+        
+        pygame.quit()
+    
+    def run_single_run(self):
+        """Run a single run of the task"""
+        # Select flowers for this run
+        if not self.select_flowers_for_run():
+            return False
+        
+        # Show instructions and wait for space
+        if not self.show_instructions():
+            return False  # User pressed escape
+        
+        # Clear event queue before waiting screen
+        pygame.event.clear()
+        
+        # Show waiting screen and wait for trigger or space
+        if not self.show_waiting_screen():
+            return False  # User pressed escape
+        
+        # Initialize timing for this run
+        self.run_start_time = time.time()
+        
+        # Log stimulation markers
+        if self.stimulation_manager:
+            self.stimulation_manager.send_trial_marker('run_start')
+        
+        # Run trials
+        print(f"\nStarting Run {self.run_number}")
+        print(f"Duration: {self.config['experiment']['run_duration_minutes']} minutes")
+        print("Press ESC to abort\n")
+        
+        trial_count = 0
+        while True:
+            try:
+                if not self.run_trial():
+                    break
+                
+                trial_count += 1
+                if trial_count % 10 == 0:
+                    elapsed = time.time() - self.run_start_time
+                    print(f"  Trial {trial_count}, Time: {elapsed:.1f}s")
+                    
+            except Exception as e:
+                print(f"Error during trial {trial_count}: {e}")
+                break
+        
+        # End markers
+        if self.stimulation_manager:
+            self.stimulation_manager.send_trial_marker('run_end')
+        
+        print(f"\nRun {self.run_number} complete!")
+        print(f"Total trials: {trial_count}")
+        
+        # Save data for this run
+        self.save_data()
+        
+        # Add this run's data to all trial data
+        self.all_trial_data.extend(self.trial_data)
+        
+        return True
+    
     def run(self):
-        """Main LSL-triggered task execution"""
+        """CHANGE #6: Main task execution with multi-run support"""
         try:
-            # Get subject info
+            # Get subject info and display preferences
             if not self.get_subject_info():
                 return
             
-            # Setup display
+            # Setup display (only once)
             self.setup_display()
             
-            # Show instructions
-            self.show_instructions()
-            
-            # For stimulation runs, wait for LSL trigger
-            if self.stim_condition != 'baseline':
-                self.show_waiting_screen()
-                if not self.wait_for_stimulation_trigger():
-                    print("Failed to receive stimulation trigger")
-                    return
-            
-            # Initialize timing
+            # Initialize experiment timing
             self.experiment_start_time = time.time()
-            self.run_start_time = time.time()
             
-            # Log stimulation markers
-            if self.stimulation_manager:
-                self.stimulation_manager.send_trial_marker('run_start')
-            
-            # Run trials
-            print(f"\nStarting Run {self.run_number} ({self.run_type})")
-            if self.stim_condition != 'baseline':
-                print(f"Stimulation: {self.stim_condition.upper()}")
-            print(f"Duration: {self.config['experiment']['run_duration_minutes']} minutes")
-            print("Press ESC to abort\n")
-            
-            trial_count = 0
-            while True:
-                try:
-                    if not self.run_trial():
-                        break
-                    
-                    trial_count += 1
-                    if trial_count % 10 == 0:
-                        elapsed = time.time() - self.run_start_time
-                        print(f"  Trial {trial_count}, Time: {elapsed:.1f}s")
-                        
-                except Exception as e:
-                    print(f"Error during trial {trial_count}: {e}")
+            # Run from starting run to run 8
+            current_run = self.run_number
+            while current_run <= 8:
+                self.run_number = current_run
+                
+                # Update display caption
+                pygame.display.set_caption(f"Two-Armed Bandit Task - Run {self.run_number}")
+                
+                # Reset for new run
+                self.reset_for_new_run()
+                
+                # Run this run
+                if not self.run_single_run():
                     break
+                
+                # Show completion screen
+                continue_to_next = self.show_run_complete()
+                
+                if not continue_to_next or current_run >= 8:
+                    break
+                
+                current_run += 1
             
-            # End markers
-            if self.stimulation_manager:
-                self.stimulation_manager.send_trial_marker('run_end')
-            
-            print(f"\nRun {self.run_number} complete!")
-            print(f"Total trials: {trial_count}")
-            self.show_run_complete()
+            print("\n=== Session Complete ===")
             
         except KeyboardInterrupt:
-            print("\nRun interrupted by user")
+            print("\nSession interrupted by user")
         finally:
             self.cleanup()
 
