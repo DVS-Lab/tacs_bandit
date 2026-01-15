@@ -1,10 +1,10 @@
 <ProtocolTemplates>
  <Template>
-  <TemplateName>Bandit_Protocol_A_Run-3</TemplateName>
+  <TemplateName>Bandit_Protocol-A_Run-2</TemplateName>
   <NumOfChannels>8</NumOfChannels>
   <EOGTrainingTime>0</EOGTrainingTime>
   <Step>
-   <stepName>Run 3</stepName>
+   <stepName>Run 2</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
    <stepType>0</stepType>

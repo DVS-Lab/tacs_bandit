@@ -1,10 +1,10 @@
 <ProtocolTemplates>
  <Template>
-  <TemplateName>Bandit_Protocol_A_Run-01</TemplateName>
+  <TemplateName>Bandit_Protocol-B_Run-7</TemplateName>
   <NumOfChannels>8</NumOfChannels>
   <EOGTrainingTime>0</EOGTrainingTime>
   <Step>
-   <stepName>Run 1</stepName>
+   <stepName>Run 7</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
    <stepType>0</stepType>
@@ -22,7 +22,7 @@
     <location>F3</location>
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
+    <atacsValue>750</atacsValue>
     <ftacsValue>6.00</ftacsValue>
     <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
@@ -32,7 +32,7 @@
     <location>Fp1</location>
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
+    <atacsValue>250</atacsValue>
     <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
@@ -42,7 +42,7 @@
     <location>FCz</location>
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
+    <atacsValue>250</atacsValue>
     <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
@@ -52,7 +52,7 @@
     <location>FT7</location>
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
+    <atacsValue>250</atacsValue>
     <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
