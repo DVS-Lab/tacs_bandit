@@ -3980,3 +3980,11 @@
 {"marker_code": 20, "label": "choice_trial_75", "timestamp": "2026-01-15T13:18:39.881506", "instruction": "Event marker: 20 - choice_trial_75"}
 {"marker_code": 32, "label": "feedback_loss_trial_75", "timestamp": "2026-01-15T13:18:42.386087", "instruction": "Event marker: 32 - feedback_loss_trial_75"}
 {"marker_code": 200, "label": "run_end", "timestamp": "2026-01-15T13:18:43.639943", "instruction": "Event marker: 200 - run_end"}
+{"marker_code": 100, "label": "run_start", "timestamp": "2026-01-15T16:02:53.072043", "instruction": "Event marker: 100 - run_start"}
+{"marker_code": 10, "label": "trial_start_trial_0", "timestamp": "2026-01-15T16:02:53.072730", "instruction": "Event marker: 10 - trial_start_trial_0"}
+{"marker_code": 33, "label": "feedback_miss_trial_0", "timestamp": "2026-01-15T16:02:57.589427", "instruction": "Event marker: 33 - feedback_miss_trial_0"}
+{"marker_code": 10, "label": "trial_start_trial_1", "timestamp": "2026-01-15T16:02:58.843520", "instruction": "Event marker: 10 - trial_start_trial_1"}
+{"marker_code": 33, "label": "feedback_miss_trial_1", "timestamp": "2026-01-15T16:03:03.352886", "instruction": "Event marker: 33 - feedback_miss_trial_1"}
+{"marker_code": 10, "label": "trial_start_trial_2", "timestamp": "2026-01-15T16:03:04.607009", "instruction": "Event marker: 10 - trial_start_trial_2"}
+{"marker_code": 33, "label": "feedback_miss_trial_2", "timestamp": "2026-01-15T16:03:09.117916", "instruction": "Event marker: 33 - feedback_miss_trial_2"}
+{"marker_code": 10, "label": "trial_start_trial_3", "timestamp": "2026-01-15T16:03:10.371508", "instruction": "Event marker: 10 - trial_start_trial_3"}
