@@ -1,17 +1,17 @@
 <ProtocolTemplates>
  <Template>
-  <TemplateName>lPFC_Theta</TemplateName>
+  <TemplateName>Bandit_Protocol_A_Run-7</TemplateName>
   <NumOfChannels>8</NumOfChannels>
   <EOGTrainingTime>0</EOGTrainingTime>
   <Step>
-   <stepName>theta</stepName>
+   <stepName>Run 7</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
-   <stepType>0</stepType>
+   <stepType>2</stepType>
    <stimulationTime>300</stimulationTime>
    <rampUp>30</rampUp>
    <rampDown>30</rampDown>
-   <rampSham>0</rampSham>
+   <rampSham>30</rampSham>
    <stimulationSham>Single</stimulationSham>
    <tRNSLowFreq>0</tRNSLowFreq>
    <tRNSHighFreq>0</tRNSHighFreq>
@@ -59,8 +59,8 @@
    </Channel>
    <Channel>
     <index>5</index>
-    <location>Ch5</location>
-    <electrodeType>0</electrodeType>
+    <location>F4</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -69,8 +69,8 @@
    </Channel>
    <Channel>
     <index>6</index>
-    <location>Ch6</location>
-    <electrodeType>0</electrodeType>
+    <location>P4</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -79,8 +79,8 @@
    </Channel>
    <Channel>
     <index>7</index>
-    <location>Ch7</location>
-    <electrodeType>0</electrodeType>
+    <location>P3</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
