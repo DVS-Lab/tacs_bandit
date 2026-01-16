@@ -505,7 +505,7 @@ class TwoArmedBanditTask:
         self.subject_info['date'] = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         
         # Create data directory
-        self.data_dir = Path(self.config['paths']['data_dir']) / "bandit" / f"sub-{self.subject_info['subject_id']}"
+        self.data_dir = Path(self.config['paths']['data_dir']) / f"sub-{self.subject_info['subject_id']}"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         return True
@@ -865,7 +865,7 @@ class TwoArmedBanditTask:
         
         for i, line in enumerate(waiting_text):
             font = self.font_large if i == 0 else self.font_small
-            y_offset = -250 + i * 35  # Match instructions screen positioning
+            y_offset = -100 + i * 50
             self.show_text(line, y_offset, font)
         
         pygame.display.flip()
@@ -949,74 +949,6 @@ class TwoArmedBanditTask:
         
         return True
     
-    def show_start_buffer(self):
-        """Show 5-second fixation buffer before starting trials"""
-        print("Starting 5-second buffer...")
-        
-        # Show fixation cross for 5 seconds
-        self.screen.fill(self.BLACK)
-        pygame.draw.line(self.screen, self.WHITE, (self.center_x - 20, self.center_y), (self.center_x + 20, self.center_y), 3)
-        pygame.draw.line(self.screen, self.WHITE, (self.center_x, self.center_y - 20), (self.center_x, self.center_y + 20), 3)
-        pygame.display.flip()
-        
-        # Wait 5 seconds, but check for escape
-        start_wait = time.time()
-        while time.time() - start_wait < 5.0:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return False
-                if event.type == pygame.QUIT:
-                    return False
-            time.sleep(0.05)
-        
-        return True
-    
-    def show_stimulation_guess(self):
-        """Ask participant to guess if they received active stimulation"""
-        self.screen.fill(self.BLACK)
-        
-        # Show title consistent with other screens
-        title = f"Two-Armed Bandit Task - Run {self.run_number}"
-        title_surface = self.font_large.render(title, True, self.WHITE)
-        title_rect = title_surface.get_rect(center=(self.center_x, self.center_y - 250))
-        self.screen.blit(title_surface, title_rect)
-        
-        # Show question
-        question_lines = [
-            "",
-            "Do you think you received",
-            "active stimulation during this run?",
-            "",
-            "Press 1 for YES",
-            "Press 2 for NO"
-        ]
-        
-        for i, line in enumerate(question_lines):
-            y_offset = -250 + (i + 1) * 35  # Start below title
-            self.show_text(line, y_offset, self.font_small)
-        
-        pygame.display.flip()
-        
-        # Wait for response
-        waiting = True
-        guess = None
-        while waiting:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1 or event.key == pygame.K_KP1:
-                        guess = 'yes'
-                        waiting = False
-                    elif event.key == pygame.K_2 or event.key == pygame.K_KP2:
-                        guess = 'no'
-                        waiting = False
-                    elif event.key == pygame.K_ESCAPE:
-                        return None
-        
-        print(f"Stimulation guess for run {self.run_number}: {guess}")
-        return guess
-    
     def show_run_complete(self):
         """CHANGE #6: Show run completion with option to continue"""
         run_trials = [t for t in self.trial_data if t['run'] == self.run_number]
@@ -1033,9 +965,6 @@ class TwoArmedBanditTask:
                 if run_trials[i]['current_good'] != run_trials[i-1]['current_good']:
                     reversals += 1
             
-            # Print reversals to terminal only (not shown on screen)
-            print(f"Contingency reversals: {reversals}")
-            
             # Check if there are more runs to do
             if self.run_number < 8:
                 feedback = [
@@ -1045,6 +974,7 @@ class TwoArmedBanditTask:
                     f"Response rate: {n_responses}/{n_trials} ({100*n_responses/n_trials:.1f}%)",
                     f"Correct choices: {correct_pct:.1f}%",
                     f"Rewards earned: {reward_pct:.1f}%",
+                    f"Contingency reversals: {reversals}",
                     "",
                     "Data saved successfully",
                     "",
@@ -1239,9 +1169,6 @@ class TwoArmedBanditTask:
         if not self.show_waiting_screen():
             return False  # User pressed escape
         
-        # Show 5-second buffer with countdown before starting trials
-        self.show_start_buffer()
-        
         # Initialize timing for this run
         self.run_start_time = time.time()
         
@@ -1275,13 +1202,6 @@ class TwoArmedBanditTask:
         
         print(f"\nRun {self.run_number} complete!")
         print(f"Total trials: {trial_count}")
-        
-        # Ask participant to guess stimulation condition
-        stim_guess = self.show_stimulation_guess()
-        
-        # Add stimulation guess to trial data for this run
-        for trial in self.trial_data:
-            trial['stim_guess'] = stim_guess
         
         # Save data for this run
         self.save_data()
