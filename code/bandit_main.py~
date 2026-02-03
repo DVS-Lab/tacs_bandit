@@ -505,7 +505,7 @@ class TwoArmedBanditTask:
         self.subject_info['date'] = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         
         # Create data directory
-        self.data_dir = Path(self.config['paths']['data_dir']) / "bandit" / f"sub-{self.subject_info['subject_id']}"
+        self.data_dir = Path(self.config['paths']['data_dir']) / f"sub-{self.subject_info['subject_id']}"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         return True
