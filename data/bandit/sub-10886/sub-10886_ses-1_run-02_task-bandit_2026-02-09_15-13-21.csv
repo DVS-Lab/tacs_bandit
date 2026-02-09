@@ -1,0 +1,4 @@
+trial_num,run,run_type,stim_condition,trial_in_contingency,current_good,contingency_trials,flower1,flower2,slot1_position,slot2_position,choice,rt,correct,reward,wait_time,iti,timestamp,trial_start_time,subject_id,session,age,gender,date
+0,2,stimulation,active,0,1,28,40,29,right,left,2,1081.8898677825928,False,False,2000.0,250.0,568.7520167827606,5.369781017303467,10886,1,57,m,2026-02-09_15-13-21
+1,2,stimulation,active,1,1,28,40,29,left,right,1,546.4880466461182,True,True,2000.0,250.0,573.5909798145294,10.20874285697937,10886,1,57,m,2026-02-09_15-13-21
+2,2,stimulation,active,2,1,28,40,29,right,left,1,477.1099090576172,True,False,2000.0,250.0,578.3569631576538,14.974726915359497,10886,1,57,m,2026-02-09_15-13-21
