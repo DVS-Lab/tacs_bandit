@@ -82,7 +82,6 @@ python bandit_main.py
 
 **Test parameters:**
 - Subject ID: Any number
-- Run: 1, 4, 5, or 8 (baseline runs)
 
 ### LSL-Triggered Stimulation Mode
 
@@ -109,16 +108,6 @@ python bandit_main.py
    - Task shows which protocol to load (based on counterbalancing)
    - Task waits: "Waiting for stimulation to start..."
    - Start protocol in NIC-2 → Task begins automatically!
-
-### Counterbalancing
-
-**Even subject IDs (2, 4, 6, 8...):**
-- Runs 2-3: DLPFC_Active
-- Runs 6-7: DLPFC_Sham
-
-**Odd subject IDs (1, 3, 5, 7...):**
-- Runs 2-3: DLPFC_Sham  
-- Runs 6-7: DLPFC_Active
 
 ### Configuration
 
