@@ -145,15 +145,6 @@ Edit `code/config.json` to customize parameters:
 
 ## Experimental Workflow
 
-### Standard 8-Run Protocol
-
-1. **Run 1**: Baseline (6 min)
-2. **Runs 2-3**: First stimulation condition (6 min each)
-3. **Run 4**: Post-stimulation baseline (6 min)
-4. **Run 5**: Baseline (6 min)
-5. **Runs 6-7**: Second stimulation condition (6 min each)
-6. **Run 8**: Final baseline (6 min)
-
 ### Per-Run Procedure
 
 1. **Setup**: Load correct protocol in NIC-2 (as instructed by task)
