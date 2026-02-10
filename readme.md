@@ -1,4 +1,4 @@
-# LSL-Triggered Two-Armed Bandit Task
+# Two-Armed Bandit Task
 
 A Python implementation of a reinforcement learning task with reversal learning, designed for cognitive neuroscience research with real-time EEG/tACS stimulation integration via Lab Streaming Layer (LSL).
 
