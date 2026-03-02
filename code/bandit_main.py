@@ -864,7 +864,7 @@ class TwoArmedBanditTask:
         
         # "Press SPACE..." at same y as instructions screen (index 11: y = -250 + 11*35 = 135)
         space_y = 135
-        self.show_text("Press SPACE to begin task now", space_y, self.font_small)
+        self.show_text("Press SPACE to begin task", space_y, self.font_small)
         
         # "Press ESC..." directly below SPACE text
         esc_y = space_y + 35
@@ -872,8 +872,7 @@ class TwoArmedBanditTask:
         
         # Waiting reminder centered between title and SPACE text
         reminder_y = (title_y + space_y) // 2
-        self.show_text("Please wait for the experimenter to start the task, then", reminder_y - 18, self.font_small)
-        self.show_text("press SPACE to begin.", reminder_y + 18, self.font_small)
+        self.show_text("Please WAIT for the experimenter to start the task, THEN", reminder_y - 18, self.font_small)
         
         pygame.display.flip()
         
