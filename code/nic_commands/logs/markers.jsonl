@@ -2998,3 +2998,5 @@
 {"marker_code": 20, "label": "choice_trial_66", "timestamp": "2026-02-26T15:38:02.256133", "instruction": "Event marker: 20 - choice_trial_66"}
 {"marker_code": 31, "label": "feedback_win_trial_66", "timestamp": "2026-02-26T15:38:04.759646", "instruction": "Event marker: 31 - feedback_win_trial_66"}
 {"marker_code": 200, "label": "run_end", "timestamp": "2026-02-26T15:38:06.013422", "instruction": "Event marker: 200 - run_end"}
+{"marker_code": 100, "label": "run_start", "timestamp": "2026-03-02T15:46:04.297961", "instruction": "Event marker: 100 - run_start"}
+{"marker_code": 10, "label": "trial_start_trial_0", "timestamp": "2026-03-02T15:46:04.304998", "instruction": "Event marker: 10 - trial_start_trial_0"}

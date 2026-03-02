@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-LSL-Triggered Two-Armed Bandit Task
-Waits for stimulation start signal from NIC-2 before beginning task
-Version 16: Multi-run support, display options, double-blinding
+Two-Armed Bandit Task
+Version 17: Multi-run support, display options, double-blinding
 """
 
 import pygame
@@ -17,13 +16,12 @@ import time
 import threading
 import queue
 
-# LSL import with fallback
+# LSL import with fallback (silent)
 try:
     import pylsl
     LSL_AVAILABLE = True
 except ImportError:
     LSL_AVAILABLE = False
-    print("Warning: pylsl not installed. Install with: pip install pylsl")
 
 
 class LSLStimulationTrigger:
@@ -229,7 +227,7 @@ class LSLStimulationTrigger:
 
 
 class TwoArmedBanditTask:
-    """LSL-triggered two-armed bandit task"""
+    """Two-armed bandit task with multi-run support"""
     
     def __init__(self, config=None):
         """Initialize the task"""
@@ -352,7 +350,7 @@ class TwoArmedBanditTask:
             # Initialize stimulation manager
             self.stimulation_manager = StimulationManager(self.nic_interface)
             
-            print("Stimulation system initialized (LSL-triggered)")
+            print("Stimulation system initialized")
             if stim_config.get('test_mode', True):
                 print("WARNING: Running in stimulation TEST MODE")
             
@@ -364,18 +362,23 @@ class TwoArmedBanditTask:
             self.stimulation_enabled = False
     
     def _initialize_lsl_trigger(self):
-        """Initialize LSL trigger system"""
+        """Initialize LSL trigger system (silent — no terminal output)"""
         stim_config = self.config.get('stimulation', {})
         test_mode = stim_config.get('test_mode', True)
         
         self.lsl_trigger = LSLStimulationTrigger(test_mode=test_mode)
         
         if self.stimulation_enabled:
-            success = self.lsl_trigger.connect()
-            if success:
-                self.lsl_trigger.start_listening()
-            else:
-                print("Warning: Could not connect to LSL markers. Task will start immediately.")
+            # Suppress all LSL connection output
+            old_stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+            try:
+                success = self.lsl_trigger.connect()
+                if success:
+                    self.lsl_trigger.start_listening()
+            finally:
+                sys.stdout.close()
+                sys.stdout = old_stdout
     
     def load_images(self):
         """Load flower and feedback images"""
@@ -463,7 +466,7 @@ class TwoArmedBanditTask:
     
     def get_subject_info(self):
         """Get subject information and setup for LSL-triggered run"""
-        print("\n=== LSL-Triggered Two-Armed Bandit Task ===\n")
+        print("\n=== Two-Armed Bandit Task ===\n")
         
         self.subject_info = {
             'subject_id': input("Subject ID: "),
@@ -831,7 +834,7 @@ class TwoArmedBanditTask:
         return True
     
     def show_waiting_screen(self):
-        """Show waiting screen - wait for LSL trigger OR spacebar to start"""
+        """Show waiting screen - wait for spacebar (or LSL trigger) to start"""
         # Determine stim condition (for LSL checking only, not display)
         if self.stimulation_enabled and self.stimulation_manager:
             stim_condition = self.stimulation_manager.get_run_condition(self.run_number)
@@ -854,19 +857,23 @@ class TwoArmedBanditTask:
         
         # Always show same waiting screen (double-blind)
         self.screen.fill(self.BLACK)
-        waiting_text = [
-            f"Two-Armed Bandit Task - Run {self.run_number}",
-            "",
-            "Waiting for experimenter to start task...",
-            "",
-            "Press SPACE to begin task now",
-            "Press ESC to exit"
-        ]
         
-        for i, line in enumerate(waiting_text):
-            font = self.font_large if i == 0 else self.font_small
-            y_offset = -250 + i * 35  # Match instructions screen positioning
-            self.show_text(line, y_offset, font)
+        # Title at same position as instructions screen (index 0: y = -250)
+        title_y = -250
+        self.show_text(f"Two-Armed Bandit Task - Run {self.run_number}", title_y, self.font_large)
+        
+        # "Press SPACE..." at same y as instructions screen (index 11: y = -250 + 11*35 = 135)
+        space_y = 135
+        self.show_text("Press SPACE to begin task now", space_y, self.font_small)
+        
+        # "Press ESC..." directly below SPACE text
+        esc_y = space_y + 35
+        self.show_text("Press ESC to exit", esc_y, self.font_small)
+        
+        # Waiting reminder centered between title and SPACE text
+        reminder_y = (title_y + space_y) // 2
+        self.show_text("Please wait for the experimenter to start the task, then", reminder_y - 18, self.font_small)
+        self.show_text("press SPACE to begin.", reminder_y + 18, self.font_small)
         
         pygame.display.flip()
         
@@ -876,7 +883,7 @@ class TwoArmedBanditTask:
         
         if check_lsl:
             print(f"\n** READY FOR RUN {self.run_number} **")
-            print("Waiting for LSL trigger or SPACE to start...")
+            print("Waiting for trigger or SPACE to start...")
         
         clock = pygame.time.Clock()
         waiting = True
@@ -915,8 +922,8 @@ class TwoArmedBanditTask:
         instructions = [
             f"Two-Armed Bandit Task - Run {self.run_number}",
             "",
-            "Choose between two flowers using keys 1 and 2",
-            "(or A for left, L for right)",
+            "Choose between two flowers using",
+            "A for left and L for right",
             "",
             "One flower is better than the other",
             "The better flower can change!",
