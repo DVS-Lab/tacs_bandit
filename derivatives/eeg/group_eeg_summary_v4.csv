@@ -1,0 +1,10 @@
+subject_id,counterbalance,earclip,n_runs,protocol_ok,mismatches,mean_pct_rejected,itf_F4,itf_F4_n,itf_P4,itf_P3,notes
+10886,B,False,8,True,,24.86408612634482,,0,,,
+10998,B,False,7,False,[6],19.77503016514041,,0,,,Missing Run 1; Run 6 was sham (experimenter error)
+11773,B,False,8,False,"[6, 7]",5.585603597723404,,0,,,Runs 6-7 were sham (experimenter error)
+10656,A,False,8,True,,14.273823444133017,,0,,,
+10951,A,False,8,True,,28.36083619451998,,0,,,Electrode artifact (loose connection suspected)
+10418,B,False,8,True,,28.248973843407335,,0,,,
+10636,B,True,8,True,,5.724117726620807,,0,,,
+11318,B,True,8,True,,30.045956464636518,,0,,,
+10369,B,True,8,True,,29.342225111776663,,0,,,
