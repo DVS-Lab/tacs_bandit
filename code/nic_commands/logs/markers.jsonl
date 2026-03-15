@@ -7187,3 +7187,8 @@
 {"marker_code": 20, "label": "choice_trial_76", "timestamp": "2026-03-13T17:34:58.961914", "instruction": "Event marker: 20 - choice_trial_76"}
 {"marker_code": 32, "label": "feedback_loss_trial_76", "timestamp": "2026-03-13T17:35:01.464855", "instruction": "Event marker: 32 - feedback_loss_trial_76"}
 {"marker_code": 200, "label": "run_end", "timestamp": "2026-03-13T17:35:02.718441", "instruction": "Event marker: 200 - run_end"}
+{"marker_code": 100, "label": "run_start", "timestamp": "2026-03-13T22:02:06.702486", "instruction": "Event marker: 100 - run_start"}
+{"marker_code": 10, "label": "trial_start_trial_0", "timestamp": "2026-03-13T22:02:06.707209", "instruction": "Event marker: 10 - trial_start_trial_0"}
+{"marker_code": 20, "label": "choice_trial_0", "timestamp": "2026-03-13T22:02:07.709385", "instruction": "Event marker: 20 - choice_trial_0"}
+{"marker_code": 32, "label": "feedback_loss_trial_0", "timestamp": "2026-03-13T22:02:10.224422", "instruction": "Event marker: 32 - feedback_loss_trial_0"}
+{"marker_code": 10, "label": "trial_start_trial_1", "timestamp": "2026-03-13T22:02:11.490642", "instruction": "Event marker: 10 - trial_start_trial_1"}
