@@ -9,3 +9,4 @@ subject_id,counterbalance,earclip,n_runs,protocol_ok,mismatches,mean_pct_rejecte
 11318,B,True,8,True,,30.045956464636518,,,,,,,
 10369,B,True,8,True,,29.342225111776663,,,,,,,
 10606,A,True,8,False,"[2, 3]",29.67279354179992,,,,,,,
+11329,B,True,8,False,"[6, 7]",14.843667858438979,,,,,,,
