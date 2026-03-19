@@ -3,10 +3,13 @@ subject_id,counterbalance,earclip,n_runs,protocol_ok,mismatches,mean_pct_rejecte
 10998,B,False,7,False,[6],19.77503016514041,,,,,,,Missing Run 1; Run 6 was sham (experimenter error)
 11773,B,False,8,False,"[6, 7]",5.585603597723404,,,,,,,Runs 6-7 were sham (experimenter error)
 10656,A,False,8,True,,14.273823444133017,,,,,,9.883643229124443,
-10951,A,False,8,True,,28.36083619451998,7.854035224867945,5.382139750218656,6.334436275308214,6.334436275308214,P3,11.157307562519826,Electrode artifact (loose connection suspected)
+10951,A,False,8,True,,28.36083619451998,7.854035224867945,5.382139750218656,6.334436275308214,6.334436275308214,P3,11.157307562519826,"Intermittent electrode artifact (loose connection); affects Runs 1, 6, 8 — Run 6 IQR=33 dB (extreme); Runs 1 and 8 misclassified as SHAM. EEG data unreliable; behavioral data OK."
 10418,B,False,8,True,,28.248973843407335,,,,,,10.030888752679369,
 10636,B,True,8,True,,5.724117726620807,,,,,,,
 11318,B,True,8,True,,30.045956464636518,,,,,,,
 10369,B,True,8,True,,29.342225111776663,,,,,,,
-10606,A,True,8,False,"[2, 3]",29.67279354179992,,,,,,,
-11329,B,True,8,False,"[6, 7]",14.843667858438979,,,,,,,
+10606,A,True,8,True,,29.67279354179992,,,,,,,
+11628,A,True,8,True,,29.732430027713743,,,,,,10.250008927285394,
+11286,A,True,8,True,,28.371834603571102,,,,,,,
+10866,B,True,8,True,,28.771977025008084,,,,,,,
+11329,B,True,8,True,,14.843667858438979,,,,,,,
