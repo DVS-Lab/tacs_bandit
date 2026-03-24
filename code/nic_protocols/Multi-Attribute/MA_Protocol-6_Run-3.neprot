@@ -59,8 +59,8 @@
    </Channel>
    <Channel>
     <index>5</index>
-    <location>Ch5</location>
-    <electrodeType>0</electrodeType>
+    <location>F4</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -69,8 +69,8 @@
    </Channel>
    <Channel>
     <index>6</index>
-    <location>Ch6</location>
-    <electrodeType>0</electrodeType>
+    <location>P4</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -79,8 +79,8 @@
    </Channel>
    <Channel>
     <index>7</index>
-    <location>Ch7</location>
-    <electrodeType>0</electrodeType>
+    <location>P3</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>

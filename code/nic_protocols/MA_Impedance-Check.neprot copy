@@ -1,17 +1,17 @@
 <ProtocolTemplates>
  <Template>
-  <TemplateName>MA_Protocol-1_Run-2</TemplateName>
+  <TemplateName>Bandit_Impedance-Check</TemplateName>
   <NumOfChannels>8</NumOfChannels>
   <EOGTrainingTime>0</EOGTrainingTime>
   <Step>
-   <stepName></stepName>
+   <stepName>Impedance Check Only</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
-   <stepType>2</stepType>
-   <stimulationTime>840</stimulationTime>
+   <stepType>0</stepType>
+   <stimulationTime>300</stimulationTime>
    <rampUp>30</rampUp>
    <rampDown>30</rampDown>
-   <rampSham>30</rampSham>
+   <rampSham>0</rampSham>
    <stimulationSham>Single</stimulationSham>
    <tRNSLowFreq>0</tRNSLowFreq>
    <tRNSHighFreq>0</tRNSHighFreq>
@@ -23,7 +23,7 @@
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>750</atacsValue>
-    <ftacsValue>40.00</ftacsValue>
+    <ftacsValue>6.00</ftacsValue>
     <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
@@ -33,7 +33,7 @@
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>250</atacsValue>
-    <ftacsValue>40.00</ftacsValue>
+    <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
@@ -43,7 +43,7 @@
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>250</atacsValue>
-    <ftacsValue>40.00</ftacsValue>
+    <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
@@ -53,14 +53,14 @@
     <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>250</atacsValue>
-    <ftacsValue>40.00</ftacsValue>
+    <ftacsValue>6.00</ftacsValue>
     <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>5</index>
-    <location>F4</location>
-    <electrodeType>1</electrodeType>
+    <location>Ch5</location>
+    <electrodeType>0</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -69,8 +69,8 @@
    </Channel>
    <Channel>
     <index>6</index>
-    <location>P4</location>
-    <electrodeType>1</electrodeType>
+    <location>Ch6</location>
+    <electrodeType>0</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -79,8 +79,8 @@
    </Channel>
    <Channel>
     <index>7</index>
-    <location>P3</location>
-    <electrodeType>1</electrodeType>
+    <location>Ch7</location>
+    <electrodeType>0</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
