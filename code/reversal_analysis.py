@@ -593,6 +593,184 @@ def run_reversal_analysis(
               .round(3)
               .to_string())
     
+    # --- Statistical Tests ---
+    stats_results = {}
+    
+    if 'sham' in conditions and 'active' in conditions:
+        from scipy import stats as sp_stats
+        
+        # 1. Trials-to-criterion: subject-level means, then paired t-test
+        ttc_subj = (ttc[ttc['condition'].isin(['sham', 'active'])]
+                    .groupby(['subject_id', 'condition'])['trials_to_criterion']
+                    .mean()
+                    .unstack('condition'))
+        
+        ttc_paired = ttc_subj.dropna()
+        
+        if len(ttc_paired) >= 3:
+            t_ttc, p_ttc = sp_stats.ttest_rel(ttc_paired['sham'], ttc_paired['active'])
+            diff_ttc = ttc_paired['active'] - ttc_paired['sham']
+            dz_ttc = diff_ttc.mean() / diff_ttc.std() if diff_ttc.std() > 0 else 0
+            
+            stats_results['ttc'] = {
+                'n': len(ttc_paired),
+                't': t_ttc,
+                'p': p_ttc,
+                'dz': dz_ttc,
+                'sham_mean': ttc_paired['sham'].mean(),
+                'active_mean': ttc_paired['active'].mean(),
+                'diff_mean': diff_ttc.mean(),
+            }
+            
+            if verbose:
+                print(f'\n--- Trials-to-Criterion: Sham vs Active (paired) ---')
+                print(f'  N = {len(ttc_paired)} subjects')
+                print(f'  Sham: M = {ttc_paired["sham"].mean():.2f}, SD = {ttc_paired["sham"].std():.2f}')
+                print(f'  Active: M = {ttc_paired["active"].mean():.2f}, SD = {ttc_paired["active"].std():.2f}')
+                print(f'  Δ = {diff_ttc.mean():.2f} trials')
+                print(f'  t({len(ttc_paired)-1}) = {t_ttc:.3f}, p = {p_ttc:.3f}, dz = {dz_ttc:.3f}')
+        
+        # 2. Post-reversal accuracy: paired t-test
+        acc_paired = post_rev_acc[post_rev_acc['condition'].isin(['sham', 'active'])].copy()
+        acc_wide = acc_paired.pivot(index='subject_id', columns='condition', values='post_rev_accuracy')
+        acc_wide = acc_wide.dropna()
+        
+        if len(acc_wide) >= 3:
+            t_acc, p_acc = sp_stats.ttest_rel(acc_wide['sham'], acc_wide['active'])
+            diff_acc = acc_wide['active'] - acc_wide['sham']
+            dz_acc = diff_acc.mean() / diff_acc.std() if diff_acc.std() > 0 else 0
+            
+            stats_results['post_rev_accuracy'] = {
+                'n': len(acc_wide),
+                't': t_acc,
+                'p': p_acc,
+                'dz': dz_acc,
+                'sham_mean': acc_wide['sham'].mean(),
+                'active_mean': acc_wide['active'].mean(),
+                'diff_mean': diff_acc.mean(),
+            }
+            
+            if verbose:
+                print(f'\n--- Post-Reversal Accuracy: Sham vs Active (paired) ---')
+                print(f'  N = {len(acc_wide)} subjects')
+                print(f'  Sham: M = {acc_wide["sham"].mean():.3f}, SD = {acc_wide["sham"].std():.3f}')
+                print(f'  Active: M = {acc_wide["active"].mean():.3f}, SD = {acc_wide["active"].std():.3f}')
+                print(f'  Δ = {diff_acc.mean():.3f}')
+                print(f'  t({len(acc_wide)-1}) = {t_acc:.3f}, p = {p_acc:.3f}, dz = {dz_acc:.3f}')
+        
+        # 3. Recovery curve: test at key timepoints (trial 1, trial 5)
+        if verbose:
+            print(f'\n--- Accuracy at Key Timepoints ---')
+        
+        for trial_pos in [1, 5]:
+            trial_data = rev_acc[
+                (rev_acc['trial_from_rev'] == trial_pos) &
+                (rev_acc['condition'].isin(['sham', 'active']))
+            ]
+            trial_wide = trial_data.pivot(index='subject_id', columns='condition', values='p_correct')
+            trial_wide = trial_wide.dropna()
+            
+            if len(trial_wide) >= 3:
+                t_trial, p_trial = sp_stats.ttest_rel(trial_wide['sham'], trial_wide['active'])
+                diff_trial = trial_wide['active'] - trial_wide['sham']
+                dz_trial = diff_trial.mean() / diff_trial.std() if diff_trial.std() > 0 else 0
+                
+                stats_results[f'accuracy_trial_{trial_pos}'] = {
+                    'n': len(trial_wide),
+                    't': t_trial,
+                    'p': p_trial,
+                    'dz': dz_trial,
+                }
+                
+                if verbose:
+                    sig = '*' if p_trial < 0.05 else ''
+                    print(f'  Trial +{trial_pos}: Sham={trial_wide["sham"].mean():.3f}, '
+                          f'Active={trial_wide["active"].mean():.3f}, '
+                          f't={t_trial:.2f}, p={p_trial:.3f}{sig}')
+        
+        # --- Age-Related Analyses ---
+        age_lookup = data.groupby('subject_id')['age'].first()
+        
+        if verbose:
+            print(f'\n--- Age-Related Analyses ---')
+        
+        # 4. Age × TTC (sham condition = baseline individual differences)
+        ttc_sham_subj = (ttc[ttc['condition'] == 'sham']
+                         .groupby('subject_id')['trials_to_criterion']
+                         .mean())
+        ttc_age_df = pd.DataFrame({
+            'age': age_lookup,
+            'ttc_sham': ttc_sham_subj
+        }).dropna()
+        
+        if len(ttc_age_df) >= 5:
+            r_ttc_age, p_ttc_age = sp_stats.pearsonr(ttc_age_df['age'], ttc_age_df['ttc_sham'])
+            stats_results['age_ttc_sham'] = {
+                'r': r_ttc_age,
+                'p': p_ttc_age,
+                'n': len(ttc_age_df),
+            }
+            if verbose:
+                sig = '*' if p_ttc_age < 0.05 else ''
+                print(f'  Age × TTC (sham): r = {r_ttc_age:.3f}, p = {p_ttc_age:.3f}{sig}, n = {len(ttc_age_df)}')
+        
+        # 5. Age × Post-reversal accuracy (sham)
+        acc_sham = post_rev_acc[post_rev_acc['condition'] == 'sham'].set_index('subject_id')
+        acc_age_df = pd.DataFrame({
+            'age': age_lookup,
+            'post_rev_acc': acc_sham['post_rev_accuracy']
+        }).dropna()
+        
+        if len(acc_age_df) >= 5:
+            r_acc_age, p_acc_age = sp_stats.pearsonr(acc_age_df['age'], acc_age_df['post_rev_acc'])
+            stats_results['age_post_rev_acc_sham'] = {
+                'r': r_acc_age,
+                'p': p_acc_age,
+                'n': len(acc_age_df),
+            }
+            if verbose:
+                sig = '*' if p_acc_age < 0.05 else ''
+                print(f'  Age × Post-Rev Accuracy (sham): r = {r_acc_age:.3f}, p = {p_acc_age:.3f}{sig}, n = {len(acc_age_df)}')
+        
+        # 6. Age × tACS effect on TTC (does age moderate stimulation effect?)
+        if 'ttc' in stats_results and len(ttc_paired) >= 5:
+            delta_ttc = ttc_paired['active'] - ttc_paired['sham']
+            delta_age_df = pd.DataFrame({
+                'age': age_lookup.loc[delta_ttc.index],
+                'delta_ttc': delta_ttc
+            }).dropna()
+            
+            if len(delta_age_df) >= 5:
+                r_delta_age, p_delta_age = sp_stats.pearsonr(delta_age_df['age'], delta_age_df['delta_ttc'])
+                stats_results['age_delta_ttc'] = {
+                    'r': r_delta_age,
+                    'p': p_delta_age,
+                    'n': len(delta_age_df),
+                }
+                if verbose:
+                    sig = '*' if p_delta_age < 0.05 else ''
+                    print(f'  Age × Δ TTC (active-sham): r = {r_delta_age:.3f}, p = {p_delta_age:.3f}{sig}, n = {len(delta_age_df)}')
+        
+        # 7. Age × tACS effect on post-reversal accuracy
+        if 'post_rev_accuracy' in stats_results and len(acc_wide) >= 5:
+            delta_acc = acc_wide['active'] - acc_wide['sham']
+            delta_acc_age_df = pd.DataFrame({
+                'age': age_lookup.loc[delta_acc.index],
+                'delta_acc': delta_acc
+            }).dropna()
+            
+            if len(delta_acc_age_df) >= 5:
+                r_delta_acc_age, p_delta_acc_age = sp_stats.pearsonr(
+                    delta_acc_age_df['age'], delta_acc_age_df['delta_acc'])
+                stats_results['age_delta_post_rev_acc'] = {
+                    'r': r_delta_acc_age,
+                    'p': p_delta_acc_age,
+                    'n': len(delta_acc_age_df),
+                }
+                if verbose:
+                    sig = '*' if p_delta_acc_age < 0.05 else ''
+                    print(f'  Age × Δ Post-Rev Acc: r = {r_delta_acc_age:.3f}, p = {p_delta_acc_age:.3f}{sig}, n = {len(delta_acc_age_df)}')
+    
     # Plots
     accuracy_fig = None
     ttc_fig = None
@@ -609,6 +787,7 @@ def run_reversal_analysis(
         'rev_acc': rev_acc,
         'post_rev_acc': post_rev_acc,
         'ttc': ttc,
+        'stats': stats_results,
         'accuracy_fig': accuracy_fig,
         'ttc_fig': ttc_fig,
     }
