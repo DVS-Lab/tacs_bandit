@@ -34,6 +34,7 @@ PRIMARY_VARS = [
     ('sham_p_shift_lose', 'p(shift|lose)'),
     ('sham_alpha', 'α (learn rate)'),
     ('sham_beta', 'β (inv. temp)'),
+    ('theta_p95', 'θ Reactivity'),
 ]
 
 # Secondary: exploratory cognitive/demographic

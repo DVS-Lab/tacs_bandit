@@ -469,13 +469,14 @@ def build_subject_df(
     wsls_h2: Optional[pd.DataFrame] = None,
     rw_mle: Optional[pd.DataFrame] = None,
     ddm_params: Optional[pd.DataFrame] = None,
+    theta_subject: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
     Assemble master subject-level DataFrame.
     
-    Merges: demographics, cognitive composites, SPSRQ, behavioral parameters
+    Merges: demographics, cognitive composites, SPSRQ, behavioral parameters, theta reactivity
     
     Parameters
     ----------
@@ -487,6 +488,8 @@ def build_subject_df(
         R-W parameters from rescorla_wagner module
     ddm_params : DataFrame, optional
         DDM parameters from ddm module
+    theta_subject : DataFrame, optional
+        Theta reactivity from eeg_theta module (subject-level averages)
     h2_subjects : list, optional
         H2-eligible subjects for change scores
     verbose : bool
@@ -592,6 +595,16 @@ def build_subject_df(
         ddm_cols = ['subject_id'] + [c for c in ddm_params.columns if c.startswith('ddm_')]
         subj_df = subj_df.merge(ddm_params[ddm_cols], on='subject_id', how='left')
     
+    # --- Theta reactivity ---
+    if theta_subject is not None and len(theta_subject) > 0:
+        theta_cols = ['subject_id', 'theta_p95', 'theta_p75', 'theta_median']
+        available_cols = [c for c in theta_cols if c in theta_subject.columns]
+        if 'subject_id' in available_cols:
+            subj_df = subj_df.merge(theta_subject[available_cols], on='subject_id', how='left')
+            if verbose:
+                n_theta = subj_df['theta_p95'].notna().sum() if 'theta_p95' in subj_df.columns else 0
+                print(f'  Theta reactivity: {n_theta}')
+    
     if verbose:
         print(f'Subject DataFrame assembled: {len(subj_df)} subjects, {len(subj_df.columns)} variables')
         
@@ -616,6 +629,7 @@ def run_cognitive_merge(
     wsls_h2: Optional[pd.DataFrame] = None,
     rw_mle: Optional[pd.DataFrame] = None,
     ddm_params: Optional[pd.DataFrame] = None,
+    theta_subject: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     verbose: bool = True
 ) -> Dict:
@@ -630,6 +644,8 @@ def run_cognitive_merge(
         R-W parameters
     ddm_params : DataFrame, optional
         DDM parameters
+    theta_subject : DataFrame, optional
+        Theta reactivity (subject-level averages from eeg_theta module)
     h2_subjects : list, optional
         H2-eligible subjects
     verbose : bool
@@ -721,6 +737,7 @@ def run_cognitive_merge(
         wsls_h2=wsls_h2,
         rw_mle=rw_mle,
         ddm_params=ddm_params,
+        theta_subject=theta_subject,
         h2_subjects=h2_subjects,
         verbose=verbose
     )

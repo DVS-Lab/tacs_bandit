@@ -487,8 +487,196 @@ def test_h2_2(
 
 
 # =============================================================================
-# Visualization
+# Exploratory: Theta Moderation of tACS Effect
 # =============================================================================
+
+def test_theta_moderation(
+    subj_df: pd.DataFrame,
+    verbose: bool = True
+) -> Dict:
+    """
+    Exploratory: Theta reactivity as predictor/moderator of tACS effect.
+    
+    Models:
+    1. Bivariate correlations: theta_p95 with change scores
+    2. Multiple regression: delta_* ~ theta_p95 + age + global_composite
+    
+    Parameters
+    ----------
+    subj_df : DataFrame
+        Subject-level data with theta_p95 and delta_* columns
+    verbose : bool
+        If True, print results
+    
+    Returns
+    -------
+    dict with correlation and regression results
+    """
+    if verbose:
+        print('='*70)
+        print('Exploratory: Theta Reactivity as Moderator of tACS Effect')
+        print('='*70)
+        print()
+    
+    results = {
+        'correlations': {},
+        'regressions': {}
+    }
+    
+    if 'theta_p95' not in subj_df.columns:
+        if verbose:
+            print('  theta_p95 not available in data.')
+        return results
+    
+    # Check N with theta data
+    n_theta = subj_df['theta_p95'].notna().sum()
+    if verbose:
+        print(f'Subjects with theta data: {n_theta}')
+        print()
+    
+    if n_theta < 5:
+        if verbose:
+            print('  Insufficient subjects with theta data.')
+        return results
+    
+    # 1. Bivariate correlations with change scores
+    if verbose:
+        print('--- Bivariate Correlations: θ_p95 × Change Scores ---')
+    
+    change_vars = [
+        ('delta_p_stay_win', 'Δ p(stay|win)'),
+        ('delta_p_shift_lose', 'Δ p(shift|lose)'),
+        ('delta_alpha', 'Δ α'),
+        ('delta_beta', 'Δ β'),
+    ]
+    
+    for var, label in change_vars:
+        if var not in subj_df.columns:
+            continue
+        
+        df_pair = subj_df[['theta_p95', var]].dropna()
+        n = len(df_pair)
+        
+        if n < 5:
+            continue
+        
+        r, p = stats.pearsonr(df_pair['theta_p95'], df_pair[var])
+        
+        results['correlations'][var] = {
+            'r': r,
+            'p': p,
+            'n': n
+        }
+        
+        if verbose:
+            sig_marker = '*' if p < 0.05 else ''
+            print(f'  θ_p95 × {label}: r = {r:.3f}, p = {p:.3f}{sig_marker}, n = {n}')
+    
+    # 2. Also check theta × baseline performance
+    if verbose:
+        print('\n--- Bivariate Correlations: θ_p95 × Baseline Performance ---')
+    
+    baseline_vars = [
+        ('sham_p_stay_win', 'p(stay|win)'),
+        ('sham_p_shift_lose', 'p(shift|lose)'),
+        ('sham_alpha', 'α'),
+        ('sham_beta', 'β'),
+    ]
+    
+    for var, label in baseline_vars:
+        if var not in subj_df.columns:
+            continue
+        
+        df_pair = subj_df[['theta_p95', var]].dropna()
+        n = len(df_pair)
+        
+        if n < 5:
+            continue
+        
+        r, p = stats.pearsonr(df_pair['theta_p95'], df_pair[var])
+        
+        results['correlations'][f'baseline_{var}'] = {
+            'r': r,
+            'p': p,
+            'n': n
+        }
+        
+        if verbose:
+            sig_marker = '*' if p < 0.05 else ''
+            print(f'  θ_p95 × {label}: r = {r:.3f}, p = {p:.3f}{sig_marker}, n = {n}')
+    
+    # 3. Multiple regression with theta as predictor of change
+    if verbose:
+        print('\n--- Regression: Change Scores ~ θ_p95 + Age + Global Cog ---')
+    
+    predictors = ['theta_p95', 'age', 'global_composite']
+    
+    for var, label in change_vars:
+        if var not in subj_df.columns:
+            continue
+        
+        result = run_ols(var, predictors, subj_df, verbose=verbose,
+                        model_label=f'{label} ~ θ_p95 + Age + Global')
+        if result is not None:
+            results['regressions'][var] = result
+    
+    if verbose:
+        print()
+    
+    return results
+
+
+def test_theta_baseline_predictors(
+    subj_df: pd.DataFrame,
+    verbose: bool = True
+) -> Dict:
+    """
+    Exploratory: Theta reactivity predicting baseline learning.
+    
+    Adds theta_p95 to H1-style models to test whether neural measure
+    predicts task performance independent of cognitive composites.
+    
+    Parameters
+    ----------
+    subj_df : DataFrame
+        Subject-level data
+    verbose : bool
+        If True, print results
+    
+    Returns
+    -------
+    dict with regression results
+    """
+    if verbose:
+        print('='*70)
+        print('Exploratory: Theta Predicting Baseline Learning')
+        print('='*70)
+        print()
+    
+    results = {}
+    
+    if 'theta_p95' not in subj_df.columns:
+        if verbose:
+            print('  theta_p95 not available.')
+        return results
+    
+    # Model: baseline DV ~ theta_p95 + global_composite + age
+    predictors = ['theta_p95', 'global_composite', 'age']
+    
+    dvs = [
+        ('sham_p_stay_win', 'p(stay|win)'),
+        ('sham_p_shift_lose', 'p(shift|lose)'),
+        ('sham_alpha', 'α'),
+        ('sham_beta', 'β'),
+    ]
+    
+    for dv, label in dvs:
+        if dv in subj_df.columns:
+            result = run_ols(dv, predictors, subj_df, verbose=verbose,
+                            model_label=f'{label} ~ θ_p95 + Global + Age')
+            results[dv] = result
+    
+    return results
 
 def plot_h1_1_scatter(
     subj_df: pd.DataFrame,
@@ -691,7 +879,8 @@ def plot_h2_1_paired(
 def run_hypothesis_tests(
     subj_df: pd.DataFrame,
     show_plots: bool = True,
-    verbose: bool = True
+    verbose: bool = True,
+    include_theta_exploratory: bool = True
 ) -> Dict:
     """
     Run all pre-registered hypothesis tests.
@@ -704,10 +893,12 @@ def run_hypothesis_tests(
         If True, display visualizations
     verbose : bool
         If True, print summaries
+    include_theta_exploratory : bool
+        If True, run theta moderation analyses (exploratory)
     
     Returns
     -------
-    dict with keys: h1_1, h1_2, h2_1, h2_2, and figure objects
+    dict with keys: h1_1, h1_2, h2_1, h2_2, theta_moderation, theta_baseline, and figure objects
     """
     results = {}
     
@@ -722,6 +913,11 @@ def run_hypothesis_tests(
     
     # H2.2: Age moderation
     results['h2_2'] = test_h2_2(subj_df, verbose=verbose)
+    
+    # Exploratory: Theta moderation
+    if include_theta_exploratory:
+        results['theta_moderation'] = test_theta_moderation(subj_df, verbose=verbose)
+        results['theta_baseline'] = test_theta_baseline_predictors(subj_df, verbose=verbose)
     
     # Plots
     if show_plots:
