@@ -295,22 +295,26 @@ def compute_trials_to_criterion(
         condition = group['condition'].iloc[0]
         
         # Find first run of `criterion` consecutive correct
-        # Handle both boolean and string 'True'/'False' values
-        correct_vals = group['correct'].values
+        # Convert to Python list to avoid pandas/numpy type issues
+        correct_vals = group['correct'].tolist()
         consecutive = 0
         ttc = np.nan
         
         for i, c in enumerate(correct_vals):
-            # Convert to boolean if string
+            # Convert to boolean - handle string 'True'/'False', bool, int, etc.
             if isinstance(c, str):
-                is_correct = c.upper() == 'TRUE'
-            else:
+                is_correct = c.strip().upper() == 'TRUE'
+            elif isinstance(c, (bool, np.bool_)):
                 is_correct = bool(c)
+            elif isinstance(c, (int, float, np.integer, np.floating)):
+                is_correct = bool(c)
+            else:
+                is_correct = False
             
             if is_correct:
                 consecutive += 1
-                if consecutive >= criterion:
-                    ttc = i - criterion + 1
+                if consecutive >= int(criterion):
+                    ttc = i - int(criterion) + 1
                     break
             else:
                 consecutive = 0
