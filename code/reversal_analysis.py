@@ -199,11 +199,17 @@ def compute_reversal_accuracy(
         data['condition'].isin(conditions)
     ].copy()
     
+    # Convert 'correct' to numeric (handles string 'True'/'False')
+    if rev_data['correct'].dtype == object:
+        rev_data['correct_num'] = rev_data['correct'].astype(str).str.upper().map({'TRUE': 1, 'FALSE': 0})
+    else:
+        rev_data['correct_num'] = rev_data['correct'].astype(int)
+    
     rev_acc = (rev_data
-        .groupby(['subject_id', 'condition', 'trial_from_rev'])['correct']
+        .groupby(['subject_id', 'condition', 'trial_from_rev'])['correct_num']
         .mean()
         .reset_index()
-        .rename(columns={'correct': 'p_correct'})
+        .rename(columns={'correct_num': 'p_correct'})
     )
     
     return rev_acc
@@ -234,11 +240,17 @@ def compute_post_reversal_accuracy(
         data['trial_from_rev'].between(*window)
     ].copy()
     
+    # Convert 'correct' to numeric (handles string 'True'/'False')
+    if post_rev['correct'].dtype == object:
+        post_rev['correct_num'] = post_rev['correct'].astype(str).str.upper().map({'TRUE': 1, 'FALSE': 0})
+    else:
+        post_rev['correct_num'] = post_rev['correct'].astype(int)
+    
     post_rev_acc = (post_rev
-        .groupby(['subject_id', 'condition'])['correct']
+        .groupby(['subject_id', 'condition'])['correct_num']
         .mean()
         .reset_index()
-        .rename(columns={'correct': 'post_rev_accuracy'})
+        .rename(columns={'correct_num': 'post_rev_accuracy'})
     )
     
     return post_rev_acc
@@ -283,12 +295,19 @@ def compute_trials_to_criterion(
         condition = group['condition'].iloc[0]
         
         # Find first run of `criterion` consecutive correct
+        # Handle both boolean and string 'True'/'False' values
         correct_vals = group['correct'].values
         consecutive = 0
         ttc = np.nan
         
         for i, c in enumerate(correct_vals):
-            if c == True:
+            # Convert to boolean if string
+            if isinstance(c, str):
+                is_correct = c.upper() == 'TRUE'
+            else:
+                is_correct = bool(c)
+            
+            if is_correct:
                 consecutive += 1
                 if consecutive >= criterion:
                     ttc = i - criterion + 1
