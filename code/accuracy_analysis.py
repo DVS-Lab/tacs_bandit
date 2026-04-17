@@ -1147,6 +1147,301 @@ def plot_counterbalance_comparison(
 
 
 # =============================================================================
+# Baseline Performance Moderates Stimulation Effects
+# =============================================================================
+
+def compute_baseline_moderation(
+    run_df: pd.DataFrame,
+    cond_df: pd.DataFrame,
+    baseline_metric: str = 'run1_accuracy',
+    verbose: bool = True
+) -> Dict:
+    """
+    Test whether baseline (run-1) accuracy predicts stimulation efficacy.
+    
+    Logic: If tACS works better for some individuals than others, baseline
+    task competence might moderate effects. Run-1 is used because it's
+    uncontaminated by any active stimulation (regardless of counterbalance,
+    it's their first exposure to the task).
+    
+    Parameters
+    ----------
+    run_df : DataFrame
+        Output from compute_run_level_accuracy()
+    cond_df : DataFrame
+        Output from compute_condition_level_accuracy()
+    baseline_metric : str
+        Which baseline to use ('run1_accuracy' or 'sham_accuracy')
+    verbose : bool
+        Print results
+    
+    Returns
+    -------
+    dict with moderation results for accuracy and win_rate
+    """
+    results = {}
+    
+    # Get run-1 accuracy per subject
+    run1 = run_df[run_df['run'] == 1][['subject_id', 'accuracy', 'age']].copy()
+    run1 = run1.rename(columns={'accuracy': 'run1_accuracy'})
+    run1 = run1.set_index('subject_id')
+    
+    # Get condition-level accuracy/win_rate and compute deltas
+    for metric in ['accuracy', 'win_rate']:
+        pivot = cond_df.pivot(index='subject_id', columns='condition', values=metric)
+        
+        if 'sham' not in pivot.columns or 'active' not in pivot.columns:
+            continue
+        
+        paired = pivot[['sham', 'active']].dropna()
+        paired['delta'] = paired['active'] - paired['sham']
+        
+        # Merge with run-1 baseline
+        merged = paired.join(run1[['run1_accuracy', 'age']], how='inner')
+        merged = merged.dropna()
+        
+        if len(merged) < 5:
+            continue
+        
+        # Test: run1_accuracy × delta
+        r, p = stats.pearsonr(merged['run1_accuracy'], merged['delta'])
+        
+        # Also test with age partialed out (if we want to be thorough)
+        # For now, just report the simple correlation
+        
+        results[metric] = {
+            'r': r,
+            'p': p,
+            'n': len(merged),
+            'baseline_mean': merged['run1_accuracy'].mean(),
+            'baseline_sd': merged['run1_accuracy'].std(),
+            'delta_mean': merged['delta'].mean(),
+            'delta_sd': merged['delta'].std(),
+            'data': merged,  # For plotting
+        }
+        
+        # Direction interpretation
+        if r > 0:
+            interpretation = "Higher baseline → larger tACS benefit"
+        else:
+            interpretation = "Lower baseline → larger tACS benefit"
+        results[metric]['interpretation'] = interpretation
+    
+    if verbose:
+        print("\n" + "="*60)
+        print("BASELINE MODERATION OF STIMULATION EFFECTS")
+        print("="*60)
+        print("\nQuestion: Does run-1 accuracy predict tACS efficacy (active - sham)?")
+        
+        for metric, r in results.items():
+            sig = '*' if r['p'] < 0.05 else ''
+            print(f"\n{metric.replace('_', ' ').title()}:")
+            print(f"  Run-1 accuracy: M = {r['baseline_mean']:.3f}, SD = {r['baseline_sd']:.3f}")
+            print(f"  Δ (active - sham): M = {r['delta_mean']:+.3f}, SD = {r['delta_sd']:.3f}")
+            print(f"  Correlation: r = {r['r']:.3f}, p = {r['p']:.3f}{sig}, n = {r['n']}")
+            print(f"  Interpretation: {r['interpretation']}")
+    
+    return results
+
+
+def plot_baseline_moderation(
+    moderation_results: Dict,
+    metric: str = 'accuracy',
+    show_fig: bool = True
+) -> go.Figure:
+    """
+    Scatter plot: Run-1 accuracy (x) vs stimulation effect (y).
+    
+    Parameters
+    ----------
+    moderation_results : dict
+        Output from compute_baseline_moderation()
+    metric : str
+        'accuracy' or 'win_rate'
+    show_fig : bool
+        Display figure
+    
+    Returns
+    -------
+    go.Figure
+    """
+    if metric not in moderation_results:
+        print(f"No moderation results for {metric}")
+        return None
+    
+    res = moderation_results[metric]
+    data = res['data']
+    
+    fig = go.Figure()
+    
+    # Scatter points colored by age
+    for subj in data.index:
+        age = data.loc[subj, 'age']
+        color = _age_to_rgb(age)
+        
+        fig.add_trace(go.Scatter(
+            x=[data.loc[subj, 'run1_accuracy']],
+            y=[data.loc[subj, 'delta']],
+            mode='markers',
+            marker=dict(size=12, color=color, line=dict(width=1, color='white')),
+            showlegend=False,
+            hovertemplate=f"Sub-{subj}<br>Age: {age:.0f}<br>"
+                          f"Run-1 acc: {data.loc[subj, 'run1_accuracy']:.3f}<br>"
+                          f"Δ{metric}: {data.loc[subj, 'delta']:+.3f}"
+        ))
+    
+    # Regression line
+    x = data['run1_accuracy']
+    y = data['delta']
+    slope, intercept = np.polyfit(x, y, 1)
+    x_line = np.linspace(x.min() - 0.02, x.max() + 0.02, 100)
+    
+    fig.add_trace(go.Scatter(
+        x=x_line,
+        y=intercept + slope * x_line,
+        mode='lines',
+        line=dict(color='#404040', width=2, dash='dash'),
+        showlegend=False
+    ))
+    
+    # Reference lines
+    fig.add_hline(y=0, line_dash='dot', line_color='gray', opacity=0.7)
+    fig.add_vline(x=0.5, line_dash='dot', line_color='gray', opacity=0.5,
+                  annotation_text='Chance', annotation_position='bottom')
+    
+    # Annotation with stats
+    sig = '*' if res['p'] < 0.05 else ''
+    fig.add_annotation(
+        x=0.98, y=0.98, xref='paper', yref='paper',
+        text=f"r = {res['r']:.3f}, p = {res['p']:.3f}{sig}<br>N = {res['n']}",
+        showarrow=False,
+        font=dict(size=12),
+        bgcolor='rgba(255,255,255,0.8)',
+        xanchor='right', yanchor='top'
+    )
+    
+    # Labels
+    metric_label = metric.replace('_', ' ').title()
+    
+    fig.update_layout(
+        title=f"Baseline Performance Moderates tACS Effect<br>"
+              f"<sup>Run-1 {metric_label} vs. Stimulation Effect (Active − Sham)</sup>",
+        xaxis_title=f"Run-1 {metric_label}",
+        yaxis_title=f"Δ {metric_label} (Active − Sham)",
+        xaxis=dict(range=[0.35, 0.95]),
+        yaxis=dict(zeroline=True),
+        template=PLOTLY_TEMPLATE,
+        font=dict(family=FONT_FAMILY),
+        height=500,
+        width=550
+    )
+    
+    if show_fig:
+        fig.show()
+    
+    return fig
+
+
+def test_baseline_moderates_other_dvs(
+    run_df: pd.DataFrame,
+    wsls_h2: pd.DataFrame = None,
+    rw_df: pd.DataFrame = None,
+    ddm_df: pd.DataFrame = None,
+    verbose: bool = True
+) -> Dict:
+    """
+    Test whether run-1 accuracy predicts stimulation effects on other DVs.
+    
+    Tests moderation for:
+    - WSLS parameters (if wsls_h2 provided)
+    - R-W parameters (if rw_df provided)
+    - DDM parameters (if ddm_df provided)
+    
+    Parameters
+    ----------
+    run_df : DataFrame
+        Output from compute_run_level_accuracy()
+    wsls_h2 : DataFrame, optional
+        WSLS results with sham/active columns
+    rw_df : DataFrame, optional
+        R-W parameters by subject × condition
+    ddm_df : DataFrame, optional
+        DDM parameters by subject × condition
+    verbose : bool
+        Print results
+    
+    Returns
+    -------
+    dict with moderation results for each DV
+    """
+    results = {}
+    
+    # Get run-1 accuracy
+    run1 = run_df[run_df['run'] == 1][['subject_id', 'accuracy']].copy()
+    run1 = run1.set_index('subject_id')
+    run1 = run1.rename(columns={'accuracy': 'run1_accuracy'})
+    
+    # WSLS moderation
+    if wsls_h2 is not None:
+        for dv in ['p_stay_win', 'p_shift_lose']:
+            if f'{dv}_sham' in wsls_h2.columns and f'{dv}_active' in wsls_h2.columns:
+                wsls_data = wsls_h2[[f'{dv}_sham', f'{dv}_active']].copy()
+                wsls_data['delta'] = wsls_data[f'{dv}_active'] - wsls_data[f'{dv}_sham']
+                
+                merged = wsls_data.join(run1, how='inner').dropna()
+                
+                if len(merged) >= 5:
+                    r, p = stats.pearsonr(merged['run1_accuracy'], merged['delta'])
+                    results[f'wsls_{dv}'] = {'r': r, 'p': p, 'n': len(merged)}
+    
+    # R-W moderation
+    if rw_df is not None:
+        for param in ['alpha', 'beta']:
+            sham_col = f'{param}_sham' if f'{param}_sham' in rw_df.columns else None
+            active_col = f'{param}_active' if f'{param}_active' in rw_df.columns else None
+            
+            # Try alternative column naming
+            if sham_col is None:
+                sham_data = rw_df[(rw_df['condition'] == 'sham')][['subject_id', param]].set_index('subject_id') if 'condition' in rw_df.columns else None
+                active_data = rw_df[(rw_df['condition'] == 'active')][['subject_id', param]].set_index('subject_id') if 'condition' in rw_df.columns else None
+                
+                if sham_data is not None and active_data is not None:
+                    rw_paired = sham_data.join(active_data, lsuffix='_sham', rsuffix='_active')
+                    rw_paired['delta'] = rw_paired[f'{param}_active'] - rw_paired[f'{param}_sham']
+                    
+                    merged = rw_paired.join(run1, how='inner').dropna()
+                    
+                    if len(merged) >= 5:
+                        r, p = stats.pearsonr(merged['run1_accuracy'], merged['delta'])
+                        results[f'rw_{param}'] = {'r': r, 'p': p, 'n': len(merged)}
+    
+    # DDM moderation
+    if ddm_df is not None:
+        for param in ['v', 'a', 't']:
+            if f'{param}_sham' in ddm_df.columns and f'{param}_active' in ddm_df.columns:
+                ddm_data = ddm_df[[f'{param}_sham', f'{param}_active']].copy()
+                ddm_data['delta'] = ddm_data[f'{param}_active'] - ddm_data[f'{param}_sham']
+                
+                merged = ddm_data.join(run1, how='inner').dropna()
+                
+                if len(merged) >= 5:
+                    r, p = stats.pearsonr(merged['run1_accuracy'], merged['delta'])
+                    results[f'ddm_{param}'] = {'r': r, 'p': p, 'n': len(merged)}
+    
+    if verbose and results:
+        print("\n" + "="*60)
+        print("BASELINE MODERATION OF OTHER DVs")
+        print("="*60)
+        print("\nRun-1 accuracy × Δ(active - sham) correlations:")
+        
+        for dv, r in results.items():
+            sig = '*' if r['p'] < 0.05 else ''
+            print(f"  {dv}: r = {r['r']:.3f}, p = {r['p']:.3f}{sig}, n = {r['n']}")
+    
+    return results
+
+
+# =============================================================================
 # Main Analysis Pipeline
 # =============================================================================
 
@@ -1182,6 +1477,7 @@ def run_accuracy_analysis(
         'learning_curves': None,
         'contingency_curves': None,
         'age_effects': None,
+        'baseline_moderation': None,
         'figures': {}
     }
     
@@ -1231,7 +1527,13 @@ def run_accuracy_analysis(
     results['age_effects'] = {'accuracy': age_acc, 'win_rate': age_win}
     
     # -------------------------------------------------------------------------
-    # 7. Visualizations
+    # 7. Baseline moderation of stimulation effects
+    # -------------------------------------------------------------------------
+    baseline_mod = compute_baseline_moderation(run_df, cond_df, verbose=verbose)
+    results['baseline_moderation'] = baseline_mod
+    
+    # -------------------------------------------------------------------------
+    # 8. Visualizations
     # -------------------------------------------------------------------------
     if show_plots:
         if verbose:
@@ -1271,6 +1573,16 @@ def run_accuracy_analysis(
         results['figures']['age_accuracy_active'] = plot_age_accuracy_scatter(
             cond_df, metric='accuracy', condition='active', show_fig=True
         )
+        
+        # Baseline moderation
+        if baseline_mod and 'accuracy' in baseline_mod:
+            results['figures']['baseline_mod_accuracy'] = plot_baseline_moderation(
+                baseline_mod, metric='accuracy', show_fig=True
+            )
+        if baseline_mod and 'win_rate' in baseline_mod:
+            results['figures']['baseline_mod_winrate'] = plot_baseline_moderation(
+                baseline_mod, metric='win_rate', show_fig=True
+            )
     
     if verbose:
         print("\n" + "="*70)
@@ -1294,4 +1606,7 @@ if __name__ == '__main__':
     print("  - compute_learning_curves()")
     print("  - compute_contingency_learning_curves()")
     print("  - test_age_effects_accuracy()")
+    print("  - compute_baseline_moderation()")
+    print("  - plot_baseline_moderation()")
+    print("  - test_baseline_moderates_other_dvs()")
     print("  - run_accuracy_analysis()")
