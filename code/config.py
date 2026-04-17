@@ -47,8 +47,8 @@ TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcr
 # Subjects not in this dict are excluded from analyses (pilots, tests, etc.)
 
 SUBJECT_INFO = {
-    '10998': {'counterbalance': 'B', 'earclip': False, 'notes': 'Missing Run 1; Run 6 was sham (experimenter error)'},
-    '11773': {'counterbalance': 'B', 'earclip': False, 'notes': 'Runs 6-7 were sham (experimenter error)'},
+    '10998': {'counterbalance': 'B', 'earclip': False, 'notes': 'Missing Run 1; One intended stim run was sham (experimenter error)'},
+    '11773': {'counterbalance': 'B', 'earclip': False, 'notes': 'Intended stim runs were actually sham (experimenter error)'},
     '10886': {'counterbalance': 'B', 'earclip': False, 'notes': ''},
     '10656': {'counterbalance': 'A', 'earclip': False, 'notes': ''},
     '10951': {'counterbalance': 'A', 'earclip': False, 'notes': 'Electrode artifact (loose connection suspected)'},
@@ -78,7 +78,11 @@ SUBJECT_INFO = {
     '11016': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10716': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '11526': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '10810': {'counterbalance': 'A', 'earclip': True, 'notes': ''}
+    '10810': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
+    '10804': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '10898': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
+    '10590': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '10950': {'counterbalance': 'A', 'earclip': True, 'notes': ''}
 }
 
 # Subjects without hardware earclip reference (first 4 participants)
