@@ -72,6 +72,7 @@ def _age_to_rgb(age: float, age_min: float = AGE_MIN, age_max: float = AGE_MAX) 
 
 def load_efield_data(
     filepath: str = EFIELD_CSV_DEFAULT,
+    cond_df: pd.DataFrame = None,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
@@ -81,6 +82,8 @@ def load_efield_data(
     ----------
     filepath : str
         Path to e-field CSV file
+    cond_df : DataFrame, optional
+        Condition-level data containing age (from accuracy_analysis)
     verbose : bool
         Print summary
     
@@ -94,12 +97,26 @@ def load_efield_data(
     # Ensure subject_id is int for merging
     efield['subject_id'] = efield['subject_id'].astype(int)
     
-    # Add age from SUBJECT_INFO
-    age_lookup = {s: info['age'] for s, info in SUBJECT_INFO.items()}
-    efield['age'] = efield['subject_id'].map(age_lookup)
+    # Add age from cond_df if provided
+    if cond_df is not None and 'age' in cond_df.columns:
+        # Handle case where subject_id might be index or column
+        if 'subject_id' in cond_df.columns:
+            # Ensure consistent int type for subject_id
+            cond_df_copy = cond_df.copy()
+            cond_df_copy['subject_id'] = cond_df_copy['subject_id'].astype(int)
+            age_lookup = cond_df_copy.groupby('subject_id')['age'].first().to_dict()
+        else:
+            # subject_id is the index
+            age_lookup = cond_df.groupby(cond_df.index)['age'].first().to_dict()
+            # Convert keys to int for matching
+            age_lookup = {int(k): v for k, v in age_lookup.items()}
+        
+        efield['age'] = efield['subject_id'].map(age_lookup)
+    else:
+        efield['age'] = np.nan
     
-    # Add counterbalance
-    cb_lookup = {s: info['counterbalance'] for s, info in SUBJECT_INFO.items()}
+    # Add counterbalance from SUBJECT_INFO
+    cb_lookup = {int(s): info['counterbalance'] for s, info in SUBJECT_INFO.items()}
     efield['counterbalance'] = efield['subject_id'].map(cb_lookup)
     
     if verbose:
@@ -111,7 +128,7 @@ def load_efield_data(
         
         # Check overlap
         efield_subjs = set(efield['subject_id'])
-        study_subjs = set(SUBJECT_INFO.keys())
+        study_subjs = set(int(s) for s in SUBJECT_INFO.keys())
         overlap = efield_subjs & study_subjs
         missing_efield = study_subjs - efield_subjs
         
@@ -124,7 +141,12 @@ def load_efield_data(
         print(f"  SD: {efield[EFIELD_METRIC].std():.4f}")
         print(f"  Range: {efield[EFIELD_METRIC].min():.4f} - {efield[EFIELD_METRIC].max():.4f}")
         
-        print(f"\nAge range: {efield['age'].min():.0f} - {efield['age'].max():.0f}")
+        n_with_age = efield['age'].notna().sum()
+        if n_with_age > 0:
+            print(f"\nSubjects with age data: {n_with_age}")
+            print(f"Age range: {efield['age'].min():.0f} - {efield['age'].max():.0f}")
+        else:
+            print("\nAge data not available (provide cond_df with age column)")
     
     return efield
 
@@ -212,6 +234,10 @@ def plot_age_vs_efield(
     go.Figure
     """
     df = efield_df[['subject_id', 'age', EFIELD_METRIC]].dropna()
+    
+    if len(df) < 2:
+        print("Insufficient data for age × e-field plot (need at least 2 subjects with age)")
+        return None
     
     r, p = stats.pearsonr(df['age'], df[EFIELD_METRIC])
     
@@ -310,15 +336,20 @@ def compute_efield_moderation(
     """
     results = {}
     
-    # Prepare e-field lookup
+    # Prepare e-field lookup with int index
     efield_lookup = efield_df.set_index('subject_id')[[EFIELD_METRIC, 'age']].copy()
+    efield_lookup.index = efield_lookup.index.astype(int)
     
     # -------------------------------------------------------------------------
     # Accuracy / Win Rate moderation
     # -------------------------------------------------------------------------
     if cond_df is not None:
+        # Ensure subject_id is int before pivoting
+        cond_df_copy = cond_df.copy()
+        cond_df_copy['subject_id'] = cond_df_copy['subject_id'].astype(int)
+        
         for metric in ['accuracy', 'win_rate']:
-            pivot = cond_df.pivot(index='subject_id', columns='condition', values=metric)
+            pivot = cond_df_copy.pivot(index='subject_id', columns='condition', values=metric)
             
             if 'sham' not in pivot.columns or 'active' not in pivot.columns:
                 continue
@@ -326,7 +357,7 @@ def compute_efield_moderation(
             paired = pivot[['sham', 'active']].dropna()
             paired['delta'] = paired['active'] - paired['sham']
             
-            # Merge with e-field
+            # Merge with e-field (both should have int index now)
             merged = paired.join(efield_lookup, how='inner').dropna()
             
             if len(merged) >= 5:
@@ -345,21 +376,30 @@ def compute_efield_moderation(
     # WSLS moderation
     # -------------------------------------------------------------------------
     if wsls_h2 is not None:
-        # Try different column naming conventions
-        for dv_base in ['p_stay_win', 'p_shift_lose']:
-            # Check for wide format (separate columns)
-            sham_col = f'{dv_base}_sham'
-            active_col = f'{dv_base}_active'
+        # wsls_h2 is in long format: subject_id, condition, p_stay_win, p_shift_lose
+        for dv in ['p_stay_win', 'p_shift_lose']:
+            if dv not in wsls_h2.columns:
+                continue
             
-            if sham_col in wsls_h2.columns and active_col in wsls_h2.columns:
-                wsls_data = wsls_h2[[sham_col, active_col]].copy()
-                wsls_data['delta'] = wsls_data[active_col] - wsls_data[sham_col]
-                
-                merged = wsls_data.join(efield_lookup, how='inner').dropna()
-                
-                if len(merged) >= 5:
-                    r, p = stats.pearsonr(merged[EFIELD_METRIC], merged['delta'])
-                    results[f'wsls_{dv_base}'] = {'r': r, 'p': p, 'n': len(merged), 'data': merged}
+            # Ensure subject_id is int
+            wsls_copy = wsls_h2.copy()
+            wsls_copy['subject_id'] = wsls_copy['subject_id'].astype(int)
+            
+            # Pivot to wide format
+            pivot = wsls_copy.pivot(index='subject_id', columns='condition', values=dv)
+            
+            if 'sham' not in pivot.columns or 'active' not in pivot.columns:
+                continue
+            
+            paired = pivot[['sham', 'active']].dropna()
+            paired['delta'] = paired['active'] - paired['sham']
+            
+            # Merge with e-field
+            merged = paired.join(efield_lookup, how='inner').dropna()
+            
+            if len(merged) >= 5:
+                r, p = stats.pearsonr(merged[EFIELD_METRIC], merged['delta'])
+                results[f'wsls_{dv}'] = {'r': r, 'p': p, 'n': len(merged), 'data': merged}
     
     # -------------------------------------------------------------------------
     # R-W moderation
@@ -634,7 +674,7 @@ def run_efield_analysis(
     # -------------------------------------------------------------------------
     # 1. Load e-field data
     # -------------------------------------------------------------------------
-    efield_df = load_efield_data(efield_path, verbose=verbose)
+    efield_df = load_efield_data(efield_path, cond_df=cond_df, verbose=verbose)
     results['efield_data'] = efield_df
     
     # -------------------------------------------------------------------------
@@ -678,6 +718,18 @@ def run_efield_analysis(
         if 'win_rate' in mod_results:
             results['figures']['efield_vs_delta_winrate'] = plot_efield_vs_delta(
                 mod_results, dv='win_rate', show_fig=True
+            )
+        
+        # E-field × Δ WSLS p(stay|win)
+        if 'wsls_p_stay_win' in mod_results:
+            results['figures']['efield_vs_delta_p_stay_win'] = plot_efield_vs_delta(
+                mod_results, dv='wsls_p_stay_win', show_fig=True
+            )
+        
+        # E-field × Δ WSLS p(shift|lose)
+        if 'wsls_p_shift_lose' in mod_results:
+            results['figures']['efield_vs_delta_p_shift_lose'] = plot_efield_vs_delta(
+                mod_results, dv='wsls_p_shift_lose', show_fig=True
             )
         
         # Summary forest plot
