@@ -83,7 +83,8 @@ SUBJECT_INFO = {
     '10898': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
     '10590': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10950': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
-    '11036': {'counterbalance': 'B', 'earclip': True, 'notes': ''}
+    '11036': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11031': {'counterbalance': 'A', 'earclip': True, 'notes': ''}
 }
 
 # Subjects without hardware earclip reference (first 4 participants)
