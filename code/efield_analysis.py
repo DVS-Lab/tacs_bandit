@@ -282,7 +282,7 @@ def plot_age_vs_efield(
     )
     
     fig.update_layout(
-        title=f"Age vs. E-field Strength in Target ROI<br>"
+        title=f"Age vs. E-field Strength in Left DLPFC<br>"
               f"<sup>Does cortical atrophy reduce field strength?</sup>",
         xaxis_title="Age (years)",
         yaxis_title=f"Mean E-field Magnitude ({EFIELD_UNITS})",
