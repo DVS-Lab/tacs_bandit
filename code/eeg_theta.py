@@ -351,7 +351,7 @@ def compute_theta_reactivity_run(
     if eeg_dir is None:
         eeg_dir = EEG_DIR
     if behav_dir is None:
-        behav_dir = DATA_DIR / 'bandit'
+        behav_dir = DATA_DIR  # DATA_DIR already points to .../data/bandit
     
     eeg_path = find_eeg_run(eeg_dir, subject_id, run_num)
     if eeg_path is None:
