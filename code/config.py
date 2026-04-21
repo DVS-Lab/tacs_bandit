@@ -27,7 +27,7 @@ EEG_DIR = REPO_ROOT / 'data' / 'nic' / 'raw'
 # REDCap exports
 REDCAP_RF1_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce-FullScoringFinishedS_DATA_LABELS_2026-02-28_1613.csv'
 REDCAP_RF1_RAW_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_2026-02-28_1436.csv'
-REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-04-10_1000.csv'
+REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-04-21_1210.csv'
 
 # TabCAT cognitive battery
 TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcrossTheLifespan_2026-2-28.csv'
