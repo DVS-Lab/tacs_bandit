@@ -1,295 +1,226 @@
-# Two-Armed Bandit Task
+# tACS Bandit with Fast Feedback-Theta Localizer
 
-A Python implementation of a reinforcement learning task with reversal learning, designed for cognitive neuroscience research with real-time EEG/tACS stimulation integration via Lab Streaming Layer (LSL).
+This repository runs a two-armed reversal-learning bandit task for StarStim 8 / NIC-2 studies and now supports a fast no-stimulation localizer for participant-specific feedback-locked theta.
 
 ## Overview
 
-This task implements a two-armed bandit paradigm where participants choose between two flower images to maximize rewards. The reward probabilities reverse periodically, requiring participants to adapt their choices. The implementation features automatic synchronization with Neuroelectrics Starstim devices via LSL markers for precise timing in brain stimulation experiments.
+The main scientific target is **task-evoked, feedback-locked theta** during reward learning, not a generic resting “intrinsic theta” estimate. The intended workflow is:
 
-## Key Features
+1. Run `LOCALIZER_FAST_THETA` for 5-10 minutes with no stimulation.
+2. Record StarStim EEG over LSL during the localizer or import an offline EEG export later.
+3. Preprocess the EEG automatically.
+4. Estimate a **participant-specific feedback theta** peak.
+5. Save that estimate in a subject-level JSON file.
+6. Run `ITHETA_TACS` using the selected frequency.
+7. Fall back to fixed 6.0 Hz when the individualized estimate is unreliable.
 
-### **Core Task**
-- Two-choice bandit task with configurable reward probabilities (default 75/25%)
-- Reversal learning with pseudorandom contingency durations (25±4 trials)
-- Flower images as stimuli with unique combinations per run
-- Configurable timing optimized for different experimental protocols (behavioral, fMRI, EEG)
-- Multiple response modalities (keyboard: 1/2 or A/L keys)
+## Experiment Modes
 
-### **LSL-Triggered Stimulation Integration**
-- **Real-time synchronization** with Neuroelectrics Starstim via Lab Streaming Layer
-- **Automatic task triggering** when stimulation protocols start (marker 203)
-- **Double-blind compatible** - researcher loads protocols without knowing condition
-- **Perfect timing alignment** - task and stimulation run simultaneously
-- Support for both tACS (active) and sham stimulation protocols
-- Comprehensive event marker logging for EEG analysis
+- `LOCALIZER_FAST_THETA`: Fast no-stimulation bandit localizer with event-rich feedback logging.
+- `ITHETA_TACS`: Theta-tACS using the most recent reliable participant-specific feedback theta estimate.
+- `FIXED_THETA_TACS`: Fixed 6.0 Hz theta-tACS for controls and fallback.
+- `SHAM`: Sham run with the same task timing and logging structure.
+- `THETA_NIC`, `DC_NIC`, `BEHAVIORAL`: Legacy aliases preserved for backward compatibility.
 
-### **Experimental Protocols**
-- **8-run counterbalanced design** with baseline and stimulation blocks
-- **DLPFC stimulation protocols** (active vs sham, counterbalanced across subjects)
-- **Multiple timing modes**: THETA_NIC, DC_NIC, BEHAVIORAL
-- **Test mode** for development and training without hardware
+## Fast Localizer
 
-### **Data & Analysis**
-- Trial-by-trial data logging with stimulation synchronization info
-- Contingency reversal tracking and performance metrics
-- CSV output compatible with standard analysis pipelines
-- Event marker logs for EEG/stimulation analysis
+`LOCALIZER_FAST_THETA` is a faster version of the same two-choice reversal-learning bandit task:
 
-## Installation
+- Two choices, probabilistic reward, reversals, and win/loss/miss feedback.
+- Default duration: 6 minutes.
+- Configurable duration: 5, 6, 8, or 10 minutes.
+- Default target: about 120 trials and at least 100 feedback events before artifact rejection.
+- Localizer timing defaults are shorter than the legacy stimulation blocks so the operator can estimate theta before the next run.
 
-### Prerequisites
+The localizer sends the standard feedback markers (`31`, `32`, `33`), stores detailed feedback timing in the behavioral CSV, and can subscribe to a live StarStim EEG LSL stream during the run.
 
-- **Python 3.8+**
-- **macOS/Linux** (tested on macOS)
-- **Neuroelectrics NIC-2 software** (for stimulation integration)
-- **Lab Streaming Layer (LSL)** for real-time data streaming
+## Standard Workflow
 
-### Setup
-
-1. **Clone the repository:**
-```bash
-git clone https://github.com/your-username/tacs_bandit.git
-cd tacs_bandit
-```
-
-2. **Install Python dependencies:**
-```bash
-pip install pygame pandas numpy pylsl
-```
-
-3. **Install LSL library (macOS):**
-```bash
-# Using Homebrew
-brew install labstreaminglayer/tap/lsl
-
-# Set environment variable
-export DYLD_LIBRARY_PATH=/opt/homebrew/lib
-```
-
-4. **Setup stimuli:**
-   - Place flower images in `stimuli/images/` as `001-flowers.png` through `050-flowers.png`
-   - Add feedback images: `001-win.png` through `009-win.png`, `001-loss.png` through `009-loss.png`
-   - Include `question-mark.png` for missed trials
-
-## Usage
-
-### Basic Usage (No Stimulation)
+### 1. Run the localizer
 
 ```bash
-cd code/
-python bandit_main.py
+cd code
+python bandit_main.py --mode LOCALIZER_FAST_THETA --subject 001 --session 001
 ```
 
-**Test parameters:**
-- Subject ID: Any number
+### 2. Estimate participant-specific feedback theta
 
-### LSL-Triggered Stimulation Mode
-
-1. **Configure stimulation in `config.json`:**
-```json
-{
-  "stimulation": {
-    "enabled": true,
-    "test_mode": false
-  }
-}
-```
-
-2. **Start NIC-2 software and enable LSL:**
-   - Protocol Settings → LSL Server → Enable
-   - Load appropriate protocol (DLPFC_Active or DLPFC_Sham)
-
-3. **Run the task:**
 ```bash
-python bandit_main.py
+python run_theta_estimation.py --subject 001 --session 001 --auto-find
 ```
 
-4. **Follow the workflow:**
-   - Task shows which protocol to load (based on counterbalancing)
-   - Task waits: "Waiting for stimulation to start..."
-   - Start protocol in NIC-2 → Task begins automatically!
+This writes:
 
-### Configuration
+- A subject/session theta estimate JSON
+- A one-row CSV summary
+- QC plots for channel quality, epoch retention, ROI time-frequency power, theta spectrum, split-half peaks, and bootstrap peak stability
+- An HTML report when enabled in `config.json`
 
-Edit `code/config.json` to customize parameters:
+### 3. Run individualized theta stimulation
 
-```json
-{
-  "experiment": {
-    "run_duration_minutes": 6,
-    "mode": "THETA_NIC"
-  },
-  "task": {
-    "min_trials_same_contingency": 25,
-    "contingency_jitter": 4,
-    "win_fraction": 0.75
-  },
-  "timing": {
-    "fixation_duration": 0.5,
-    "max_response_time": 2.0,
-    "wait_duration_min": 2.0,
-    "wait_duration_max": 2.0,
-    "outcome_duration": 1.0,
-    "iti_duration": 0.25
-  },
-  "stimulation": {
-    "enabled": false,
-    "test_mode": true,
-    "protocols": {
-      "active": "DLPFC_Active",
-      "sham": "DLPFC_Sham"
-    }
-  }
-}
+```bash
+python bandit_main.py --mode ITHETA_TACS --subject 001 --session 001 --run 1
 ```
 
-## Experimental Workflow
+### 4. Run fixed theta control or fallback
 
-### Per-Run Procedure
-
-1. **Setup**: Load correct protocol in NIC-2 (as instructed by task)
-2. **Start task**: `python bandit_main.py`
-3. **Enter subject info** and run number
-4. **Wait for trigger**: Task displays "Waiting for stimulation..."
-5. **Start stimulation**: Click start in NIC-2 → Task begins immediately
-6. **Monitor**: Task runs for exactly 6 minutes
-7. **Data saved**: Automatic CSV export with performance summary
-
-## Data Output
-
-### File Structure
-```
-data/
-└── sub-{ID}/
-    ├── sub-{ID}_ses-{SESSION}_run-{RUN}_task-bandit_{TIMESTAMP}.csv
-    └── ...
+```bash
+python bandit_main.py --mode FIXED_THETA_TACS --subject 001 --session 001 --run 1 --frequency 6.0
 ```
 
-### Data Columns
-- `trial_num`: Trial number within run
-- `run`, `run_type`, `stim_condition`: Experimental condition info
-- `choice`, `rt`: Participant response and reaction time
-- `correct`, `reward`: Trial outcome
-- `current_good`: Which flower had higher reward probability
-- `trial_in_contingency`: Trials since last reversal
-- `flower1`, `flower2`: Specific flower images used
-- `slot1_position`, `slot2_position`: Left/right randomization
-- `timestamp`: Time relative to run start
+## Frequency Decision Rules
 
-### LSL Event Markers
-Event markers are logged for EEG analysis:
+- Reliable feedback-locked theta estimate: use the rounded participant-specific frequency.
+- Unreliable feedback-locked theta estimate: use fixed 6.0 Hz when fallback is enabled.
+- No theta file found: follow `stimulation_frequency_selection.stop_if_no_theta_file`.
+
+The task never silently substitutes frequencies. Operator-facing summaries, logs, and trial CSVs store:
+
+- Intended stimulation frequency
+- Operator-confirmed protocol
+- Operator-confirmed frequency
+- Theta source (`reliable_itheta`, `fallback_fixed_6hz`, `fixed_6hz`, `sham`, or `none`)
+- Theta estimate file path
+- Reliability decision and reason
+
+## EEG Recording and Estimation
+
+### Live LSL pathway
+
+During `LOCALIZER_FAST_THETA`, the code can:
+
+- Resolve an incoming EEG LSL stream
+- Record samples and timestamps continuously
+- Save raw EEG as `.npz`
+- Optionally save a `.csv` export and metadata JSON
+
+### Offline import pathway
+
+`run_theta_estimation.py` supports `.npz`, `.csv`, `.edf`, `.bdf`, `.xdf`, and `.set` inputs. `edf`, `bdf`, and `set` loading use MNE when available; `xdf` uses `pyxdf` when available.
+
+### Preprocessing defaults
+
+- High-pass: 0.5 Hz
+- Low-pass: 40 Hz
+- Notch: 60 Hz
+- Resample: 250 Hz
+- Reference: average of available good channels
+- ROI: `Fz`, `FCz`, `Cz`, `F3`, `F4` with frontocentral fallback logic
+- Epoch window: `-1.0` to `+1.5` s around feedback
+- Baseline window: `-0.5` to `-0.1` s
+- Theta window: `+0.2` to `+0.8` s
+
+### Reliability gates
+
+The estimator rejects or downgrades estimates when any of the following fail:
+
+- Too few usable feedback epochs
+- Too few usable ROI channels
+- Weak peak prominence
+- Peak at the edge of the theta search band
+- Split-half disagreement
+- Excessively wide bootstrap confidence interval
+- Poor usable epoch fraction
+
+When the estimate is unreliable, the JSON explicitly records the fallback to fixed 6.0 Hz.
+
+## StarStim / NIC-2 Practical Notes
+
+- Python does **not** pretend to program NIC-2 directly unless your lab has separately validated that path.
+- For stimulation runs, the task determines the intended frequency and shows the protocol label and frequency to the operator.
+- The operator still confirms what was actually loaded in NIC-2.
+- The task can wait for NIC-2 marker `203` before starting the bandit run.
+
+## EEG Limitations
+
+- StarStim 8 EEG can be useful for a quick feedback-theta localizer, but the estimate is QC-gated.
+- The main theta estimate comes from the **no-stimulation localizer**.
+- Simultaneous EEG during tACS should be treated as exploratory.
+- Baseline correction is used for feedback-locked spectral estimates, but it does not by itself remove the aperiodic component.
+
+## Data Outputs
+
+Behavioral localizer and stimulation CSVs now include legacy fields plus additional columns such as:
+
+- `subject_id`
+- `session_id`
+- `run`
+- `mode`
+- `phase`
+- `stim_condition`
+- `protocol_label_to_show`
+- `operator_confirmed_protocol`
+- `operator_confirmed_frequency_hz`
+- `intended_stimulation_frequency_hz`
+- `actual_or_confirmed_stimulation_frequency_hz`
+- `theta_source`
+- `theta_estimate_file`
+- `theta_reliable`
+- `theta_reliability_reason`
+- `feedback_marker`
+- `feedback_onset_task_time`
+- `feedback_onset_lsl_time`
+- `lsl_marker_send_time`
+- `run_start_task_time`
+- `run_start_lsl_time`
+- `run_end_task_time`
+- `run_end_lsl_time`
+
+## Marker Dictionary
+
+Existing marker codes are preserved:
+
+- `10`: Trial start
+- `20`: Choice
+- `31`: Feedback win
+- `32`: Feedback loss
+- `33`: Feedback miss
 - `100`: Run start
-- `10`: Trial start  
-- `20`: Choice made
-- `31/32/33`: Feedback (win/loss/miss)
 - `200`: Run end
+- `203`: NIC-2 stimulation start marker used to begin stimulation runs
 
-## Technical Details
+## LSL Debugging
 
-### LSL Integration
-- **Marker stream**: `LSLOutletStreamName-Markers`
-- **Trigger marker**: 203 (stimulation start)
-- **Auto-detection**: Task automatically finds NIC-2 marker streams
-- **Fallback**: Graceful degradation if LSL unavailable
+Use the debug utility to inspect marker and EEG streams:
 
-### Timing Precision
-- **Stimulation sync**: Task starts exactly when NIC-2 sends marker 203
-- **Duration matching**: Both task and stimulation run for 6 minutes
-- **Event logging**: Sub-millisecond precision for all task events
-
-## Troubleshooting
-
-### LSL Connection Issues
-
-**Check LSL streams:**
 ```bash
 python lsl_debug_tool.py
 ```
 
-**Common fixes:**
-- Enable LSL Server in NIC-2 Protocol Settings
-- Ensure Starstim device is connected and powered
-- Check that marker sending is enabled in NIC-2
+It reports available streams, tests a marker inlet, and samples from the first EEG stream it finds.
 
-### Window Focus Issues
-After starting stimulation, click the task window to ensure participant responses work.
+## Tests
 
-### Image Loading Issues
-- Verify image files are named correctly (`001-flowers.png`, etc.)
-- Check file paths in `config.json`
-- Ensure images are in `stimuli/images/` directory
+Synthetic verification lives in `tests/test_theta_workflow.py` and covers:
 
-## Project Structure
+- Reliable 6.5 Hz task-evoked theta
+- Noisy/no-peak fallback
+- Edge-peak rejection
+- Split-half disagreement fallback
+- Too-few-epochs fallback
+- Localizer smoke test when `pygame` is available
+- ITHETA JSON selection and fallback behavior
 
+Run the tests with:
+
+```bash
+python -m unittest tests/test_theta_workflow.py
 ```
+
+## Repo Layout
+
+```text
 tacs_bandit/
 ├── code/
-│   ├── bandit_main.py           # Main LSL-triggered task
-│   ├── local_starstim_module.py # Stimulation interface
-│   ├── lsl_debug_tool.py        # LSL debugging utility
-│   └── config.json              # Configuration file
-├── data/                        # Data output directory
-├── stimuli/
-│   └── images/                  # Flower and feedback images
-├── logs/                        # LSL event logs
-└── README.md                    # This file
+│   ├── bandit_main.py
+│   ├── eeg_lsl_recorder.py
+│   ├── local_starstim_module.py
+│   ├── lsl_debug_tool.py
+│   ├── run_theta_estimation.py
+│   ├── select_theta_frequency.py
+│   ├── theta_estimator.py
+│   └── config.json
+├── data/
+├── tests/
+└── readme.md
 ```
-
-## Testing
-
-### Test Mode (No Hardware)
-```json
-{
-  "stimulation": {
-    "enabled": true,
-    "test_mode": true
-  }
-}
-```
-Press ENTER when prompted to simulate stimulation trigger.
-
-### Hardware Testing
-1. **Basic connectivity**: `python lsl_debug_tool.py`
-2. **Stimulation trigger**: Test with real protocol start/stop
-3. **Full integration**: Complete run with oscilloscope verification
-
-## Hardware Requirements
-
-### Neuroelectrics Setup
-- **Starstim device** (8-channel or tES)
-- **NIC-2 software** with LSL enabled
-- **Electrode montage** appropriate for DLPFC stimulation
-- **6-minute protocols** configured in NIC-2
-
-### Computer Requirements
-- **macOS/Linux** (Windows possible with modifications)
-- **Python 3.8+** with LSL support
-- **Sufficient processing power** for real-time LSL streaming
-- **Reliable network connection** between task and NIC-2 computers
-
-## Contributing
-
-This implementation follows research-grade standards for timing precision and experimental control. Contributions should maintain:
-- **Millisecond-precise timing**
-- **Double-blind compatibility**  
-- **Robust error handling**
-- **Comprehensive data logging**
-
-## Acknowledgments
-
-- Original MATLAB/Neurostim implementation
-- Neuroelectrics for LSL integration documentation
-- Lab Streaming Layer development team
-- Research protocols adapted from cognitive neuroscience literature
-
-## Support
-
-For technical issues:
-- Check LSL connectivity with debug tools
-- Verify NIC-2 configuration settings
-- Ensure proper timing protocol selection
-- Contact: [james.wyngaarden@temple.edu]
-
----
-
-**Note**: This implementation prioritizes timing precision and experimental control suitable for publication-quality neuroscience research. The LSL integration ensures sub-millisecond synchronization between brain stimulation and behavioral measurements.

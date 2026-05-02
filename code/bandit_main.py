@@ -4,17 +4,23 @@ Two-Armed Bandit Task
 Version 17: Multi-run support, display options, double-blinding
 """
 
-import pygame
-import numpy as np
-import pandas as pd
+import argparse
+import copy
 from datetime import datetime
 import json
 import os
-import sys
 from pathlib import Path
-import time
-import threading
 import queue
+import sys
+import threading
+import time
+
+import numpy as np
+import pandas as pd
+import pygame
+
+from eeg_lsl_recorder import LSLEEGRecorder, save_recording_summary
+from select_theta_frequency import select_stimulation_frequency
 
 # LSL import with fallback (silent)
 try:
@@ -22,6 +28,101 @@ try:
     LSL_AVAILABLE = True
 except ImportError:
     LSL_AVAILABLE = False
+
+
+LEGACY_EXPERIMENT_MODES = {"THETA_NIC", "DC_NIC", "BEHAVIORAL"}
+SUPPORTED_EXPERIMENT_MODES = LEGACY_EXPERIMENT_MODES | {
+    "LOCALIZER_FAST_THETA",
+    "ITHETA_TACS",
+    "FIXED_THETA_TACS",
+    "SHAM",
+}
+
+
+def normalize_subject_id(subject_id: str) -> str:
+    return str(subject_id).replace("sub-", "").strip()
+
+
+def normalize_session_id(session_id: str) -> str:
+    return str(session_id).replace("ses-", "").strip()
+
+
+def normalize_mode(mode: str | None) -> str:
+    value = (mode or "THETA_NIC").strip().upper()
+    aliases = {
+        "THETA": "FIXED_THETA_TACS",
+        "FIXED_THETA": "FIXED_THETA_TACS",
+        "ITHEATA_TACS": "ITHETA_TACS",
+        "ITTHETA_TACS": "ITHETA_TACS",
+        "BEHAVIOR": "BEHAVIORAL",
+    }
+    value = aliases.get(value, value)
+    if value not in SUPPORTED_EXPERIMENT_MODES:
+        raise ValueError(f"Unsupported mode '{mode}'. Expected one of {sorted(SUPPORTED_EXPERIMENT_MODES)}.")
+    return value
+
+
+def lsl_clock() -> float:
+    if LSL_AVAILABLE:
+        try:
+            return float(pylsl.local_clock())
+        except Exception:
+            return time.time()
+    return time.time()
+
+
+def load_config_file(config_path: str | Path | None = None) -> dict:
+    if config_path is None:
+        config_path = Path(__file__).resolve().parent / "config.json"
+    config_path = Path(config_path)
+    with config_path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+class TaskMarkerLogger:
+    """Send task markers over LSL when available and always save a local event log."""
+
+    def __init__(self, stream_name: str = "LSLOutletStreamName-Markers"):
+        self.stream_name = stream_name
+        self.outlet = None
+        self.events = []
+        if LSL_AVAILABLE:
+            try:
+                info = pylsl.StreamInfo(
+                    stream_name,
+                    "Markers",
+                    1,
+                    0,
+                    pylsl.cf_int32,
+                    f"{stream_name}-source",
+                )
+                self.outlet = pylsl.StreamOutlet(info)
+            except Exception:
+                self.outlet = None
+
+    def send(self, marker_code: int, label: str, payload: dict | None = None) -> float:
+        marker_time = lsl_clock()
+        if self.outlet is not None:
+            try:
+                self.outlet.push_sample([int(marker_code)], marker_time)
+            except Exception:
+                pass
+        event = {
+            "marker_code": int(marker_code),
+            "label": label,
+            "lsl_time": marker_time,
+            "created_at": datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
+        }
+        if payload:
+            event.update(payload)
+        self.events.append(event)
+        return marker_time
+
+    def save(self, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as handle:
+            for event in self.events:
+                handle.write(json.dumps(event) + "\n")
 
 
 class LSLStimulationTrigger:
@@ -1341,6 +1442,696 @@ class TwoArmedBanditTask:
             self.cleanup()
 
 
-if __name__ == '__main__':
-    task = TwoArmedBanditTask()
+class IndividualizedThetaBanditTask(TwoArmedBanditTask):
+    """Generalized single-run workflow for the fast localizer and theta selection modes."""
+
+    def __init__(self, config=None, cli_args=None):
+        self.cli_args = cli_args
+        self.full_config = copy.deepcopy(config or load_config_file(getattr(cli_args, "config", None)))
+        working_config = copy.deepcopy(self.full_config)
+        working_config.setdefault("stimulation", {})
+        working_config["stimulation"]["enabled"] = False
+        working_config["stimulation"]["test_mode"] = bool(
+            getattr(cli_args, "test_mode", False) or working_config["stimulation"].get("test_mode", False)
+        )
+
+        super().__init__(config=working_config)
+
+        self.full_config.setdefault("experiment", {})
+        self.experiment_mode = normalize_mode(
+            getattr(cli_args, "mode", None) or self.full_config["experiment"].get("mode", "LOCALIZER_FAST_THETA")
+        )
+        self.test_mode = bool(
+            getattr(cli_args, "test_mode", False)
+            or self.full_config.get("stimulation", {}).get("test_mode", False)
+        )
+        self.auto_respond = bool(getattr(cli_args, "auto_respond", False) or self.test_mode)
+        self.outputs_saved = False
+        self.eeg_recording_saved = False
+        self.marker_log_saved = False
+        self.theta_decision = None
+        self.operator_confirmation = {}
+        self.event_logger = TaskMarkerLogger(
+            self.full_config.get("eeg_recording", {}).get("marker_stream_name", "LSLOutletStreamName-Markers")
+        )
+        self.eeg_recorder = None
+        self.eeg_recording_summary = None
+        self.current_phase = "localizer" if self.experiment_mode == "LOCALIZER_FAST_THETA" else "stimulation"
+        self.contingency_id = 1
+        self.run_start_task_time = None
+        self.run_start_lsl_time = None
+        self.run_end_task_time = None
+        self.run_end_lsl_time = None
+        self.run_label = None
+        self.mode_stop_rule = "duration"
+        self.target_trials = None
+        self.max_duration_seconds = None
+        self.localizer_target_summary = ""
+        self._apply_mode_profile()
+        self._maybe_prepare_lsl_trigger()
+
+    def _apply_mode_profile(self):
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            localizer = self.full_config.get("localizer_fast_theta", {})
+            timing = localizer.get("timing", {})
+            self.config.setdefault("timing", {})
+            self.config["timing"].update(timing)
+            self.mode_stop_rule = localizer.get("stop_rule", "duration_or_trials")
+            self.target_trials = int(localizer.get("target_trials", 120))
+            duration_minutes = float(
+                getattr(self.cli_args, "duration_minutes", None)
+                or localizer.get("duration_minutes")
+                or self.full_config.get("experiment", {}).get("run_duration_minutes", 6)
+            )
+            self.max_duration_seconds = duration_minutes * 60.0
+            self.config.setdefault("experiment", {})
+            self.config["experiment"]["run_duration_minutes"] = duration_minutes
+            self.localizer_target_summary = (
+                f"Target {self.target_trials} trials or {duration_minutes:.0f} minutes, whichever comes first."
+            )
+        else:
+            duration_minutes = float(self.full_config.get("experiment", {}).get("run_duration_minutes", 6))
+            self.max_duration_seconds = duration_minutes * 60.0
+            self.target_trials = None
+            self.mode_stop_rule = "duration"
+            self.config.setdefault("experiment", {})
+            self.config["experiment"]["run_duration_minutes"] = duration_minutes
+
+    def _maybe_prepare_lsl_trigger(self):
+        should_wait_for_trigger = self.experiment_mode in {"ITHETA_TACS", "FIXED_THETA_TACS", "SHAM"}
+        if not should_wait_for_trigger:
+            self.lsl_trigger = None
+            return
+        if not self.lsl_trigger:
+            self.lsl_trigger = LSLStimulationTrigger(test_mode=self.test_mode)
+        if self.full_config.get("stimulation", {}).get("lsl", {}).get("enabled", True):
+            self.lsl_trigger.connect()
+            self.lsl_trigger.start_listening()
+
+    def _default_run_label(self) -> str:
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            return "run-localizer"
+        return f"run-{self.run_number:02d}"
+
+    def get_subject_info(self):
+        print("\n=== Two-Armed Bandit Task ===\n")
+
+        subject_id = getattr(self.cli_args, "subject", None)
+        session_id = getattr(self.cli_args, "session", None)
+        if not subject_id:
+            subject_id = input("Subject ID: ")
+        if not session_id:
+            session_id = input("Session number (default 1): ") or "1"
+
+        age = getattr(self.cli_args, "age", None)
+        gender = getattr(self.cli_args, "gender", None)
+        if not self.auto_respond:
+            if age is None:
+                age = input("Age (optional): ")
+            if gender is None:
+                gender = input("Gender (optional): ")
+
+        self.subject_info = {
+            "subject_id": normalize_subject_id(subject_id),
+            "session": normalize_session_id(session_id),
+            "age": age or "",
+            "gender": gender or "",
+            "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+        }
+
+        run_arg = getattr(self.cli_args, "run", None)
+        self.run_number = int(run_arg) if run_arg is not None else 1
+        self.run_label = self._default_run_label()
+
+        self.get_display_preferences()
+
+        data_root = Path(self.full_config.get("paths", {}).get("data_dir", "../data"))
+        self.data_dir = (Path(__file__).resolve().parent / data_root).resolve() / f"sub-{self.subject_info['subject_id']}"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.eeg_dir = self.data_dir / "eeg"
+        self.eeg_dir.mkdir(exist_ok=True)
+        self.qc_dir = self.data_dir / "qc"
+        self.qc_dir.mkdir(exist_ok=True)
+        self.logs_dir = self.data_dir / "logs"
+        self.logs_dir.mkdir(exist_ok=True)
+        self.marker_log_path = self.logs_dir / (
+            f"sub-{self.subject_info['subject_id']}_ses-{self.subject_info['session']}_{self.run_label}_markers.jsonl"
+        )
+        self.eeg_summary_path = self.logs_dir / (
+            f"sub-{self.subject_info['subject_id']}_ses-{self.subject_info['session']}_{self.run_label}_eeg_summary.json"
+        )
+
+        if self.experiment_mode == "ITHETA_TACS":
+            selection = select_stimulation_frequency(
+                self.subject_info["subject_id"],
+                self.subject_info["session"],
+                self.full_config,
+                manual_override_hz=getattr(self.cli_args, "frequency", None),
+                manual_override_reason="CLI frequency override" if getattr(self.cli_args, "frequency", None) else None,
+            )
+            self.theta_decision = selection.to_log_dict()
+        elif self.experiment_mode == "FIXED_THETA_TACS":
+            fixed_hz = float(getattr(self.cli_args, "frequency", None) or 6.0)
+            self.theta_decision = {
+                "frequency_to_use_hz": fixed_hz,
+                "theta_source": "fixed_6hz",
+                "theta_reliable": False,
+                "theta_reliability_reason": "Fixed-frequency theta control condition.",
+                "theta_estimate_file": "",
+                "protocol_label_to_show": f"FIXED_THETA_TACS_{fixed_hz:.1f}Hz",
+            }
+        elif self.experiment_mode == "SHAM":
+            self.theta_decision = {
+                "frequency_to_use_hz": None,
+                "theta_source": "sham",
+                "theta_reliable": False,
+                "theta_reliability_reason": "Sham condition.",
+                "theta_estimate_file": "",
+                "protocol_label_to_show": "SHAM",
+            }
+        else:
+            self.theta_decision = {
+                "frequency_to_use_hz": None,
+                "theta_source": "none",
+                "theta_reliable": False,
+                "theta_reliability_reason": "No stimulation during localizer.",
+                "theta_estimate_file": "",
+                "protocol_label_to_show": "LOCALIZER_NO_STIM",
+            }
+
+        return True
+
+    def show_start_buffer(self):
+        if self.auto_respond:
+            time.sleep(0.05)
+            return True
+        return super().show_start_buffer()
+
+    def get_display_preferences(self):
+        if self.auto_respond:
+            self.display_choice = 0
+            self.config.setdefault("display", {})
+            self.config["display"]["fullscreen"] = False
+            return
+        return super().get_display_preferences()
+
+    def select_flowers_for_run(self):
+        if self.flower_images:
+            return super().select_flowers_for_run()
+        available_flowers = set(range(1, 51)) - self.used_flowers
+        if len(available_flowers) < 2:
+            self.used_flowers = set()
+            available_flowers = set(range(1, 51))
+        selected = np.random.choice(list(available_flowers), size=2, replace=False)
+        self.current_flowers = list(selected)
+        self.used_flowers.update(selected)
+        return True
+
+    def get_response(self, max_time):
+        if self.auto_respond:
+            simulated_rt = min(float(max_time), max(0.25, min(float(max_time) - 0.05, 0.55)))
+            time.sleep(0.01 if self.test_mode else simulated_rt)
+            return int(np.random.choice([1, 2])), simulated_rt
+        return super().get_response(max_time)
+
+    def show_instructions(self):
+        self.screen.fill(self.BLACK)
+        lines = [f"Two-Armed Bandit Task - {self.experiment_mode}", ""]
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            lines += [
+                "Fast no-stimulation localizer",
+                "Choose between two flowers using A for left and L for right",
+                "The better option reverses over time",
+                self.localizer_target_summary,
+                "",
+                "Press SPACE when ready to begin",
+            ]
+        else:
+            frequency_text = self.theta_decision.get("frequency_to_use_hz")
+            source = self.theta_decision.get("theta_source", "none")
+            lines += [
+                f"Mode: {self.experiment_mode}",
+                f"Theta source: {source}",
+                f"Frequency to use: {frequency_text if frequency_text is not None else 'N/A'} Hz",
+                self.theta_decision.get("theta_reliability_reason", ""),
+                "",
+                "Choose between two flowers using A for left and L for right",
+                f"This run will last {self.config['experiment']['run_duration_minutes']} minutes",
+                "",
+                "Press SPACE when ready to begin",
+            ]
+        for i, line in enumerate(lines):
+            font = self.font_large if i == 0 else self.font_small
+            self.show_text(line, -250 + i * 35, font)
+        pygame.display.flip()
+        if self.auto_respond:
+            time.sleep(0.05)
+            return True
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        return True
+                    if event.key == pygame.K_ESCAPE:
+                        return False
+        return True
+
+    def _operator_setup_summary(self) -> list[str]:
+        frequency = self.theta_decision.get("frequency_to_use_hz")
+        protocol = self.theta_decision.get("protocol_label_to_show", "")
+        lines = [
+            f"Subject: sub-{self.subject_info['subject_id']}",
+            f"Session: ses-{self.subject_info['session']}",
+            f"Run: {self.run_label}",
+            f"Mode: {self.experiment_mode}",
+            f"Protocol label: {protocol}",
+            f"Theta source: {self.theta_decision.get('theta_source', 'none')}",
+            f"Frequency to use: {frequency if frequency is not None else 'N/A'} Hz",
+            f"Reason: {self.theta_decision.get('theta_reliability_reason', '')}",
+        ]
+        if self.experiment_mode == "ITHETA_TACS":
+            lines.append(
+                f"Operator instruction: Load the NIC-2 theta-tACS protocol at {frequency:.1f} Hz."
+            )
+        elif self.experiment_mode == "FIXED_THETA_TACS":
+            lines.append(
+                f"Operator instruction: Load the fixed 6.0 Hz theta-tACS protocol at {frequency:.1f} Hz."
+            )
+        elif self.experiment_mode == "SHAM":
+            lines.append("Operator instruction: Load the sham protocol and confirm marker 203 when ready.")
+        return lines
+
+    def prompt_operator_confirmation(self):
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            return
+        for line in self._operator_setup_summary():
+            print(line)
+        if self.auto_respond:
+            self.operator_confirmation = {
+                "operator_confirmed_protocol": self.theta_decision.get("protocol_label_to_show", ""),
+                "operator_confirmed_frequency_hz": self.theta_decision.get("frequency_to_use_hz"),
+            }
+            return
+        protocol = input("Operator-confirmed protocol label: ") or self.theta_decision.get("protocol_label_to_show", "")
+        frequency_default = self.theta_decision.get("frequency_to_use_hz")
+        frequency_input = input(
+            f"Operator-confirmed frequency in Hz ({frequency_default if frequency_default is not None else 'blank'}): "
+        ).strip()
+        confirmed_frequency = frequency_default
+        if frequency_input:
+            confirmed_frequency = float(frequency_input)
+        self.operator_confirmation = {
+            "operator_confirmed_protocol": protocol,
+            "operator_confirmed_frequency_hz": confirmed_frequency,
+        }
+
+    def show_waiting_screen(self):
+        self.screen.fill(self.BLACK)
+        lines = [
+            f"Two-Armed Bandit Task - {self.run_label}",
+            "",
+            "Please wait for the experimenter",
+            "to start the task, then",
+            "",
+        ]
+        if self.experiment_mode in {"ITHETA_TACS", "FIXED_THETA_TACS", "SHAM"}:
+            lines.append("Press SPACE to begin or wait for marker 203")
+        else:
+            lines.append("Press SPACE to begin task")
+        lines.append("Press ESC to exit")
+        for i, line in enumerate(lines):
+            font = self.font_large if i == 0 else self.font_small
+            self.show_text(line, -220 + i * 40, font)
+        pygame.display.flip()
+
+        if self.auto_respond:
+            time.sleep(0.05)
+            return True
+
+        waiting = True
+        clock = pygame.time.Clock()
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        return True
+                    if event.key == pygame.K_ESCAPE:
+                        return False
+            if self.lsl_trigger:
+                try:
+                    marker_code, timestamp = self.lsl_trigger.marker_queue.get_nowait()
+                    if marker_code == self.lsl_trigger.TASK_START_MARKER:
+                        print(f"LSL: Marker {marker_code} received at {timestamp:.3f}. Starting task.")
+                        return True
+                except queue.Empty:
+                    pass
+            clock.tick(60)
+        return True
+
+    def _start_eeg_recording_if_requested(self):
+        if self.experiment_mode != "LOCALIZER_FAST_THETA":
+            return
+        eeg_config = self.full_config.get("eeg_recording", {})
+        if not eeg_config.get("record_lsl_eeg_during_localizer", True):
+            return
+        self.eeg_recorder = LSLEEGRecorder(
+            preferred_stream_type=eeg_config.get("preferred_stream_type", "EEG"),
+            preferred_stream_name_contains=eeg_config.get("preferred_stream_name_contains", "StarStim"),
+        )
+        if not self.eeg_recorder.start():
+            summary = self.eeg_recorder.fail_summary()
+            summary.message = (
+                summary.message
+                or "No live EEG stream was found. Behavioral localizer output will still be saved."
+            )
+            save_recording_summary(summary, self.eeg_summary_path)
+            self.eeg_recording_saved = True
+            print(summary.message)
+
+    def _stop_eeg_recording(self):
+        if not self.eeg_recorder or self.eeg_recording_saved:
+            return
+        basename = (
+            f"sub-{self.subject_info['subject_id']}_ses-{self.subject_info['session']}_localizer_eeg"
+        )
+        summary = self.eeg_recorder.save(
+            self.eeg_dir,
+            basename,
+            write_raw_csv=bool(self.full_config.get("eeg_recording", {}).get("write_raw_csv", True)),
+            write_raw_npz=bool(self.full_config.get("eeg_recording", {}).get("write_raw_npz", True)),
+            extra_metadata={
+                "subject_id": self.subject_info["subject_id"],
+                "session_id": self.subject_info["session"],
+                "run_label": self.run_label,
+                "mode": self.experiment_mode,
+            },
+        )
+        save_recording_summary(summary, self.eeg_summary_path)
+        self.eeg_recording_summary = summary
+        self.eeg_recording_saved = True
+
+    def _should_stop_run(self):
+        elapsed = time.time() - self.run_start_time
+        duration_reached = elapsed >= self.max_duration_seconds
+        trial_target_reached = self.target_trials is not None and self.current_trial >= self.target_trials
+        if self.mode_stop_rule == "duration":
+            return duration_reached
+        if self.mode_stop_rule == "trials":
+            return trial_target_reached
+        if self.mode_stop_rule == "duration_and_trials":
+            return duration_reached and trial_target_reached
+        return duration_reached or trial_target_reached
+
+    def _stim_condition(self):
+        if self.experiment_mode == "SHAM":
+            return "sham"
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            return "none"
+        return "active"
+
+    def _feedback_marker(self, reward):
+        if reward is None:
+            return 33, "miss"
+        if reward:
+            return 31, "win"
+        return 32, "loss"
+
+    def run_trial(self):
+        if self.task_should_stop:
+            return False
+        if self._should_stop_run():
+            return False
+
+        timing = self.config["timing"]
+        self.update_slot_positions()
+        left_stimulus = self.current_flowers[0] if self.slot1_side == "left" else self.current_flowers[1]
+        right_stimulus = self.current_flowers[1] if self.slot1_side == "left" else self.current_flowers[0]
+        trial_num = self.current_trial + 1
+        trial_start_task_time = time.time() - self.run_start_time
+        trial_start_lsl_time = lsl_clock()
+        self.event_logger.send(
+            10,
+            "trial_start",
+            {
+                "trial_num": trial_num,
+                "mode": self.experiment_mode,
+            },
+        )
+
+        self.show_fixation(timing["fixation_duration"])
+        pygame.event.clear()
+        self.show_slots()
+        choice, rt = self.get_response(timing["max_response_time"])
+
+        if choice == "escape":
+            self.save_data()
+            self.cleanup()
+            sys.exit()
+        if choice == "stim_stopped":
+            self.task_should_stop = True
+            return False
+
+        if choice is not None:
+            self.event_logger.send(20, "choice", {"trial_num": trial_num, "choice": choice})
+            self.show_slots(highlight=choice)
+            time.sleep(timing.get("choice_highlight_duration", 0.5))
+            correct = choice == self.current_good
+            reward_prob = self.full_config.get("localizer_fast_theta", {}).get(
+                "win_fraction",
+                self.config["task"]["win_fraction"],
+            ) if correct else 1 - self.full_config.get("localizer_fast_theta", {}).get(
+                "win_fraction",
+                self.config["task"]["win_fraction"],
+            )
+            reward = np.random.random() < reward_prob
+            rt_ms = rt * 1000.0 if rt is not None else None
+        else:
+            correct = None
+            reward = None
+            rt_ms = None
+
+        self.screen.fill(self.BLACK)
+        pygame.display.flip()
+        wait_time = np.random.uniform(timing["wait_duration_min"], timing["wait_duration_max"])
+        time.sleep(wait_time)
+
+        feedback_marker, outcome = self._feedback_marker(reward)
+        feedback_lsl_time = self.event_logger.send(
+            feedback_marker,
+            f"feedback_{outcome}",
+            {"trial_num": trial_num, "outcome": outcome},
+        )
+        feedback_task_time = time.time() - self.run_start_time
+        self.show_feedback(reward, timing["outcome_duration"])
+        self.screen.fill(self.BLACK)
+        pygame.display.flip()
+        time.sleep(timing["iti_duration"])
+
+        trial_info = {
+            "subject_id": f"sub-{self.subject_info['subject_id']}",
+            "session_id": f"ses-{self.subject_info['session']}",
+            "run": self.run_label,
+            "mode": self.experiment_mode,
+            "phase": self.current_phase,
+            "stim_condition": self._stim_condition(),
+            "protocol_label_to_show": self.theta_decision.get("protocol_label_to_show", ""),
+            "operator_confirmed_protocol": self.operator_confirmation.get("operator_confirmed_protocol", ""),
+            "operator_confirmed_frequency_hz": self.operator_confirmation.get("operator_confirmed_frequency_hz"),
+            "intended_stimulation_frequency_hz": self.theta_decision.get("frequency_to_use_hz"),
+            "actual_or_confirmed_stimulation_frequency_hz": self.operator_confirmation.get(
+                "operator_confirmed_frequency_hz",
+                self.theta_decision.get("frequency_to_use_hz"),
+            ),
+            "theta_source": self.theta_decision.get("theta_source", "none"),
+            "theta_estimate_file": self.theta_decision.get("theta_estimate_file", ""),
+            "theta_reliable": self.theta_decision.get("theta_reliable", False),
+            "theta_reliability_reason": self.theta_decision.get("theta_reliability_reason", ""),
+            "trial_num": trial_num,
+            "current_good_option": self.current_good,
+            "current_good": self.current_good,
+            "contingency_id": self.contingency_id,
+            "trial_in_contingency": self.trial_in_contingency,
+            "left_stimulus": left_stimulus,
+            "right_stimulus": right_stimulus,
+            "flower1": self.current_flowers[0],
+            "flower2": self.current_flowers[1],
+            "slot1_position": self.slot1_side,
+            "slot2_position": self.slot2_side,
+            "choice": choice,
+            "rt": rt_ms,
+            "outcome": outcome,
+            "reward": reward if reward is not None else None,
+            "correct": correct,
+            "feedback_marker": feedback_marker,
+            "feedback_onset_task_time": feedback_task_time,
+            "feedback_onset_lsl_time": feedback_lsl_time,
+            "lsl_marker_send_time": feedback_lsl_time,
+            "run_start_task_time": 0.0,
+            "run_start_lsl_time": self.run_start_lsl_time,
+            "run_end_task_time": None,
+            "run_end_lsl_time": None,
+            "wait_time": wait_time * 1000.0,
+            "iti": timing["iti_duration"] * 1000.0,
+            "timestamp": time.time() - self.experiment_start_time,
+            "trial_start_time": trial_start_task_time,
+            "trial_start_lsl_time": trial_start_lsl_time,
+            "run_type": self.experiment_mode,
+        }
+        self.trial_data.append(trial_info)
+
+        self.trial_in_contingency += 1
+        if self.trial_in_contingency >= self.contingency_trials:
+            self.current_good = 3 - self.current_good
+            self.trial_in_contingency = 0
+            self.contingency_trials = self._get_contingency_duration()
+            self.contingency_id += 1
+            print(f"  Contingency reversed at trial {trial_num + 1}")
+
+        self.current_trial += 1
+        return True
+
+    def save_data(self):
+        if not self.trial_data or self.outputs_saved:
+            return
+        for trial in self.trial_data:
+            trial["run_end_task_time"] = self.run_end_task_time
+            trial["run_end_lsl_time"] = self.run_end_lsl_time
+        df = pd.DataFrame(self.trial_data)
+        filename = (
+            f"sub-{self.subject_info['subject_id']}_"
+            f"ses-{self.subject_info['session']}_"
+            f"{self.run_label}_task-bandit_{self.subject_info['date']}.csv"
+        )
+        filepath = self.data_dir / filename
+        df.to_csv(filepath, index=False)
+        self.outputs_saved = True
+        print(f"\nData saved to: {filepath}")
+
+    def cleanup(self):
+        self.save_data()
+        if self.lsl_trigger:
+            self.lsl_trigger.stop_listening()
+        self._stop_eeg_recording()
+        if not self.marker_log_saved and self.event_logger.events and hasattr(self, "marker_log_path"):
+            self.event_logger.save(self.marker_log_path)
+            self.marker_log_saved = True
+        pygame.quit()
+
+    def run_single_run(self):
+        if not self.select_flowers_for_run():
+            return False
+        self.prompt_operator_confirmation()
+        if not self.show_instructions():
+            return False
+        self._start_eeg_recording_if_requested()
+        pygame.event.clear()
+        if not self.show_waiting_screen():
+            return False
+        self.show_start_buffer()
+
+        self.run_start_time = time.time()
+        self.experiment_start_time = self.run_start_time
+        self.run_start_task_time = 0.0
+        self.run_start_lsl_time = self.event_logger.send(
+            100,
+            "run_start",
+            {
+                "mode": self.experiment_mode,
+                "run_label": self.run_label,
+            },
+        )
+
+        print(f"\nStarting {self.experiment_mode}")
+        print(f"Run label: {self.run_label}")
+        print(f"Duration: {self.config['experiment']['run_duration_minutes']} minutes")
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            print(self.localizer_target_summary)
+        print("Press ESC to abort\n")
+
+        while True:
+            if not self.run_trial():
+                break
+            if self.current_trial and self.current_trial % 10 == 0:
+                elapsed = time.time() - self.run_start_time
+                print(f"  Trial {self.current_trial}, Time: {elapsed:.1f}s")
+
+        self.run_end_task_time = time.time() - self.run_start_time
+        self.run_end_lsl_time = self.event_logger.send(
+            200,
+            "run_end",
+            {"mode": self.experiment_mode, "run_label": self.run_label},
+        )
+        self.event_logger.save(self.marker_log_path)
+        self.marker_log_saved = True
+        self._stop_eeg_recording()
+
+        print(f"\nRun complete. Total trials: {self.current_trial}")
+        self.save_data()
+        if self.experiment_mode == "LOCALIZER_FAST_THETA":
+            print(
+                "Next step: run `python run_theta_estimation.py "
+                f"--subject {self.subject_info['subject_id']} --session {self.subject_info['session']} --auto-find`"
+            )
+        return True
+
+    def run(self):
+        try:
+            if not self.get_subject_info():
+                return
+            self.setup_display()
+            self.reset_for_new_run()
+            self.run_single_run()
+        except KeyboardInterrupt:
+            print("\nSession interrupted by user")
+        finally:
+            self.cleanup()
+
+
+def build_arg_parser():
+    parser = argparse.ArgumentParser(description="Run the bandit task in legacy or individualized-theta modes.")
+    parser.add_argument("--config", default=str(Path(__file__).resolve().parent / "config.json"))
+    parser.add_argument("--mode", help="Experiment mode to run.")
+    parser.add_argument("--subject", help="Subject ID, with or without the sub- prefix.")
+    parser.add_argument("--session", help="Session ID, with or without the ses- prefix.")
+    parser.add_argument("--run", type=int, help="Run number for stimulation runs.")
+    parser.add_argument("--frequency", type=float, help="Optional theta frequency override.")
+    parser.add_argument("--age", help="Optional age field for the behavioral CSV.")
+    parser.add_argument("--gender", help="Optional gender field for the behavioral CSV.")
+    parser.add_argument("--test-mode", action="store_true", help="Run without requiring stimulation hardware.")
+    parser.add_argument("--auto-respond", action="store_true", help="Auto-start and simulate button responses.")
+    parser.add_argument("--duration-minutes", type=float, help="Override the configured run duration.")
+    return parser
+
+
+def run_experiment_from_cli(cli_args):
+    config = load_config_file(cli_args.config)
+    mode = normalize_mode(cli_args.mode or config.get("experiment", {}).get("mode", "THETA_NIC"))
+
+    if mode in LEGACY_EXPERIMENT_MODES:
+        if cli_args.test_mode:
+            config.setdefault("stimulation", {})
+            config["stimulation"]["test_mode"] = True
+        config.setdefault("experiment", {})
+        config["experiment"]["mode"] = mode
+        task = TwoArmedBanditTask(config=config)
+        task.run()
+        return
+
+    config.setdefault("experiment", {})
+    config["experiment"]["mode"] = mode
+    task = IndividualizedThetaBanditTask(config=config, cli_args=cli_args)
     task.run()
+
+
+def main():
+    cli_args = build_arg_parser().parse_args()
+    run_experiment_from_cli(cli_args)
+
+
+if __name__ == '__main__':
+    main()
