@@ -93,7 +93,18 @@ def run_ols(
     # Prepare design matrix
     X = df[predictors].copy()
     y = df[dv].values
-    
+
+    # Ensure all predictors are numeric (REDCap exports can store numbers as strings)
+    X = X.apply(pd.to_numeric, errors='coerce')
+    valid = X.notna().all(axis=1)
+    X = X.loc[valid]
+    y = y[valid]
+
+    if len(X) < len(predictors) + 2:
+        if verbose:
+            print(f'  {model_label or dv}: Insufficient numeric data after coercion (n={len(X)})')
+        return None
+
     # Standardize predictors for comparable coefficients
     X_std = (X - X.mean()) / X.std()
     X_std = sm.add_constant(X_std)

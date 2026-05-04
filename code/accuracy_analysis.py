@@ -1090,27 +1090,27 @@ def plot_counterbalance_comparison(
 ) -> go.Figure:
     """
     Compare accuracy trajectories by counterbalance.
-    
+
     Parameters
     ----------
     run_df : DataFrame
         Output from compute_run_level_accuracy()
     show_fig : bool
         Display figure
-    
+
     Returns
     -------
     go.Figure
     """
     fig = go.Figure()
-    
+
     colors = {'A': COLOR_SHAM, 'B': COLOR_ACTIVE}
     labels = {'A': 'CB A (sham first)', 'B': 'CB B (active first)'}
-    
+
     for cb in ['A', 'B']:
         cb_data = run_df[run_df['counterbalance'] == cb]
         cb_means = cb_data.groupby('run')['accuracy'].agg(['mean', 'sem']).reset_index()
-        
+
         fig.add_trace(go.Scatter(
             x=cb_means['run'],
             y=cb_means['mean'],
@@ -1120,13 +1120,13 @@ def plot_counterbalance_comparison(
             error_y=dict(type='data', array=cb_means['sem'], visible=True, color=colors[cb]),
             name=labels[cb]
         ))
-    
+
     # Session divider
     fig.add_vline(x=4.5, line_dash='dash', line_color='gray', opacity=0.5)
-    
+
     # Reference lines
     fig.add_hline(y=CHANCE_ACCURACY, line_dash='dot', line_color='gray')
-    
+
     fig.update_layout(
         title='Accuracy by Run and Counterbalance',
         xaxis_title='Run',
@@ -1139,10 +1139,165 @@ def plot_counterbalance_comparison(
         width=650,
         legend=dict(x=0.02, y=0.02, xanchor='left', yanchor='bottom')
     )
-    
+
     if show_fig:
         fig.show()
-    
+
+    return fig
+
+
+def plot_run_accuracy_by_cb(
+    run_df: pd.DataFrame,
+    metric: str = 'accuracy',
+    show_fig: bool = True,
+) -> go.Figure:
+    """
+    Faceted run-level plot: CB A vs CB B, with condition-type coloring.
+
+    Each panel shows individual subject lines + group mean diamonds colored
+    by condition type (baseline/sham/active/post). This lets you see whether
+    performance changes occur before vs. after stimulation within each
+    counterbalance order.
+
+    Parameters
+    ----------
+    run_df : DataFrame
+        Output from compute_run_level_accuracy()
+    metric : str
+        'accuracy' or 'win_rate'
+    show_fig : bool
+        Display figure
+
+    Returns
+    -------
+    go.Figure
+    """
+    from config import CONDITION_COLORS
+
+    metric_labels = {'accuracy': 'Accuracy', 'win_rate': 'Win Rate'}
+    y_label = metric_labels.get(metric, metric)
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=[
+            'CB A — Active Runs 2-3, Sham Runs 6-7',
+            'CB B — Sham Runs 2-3, Active Runs 6-7',
+        ],
+        shared_yaxes=True, horizontal_spacing=0.06,
+    )
+
+    for cb_idx, cb in enumerate(['A', 'B']):
+        col = cb_idx + 1
+        cb_data = run_df[run_df['counterbalance'] == cb].copy()
+
+        if len(cb_data) == 0:
+            continue
+
+        # Individual subject lines
+        for subj in cb_data['subject_id'].unique():
+            sdata = cb_data[cb_data['subject_id'] == subj].sort_values('run')
+            age = sdata['age'].iloc[0] if 'age' in sdata.columns else np.nan
+            color = _age_to_rgb(age)
+            rgba = color.replace('rgb', 'rgba').replace(')', ',0.3)')
+
+            fig.add_trace(go.Scatter(
+                x=sdata['run'], y=sdata[metric],
+                mode='lines+markers',
+                line=dict(color=rgba, width=1),
+                marker=dict(size=4, color=rgba),
+                showlegend=False,
+                hovertemplate=(
+                    f'Sub-{subj}<br>Age: {age:.0f}<br>'
+                    f'Run: %{{x}}<br>{y_label}: %{{y:.3f}}'
+                ),
+            ), row=1, col=col)
+
+        # Group mean ± SEM per run, colored by condition type
+        run_stats = cb_data.groupby(['run', 'condition'])[metric].agg(
+            ['mean', 'sem', 'count']
+        ).reset_index()
+
+        for _, row in run_stats.iterrows():
+            mcolor = CONDITION_COLORS.get(row['condition'], '#757575')
+
+            fig.add_trace(go.Scatter(
+                x=[row['run']], y=[row['mean']],
+                mode='markers',
+                marker=dict(
+                    size=14, color=mcolor, symbol='diamond',
+                    line=dict(width=2, color='white'),
+                ),
+                error_y=dict(
+                    type='data', array=[row['sem']], visible=True,
+                    color=mcolor, thickness=2,
+                ),
+                showlegend=False,
+                hovertemplate=(
+                    f"{row['condition'].capitalize()}<br>"
+                    f"Run {row['run']}<br>"
+                    f"Mean: {row['mean']:.3f}<br>SEM: {row['sem']:.3f}"
+                ),
+            ), row=1, col=col)
+
+        # Connect means
+        run_means = cb_data.groupby('run')[metric].mean().sort_index()
+        fig.add_trace(go.Scatter(
+            x=run_means.index, y=run_means.values,
+            mode='lines', line=dict(color='#404040', width=2, dash='dot'),
+            showlegend=False, hoverinfo='skip',
+        ), row=1, col=col)
+
+        # Session divider
+        fig.add_vline(x=4.5, line_dash='dash', line_color='gray', opacity=0.5,
+                      row=1, col=col)
+
+    # Reference lines
+    fig.add_hline(y=CHANCE_ACCURACY, line_dash='dot', line_color='gray')
+    fig.add_hline(y=OPTIMAL_ACCURACY, line_dash='dot', line_color='green', opacity=0.4)
+
+    # Condition legend
+    cond_legend = [
+        ('Baseline', '#757575'), ('Sham', COLOR_SHAM),
+        ('Active', COLOR_ACTIVE), ('Post', '#9E9E9E'),
+    ]
+    for name, color in cond_legend:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode='markers',
+            marker=dict(size=10, color=color, symbol='diamond'),
+            name=name, showlegend=True,
+        ))
+
+    n_subjects = run_df['subject_id'].nunique()
+    n_a = run_df[run_df['counterbalance'] == 'A']['subject_id'].nunique()
+    n_b = run_df[run_df['counterbalance'] == 'B']['subject_id'].nunique()
+
+    fig.update_layout(
+        title=f'{y_label} by Run and Counterbalance (N = {n_subjects}: A={n_a}, B={n_b})',
+        template=PLOTLY_TEMPLATE,
+        font=dict(family=FONT_FAMILY, size=14),
+        height=480, width=950,
+        legend=dict(
+            orientation='h', yanchor='bottom', y=1.02,
+            xanchor='center', x=0.5,
+        ),
+    )
+
+    fig.update_xaxes(
+        tickmode='linear', tick0=1, dtick=1,
+        showgrid=False, showline=True, linewidth=1, linecolor='black',
+        title_text='Run',
+    )
+    fig.update_yaxes(
+        range=[0.35, 1.0],
+        showgrid=False, showline=True, linewidth=1, linecolor='black',
+    )
+    fig.update_yaxes(title_text=y_label, row=1, col=1)
+
+    if show_fig:
+        fig.show(config=dict(toImageButtonOptions=dict(
+            filename=f'run_{metric}_by_cb'
+        )))
+
     return fig
 
 
@@ -1546,6 +1701,14 @@ def run_accuracy_analysis(
         
         # Counterbalance comparison
         results['figures']['counterbalance'] = plot_counterbalance_comparison(run_df, show_fig=True)
+        
+        # Faceted run-level accuracy by counterbalance (condition-colored)
+        results['figures']['run_accuracy_by_cb'] = plot_run_accuracy_by_cb(
+            run_df, metric='accuracy', show_fig=True
+        )
+        results['figures']['run_winrate_by_cb'] = plot_run_accuracy_by_cb(
+            run_df, metric='win_rate', show_fig=True
+        )
         
         # Condition paired plots
         results['figures']['accuracy_paired'] = plot_condition_accuracy_paired(

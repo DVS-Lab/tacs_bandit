@@ -559,6 +559,220 @@ def plot_wsls_difference(
 
 
 # =============================================================================
+# Run-Level WSLS (Per-Run Computation and Plotting)
+# =============================================================================
+
+def compute_wsls_by_run(
+    data: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute WSLS parameters for each subject × run.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Trial-level data with valid_wsls, prev_reward, stay, shift, run,
+        condition columns. Should already have behavioral exclusions applied.
+
+    Returns
+    -------
+    DataFrame with columns:
+        subject_id, run, condition, counterbalance, p_stay_win, p_shift_lose,
+        n_win_trials, n_lose_trials, n_total_trials
+    """
+    wsls_run = compute_wsls(data, groupby_cols=['subject_id', 'run'])
+
+    # Add condition and counterbalance info
+    run_condition = data.groupby(['subject_id', 'run'])['condition'].first().reset_index()
+    wsls_run = wsls_run.merge(run_condition, on=['subject_id', 'run'], how='left')
+
+    cb_lookup = {s: info['counterbalance'] for s, info in SUBJECT_INFO.items()}
+    wsls_run['counterbalance'] = wsls_run['subject_id'].map(cb_lookup)
+
+    # Add age
+    age_lookup = data.groupby('subject_id')['age'].first().to_dict()
+    wsls_run['age'] = wsls_run['subject_id'].map(age_lookup)
+
+    return wsls_run
+
+
+def plot_wsls_by_run(
+    wsls_run: pd.DataFrame,
+    param: str = 'p_stay_win',
+    split_by_cb: bool = True,
+    show_fig: bool = True,
+) -> go.Figure:
+    """
+    Plot WSLS parameter across all 8 runs with condition-type coloring.
+
+    Shows individual subject trajectories and group means ± SEM for each run.
+    Runs are color-coded by condition type (baseline/sham/active/post).
+
+    Parameters
+    ----------
+    wsls_run : DataFrame
+        Output from compute_wsls_by_run()
+    param : str
+        'p_stay_win' or 'p_shift_lose'
+    split_by_cb : bool
+        If True, create faceted plot with CB=A and CB=B side by side
+    show_fig : bool
+        Display figure
+
+    Returns
+    -------
+    go.Figure
+    """
+    from config import (
+        CONDITION_COLORS, COLOR_BASELINE, COLOR_SHAM, COLOR_ACTIVE,
+        COLOR_POST, CB_COLORS,
+    )
+
+    param_labels = {
+        'p_stay_win': 'p(stay | win)',
+        'p_shift_lose': 'p(shift | lose)',
+    }
+    y_label = param_labels.get(param, param)
+
+    if split_by_cb:
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=['CB A — Active First (Runs 2-3)', 'CB B — Sham First (Runs 2-3)'],
+            shared_yaxes=True, horizontal_spacing=0.06,
+        )
+        cb_orders = ['A', 'B']
+    else:
+        fig = go.Figure()
+        cb_orders = [None]
+
+    for cb_idx, cb in enumerate(cb_orders):
+        col = cb_idx + 1 if split_by_cb else None
+
+        if cb is not None:
+            plot_data = wsls_run[wsls_run['counterbalance'] == cb].copy()
+        else:
+            plot_data = wsls_run.copy()
+
+        if len(plot_data) == 0:
+            continue
+
+        # Individual subject lines (semi-transparent, age-colored)
+        for subj in plot_data['subject_id'].unique():
+            sdata = plot_data[plot_data['subject_id'] == subj].sort_values('run')
+            age = sdata['age'].iloc[0] if 'age' in sdata.columns else np.nan
+            color = _age_to_rgb(age)
+            rgba = color.replace('rgb', 'rgba').replace(')', ',0.3)')
+
+            trace_kwargs = dict(
+                x=sdata['run'], y=sdata[param],
+                mode='lines+markers',
+                line=dict(color=rgba, width=1),
+                marker=dict(size=4, color=rgba),
+                showlegend=False,
+                hovertemplate=f'Sub-{subj}<br>Age: {age:.0f}<br>Run: %{{x}}<br>{y_label}: %{{y:.3f}}',
+            )
+
+            if split_by_cb:
+                fig.add_trace(go.Scatter(**trace_kwargs), row=1, col=col)
+            else:
+                fig.add_trace(go.Scatter(**trace_kwargs))
+
+        # Group mean ± SEM per run, colored by condition type
+        run_stats = plot_data.groupby(['run', 'condition'])[param].agg(
+            ['mean', 'sem', 'count']
+        ).reset_index()
+
+        for _, row in run_stats.iterrows():
+            run_num = row['run']
+            cond = row['condition']
+            mean_val = row['mean']
+            sem_val = row['sem']
+            marker_color = CONDITION_COLORS.get(cond, '#757575')
+
+            trace_kwargs = dict(
+                x=[run_num], y=[mean_val],
+                mode='markers',
+                marker=dict(
+                    size=14, color=marker_color, symbol='diamond',
+                    line=dict(width=2, color='white'),
+                ),
+                error_y=dict(
+                    type='data', array=[sem_val], visible=True,
+                    color=marker_color, thickness=2,
+                ),
+                showlegend=False,
+                hovertemplate=f'{cond.capitalize()}<br>Run {run_num}<br>Mean: {mean_val:.3f}<br>SEM: {sem_val:.3f}',
+            )
+
+            if split_by_cb:
+                fig.add_trace(go.Scatter(**trace_kwargs), row=1, col=col)
+            else:
+                fig.add_trace(go.Scatter(**trace_kwargs))
+
+        # Connect group means with line
+        run_means = plot_data.groupby('run')[param].mean().sort_index()
+        trace_kwargs = dict(
+            x=run_means.index, y=run_means.values,
+            mode='lines',
+            line=dict(color='#404040', width=2, dash='dot'),
+            showlegend=False, hoverinfo='skip',
+        )
+        if split_by_cb:
+            fig.add_trace(go.Scatter(**trace_kwargs), row=1, col=col)
+        else:
+            fig.add_trace(go.Scatter(**trace_kwargs))
+
+        # Session divider
+        if split_by_cb:
+            fig.add_vline(x=4.5, line_dash='dash', line_color='gray',
+                          opacity=0.5, row=1, col=col)
+        else:
+            fig.add_vline(x=4.5, line_dash='dash', line_color='gray', opacity=0.5)
+
+    # Add condition legend (manual traces)
+    for cond, color in [('baseline', COLOR_BASELINE), ('sham', COLOR_SHAM),
+                        ('active', COLOR_ACTIVE), ('post', COLOR_POST)]:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode='markers',
+            marker=dict(size=10, color=color, symbol='diamond'),
+            name=cond.capitalize(), showlegend=True,
+        ))
+
+    # Layout
+    n_subjects = wsls_run['subject_id'].nunique()
+    title_text = f'{y_label} by Run (N = {n_subjects})'
+
+    fig.update_layout(
+        title=title_text,
+        template=PLOTLY_TEMPLATE,
+        font=dict(family=FONT_FAMILY, size=14),
+        height=480,
+        width=950 if split_by_cb else 650,
+        legend=dict(
+            orientation='h', yanchor='bottom', y=1.02,
+            xanchor='center', x=0.5,
+        ),
+    )
+
+    fig.update_xaxes(
+        tickmode='linear', tick0=1, dtick=1,
+        showgrid=False, showline=True, linewidth=1, linecolor='black',
+        title_text='Run',
+    )
+    fig.update_yaxes(
+        range=[0, 1.02],
+        showgrid=False, showline=True, linewidth=1, linecolor='black',
+    )
+    if split_by_cb:
+        fig.update_yaxes(title_text=y_label, row=1, col=1)
+
+    if show_fig:
+        fig.show(config=dict(toImageButtonOptions=dict(filename=f'wsls_by_run_{param}')))
+
+    return fig
+
+
+# =============================================================================
 # Main Analysis Function
 # =============================================================================
 
@@ -579,7 +793,7 @@ def run_wsls_analysis(
     data_h2 : DataFrame
         Active + sham data (for H2)
     data : DataFrame
-        Full dataset (for age lookup)
+        Full dataset (for age lookup and run-level analysis)
     show_plots : bool
         If True, display visualizations
     verbose : bool
@@ -590,11 +804,13 @@ def run_wsls_analysis(
     dict with keys:
         'wsls_h1': DataFrame of H1 WSLS
         'wsls_h2': DataFrame of H2 WSLS
+        'wsls_by_run': DataFrame of per-run WSLS
         'stat_results': dict of statistical test results
         'paired_fig': paired plot figure
         'diff_fig': difference plot figure
+        'run_figs': dict of per-run WSLS figures
     """
-    # Compute WSLS
+    # Compute WSLS (condition-level)
     wsls_h1, wsls_h2 = compute_wsls_h1_h2(data_h1, data_h2)
     
     if verbose:
@@ -604,6 +820,22 @@ def run_wsls_analysis(
         print('H2 WSLS (active vs. sham, clean runs):')
         print(wsls_h2.to_string(index=False))
     
+    # Compute WSLS (run-level)
+    # Use data with behavioral exclusions only (not stim exclusions) so all
+    # 8 runs are represented; condition labels are still accurate
+    data_clean = data[~data['exclude_behavioral']].copy() if 'exclude_behavioral' in data.columns else data.copy()
+    wsls_by_run = compute_wsls_by_run(data_clean)
+
+    if verbose:
+        print()
+        print('Run-level WSLS computed:')
+        print(f'  {len(wsls_by_run)} subject × run observations')
+        print(f'  {wsls_by_run["subject_id"].nunique()} subjects')
+        for cond in ['baseline', 'sham', 'active', 'post']:
+            n = wsls_by_run[wsls_by_run['condition'] == cond].shape[0]
+            if n > 0:
+                print(f'  {cond}: {n} runs')
+
     # Statistical tests
     stat_results = compute_wsls_difference_stats(wsls_h2)
     
@@ -617,17 +849,26 @@ def run_wsls_analysis(
     # Plots
     paired_fig = None
     diff_fig = None
+    run_figs = {}
     
     if show_plots:
         paired_fig = plot_wsls_paired(wsls_h2, age_lookup, show_fig=True)
         diff_fig = plot_wsls_difference(wsls_h2, stat_results, age_lookup, show_fig=True)
+
+        # Run-level WSLS plots (both params, split by counterbalance)
+        for param in ['p_stay_win', 'p_shift_lose']:
+            run_figs[param] = plot_wsls_by_run(
+                wsls_by_run, param=param, split_by_cb=True, show_fig=True
+            )
     
     return {
         'wsls_h1': wsls_h1,
         'wsls_h2': wsls_h2,
+        'wsls_by_run': wsls_by_run,
         'stat_results': stat_results,
         'paired_fig': paired_fig,
         'diff_fig': diff_fig,
+        'run_figs': run_figs,
     }
 
 
