@@ -74,11 +74,6 @@ SURVEY_GROUPS = {
     },
     'Trauma & Adversity': {
         'ctq_total': 'CTQ Total',
-        'ctq_emotional_abuse': 'CTQ Emotional Abuse',
-        'ctq_physical_abuse': 'CTQ Physical Abuse',
-        'ctq_sexual_abuse': 'CTQ Sexual Abuse',
-        'ctq_emotional_neglect': 'CTQ Emotional Neglect',
-        'ctq_physical_neglect': 'CTQ Physical Neglect',
     },
     'Social & Wellbeing': {
         'mspss_total': 'MSPSS Total',
@@ -97,11 +92,11 @@ SURVEY_GROUPS = {
         'ffmq_actaware': 'FFMQ Act w/ Awareness',
         'ffmq_nonjudge': 'FFMQ Non-Judge',
         'ffmq_nonreact': 'FFMQ Non-React',
-        'bbs_avg': 'BBS (Boredom)',
+        'bbs_avg': 'BBS (Bias Blind Spot)',
     },
     'Technology & Media': {
         'bsmas_total': 'BSMAS (Social Media)',
-        'nbs_total': 'NBS (Nomophobia)',
+        'nbs_total': 'NBS (Need to Belong)',
     },
     'Emotion Regulation': {
         'eros_ext_improving': 'EROS Ext Improving',
@@ -113,23 +108,123 @@ SURVEY_GROUPS = {
         'scd_q': 'SCD-Q',
         'har_score': 'HAR Score',
     },
+    'Neural & Stimulation': {
+        'theta_p95': 'Theta Reactivity (p95)',
+        'theta_p75': 'Theta Reactivity (p75)',
+        'theta_median': 'Theta Reactivity (median)',
+        'efield_mean_magnE': 'E-field Strength (mean)',
+        # itf not currently exported to master CSV
+    },
+    'Objective Cognition': {
+        'global_composite': 'Global Cognition',
+        'attention_composite': 'Attention',
+        'memory_composite': 'Memory',
+        'speed_composite': 'Processing Speed',
+        'ef_composite': 'Executive Function',
+        'kbit_iq': 'KBIT IQ',
+    },
 }
 
+# Variables that belong to the same construct and should NOT be correlated
+# with each other (within-group correlations are trivial/redundant).
+REDUNDANCY_GROUPS = [
+    # Cognitive composites share items/variance
+    {'global_composite', 'attention_composite', 'memory_composite',
+     'speed_composite', 'ef_composite'},
+    # Theta reactivity quantiles are the same measure at different percentiles
+    {'theta_p95', 'theta_p75', 'theta_median'},
+    # SCAARED subscales sum to total
+    {'scaared_total', 'scaared_somatic', 'scaared_gad',
+     'scaared_separation', 'scaared_social'},
+    # MSPSS subscales sum to total
+    {'mspss_total', 'mspss_friends', 'mspss_family', 'mspss_significant_other'},
+    # BPSQI subscales relate to global
+    {'bpsqi_global', 'bpsqi_latency', 'bpsqi_duration',
+     'bpsqi_disturbance', 'bpsqi_quality'},
+    # FFMQ subscales relate to total
+    {'ffmq_total', 'ffmq_total_no_obs', 'ffmq_observe', 'ffmq_describe',
+     'ffmq_actaware', 'ffmq_nonjudge', 'ffmq_nonreact'},
+    # EROS subscales
+    {'eros_ext_improving', 'eros_ext_worsening',
+     'eros_int_improving', 'eros_int_worsening'},
+    # CTQ subscales (if ever populated)
+    {'ctq_total', 'ctq_emotional_abuse', 'ctq_physical_abuse',
+     'ctq_sexual_abuse', 'ctq_emotional_neglect', 'ctq_physical_neglect'},
+    # NORC lifetime/past year are related constructs
+    {'norc_lifetime', 'norc_past_year'},
+    # SPSRQ subscales
+    {'spsrq_sr', 'spsrq_sp'},
+    # PROMIS measures (different constructs but all from same battery —
+    # keep these correlated with each other, only exclude self-correlations)
+]
+
+
+def _is_redundant_pair(var_a: str, var_b: str) -> bool:
+    """Check if two variables belong to the same redundancy group."""
+    if var_a == var_b:
+        return True
+    for group in REDUNDANCY_GROUPS:
+        if var_a in group and var_b in group:
+            return True
+    return False
+
+
 # DVs to test against
+# Note: Extended RW (alpha_pos, alpha_neg, tau) and DDM (v, a, t) parameters
+# require REFIT_EXTENDED=True and REFIT_DDM=True in the notebook.
+# Variables not found in subj_df are silently skipped.
 BASELINE_DVS = {
+    # WSLS
     'sham_p_stay_win': 'p(stay|win)',
     'sham_p_shift_lose': 'p(shift|lose)',
+    # Standard RW
     'sham_alpha': 'α (learning rate)',
     'sham_beta': 'β (inv. temperature)',
+    # Extended RW
+    'sham_ext_alpha_pos': 'α⁺ (pos. learning)',
+    'sham_ext_alpha_neg': 'α⁻ (neg. learning)',
+    'sham_ext_tau': 'τ (stickiness)',
+    'sham_confirmation_bias': 'Confirmation Bias (α⁺/α⁻)',
+    # DDM
+    'sham_v': 'v (drift rate)',
+    'sham_a': 'a (boundary sep.)',
+    'sham_t': 't (non-decision)',
+    'sham_z': 'z (starting point)',
+    # Performance
     'sham_accuracy': 'Accuracy',
     'sham_win_rate': 'Win Rate',
+    # Neural / Stimulation (treated as baseline individual-difference DVs)
+    'theta_p95': 'θ Reactivity (p95)',
+    'theta_p75': 'θ Reactivity (p75)',
+    'theta_median': 'θ Reactivity (median)',
+    'efield_mean_magnE': 'E-field Strength',
+    # Cognitive (as DVs for survey-cognition relationships)
+    'global_composite': 'Global Cognition',
+    'attention_composite': 'Attention',
+    'memory_composite': 'Memory',
+    'speed_composite': 'Processing Speed',
+    'ef_composite': 'Executive Function',
+    'kbit_iq': 'KBIT IQ',
 }
 
 CHANGE_DVS = {
+    # WSLS
     'delta_p_stay_win': 'Δ p(stay|win)',
     'delta_p_shift_lose': 'Δ p(shift|lose)',
+    # Standard RW
     'delta_alpha': 'Δ α',
     'delta_beta': 'Δ β',
+    # Extended RW
+    'delta_ext_alpha_pos': 'Δ α⁺',
+    'delta_ext_alpha_neg': 'Δ α⁻',
+    'delta_ext_tau': 'Δ τ',
+    'delta_confirmation_bias': 'Δ Confirm. Bias',
+    # DDM
+    'delta_v': 'Δ v (drift)',
+    'delta_a': 'Δ a (boundary)',
+    'delta_t': 'Δ t (non-dec.)',
+    'delta_z': 'Δ z (start pt.)',
+    # Performance
     'delta_accuracy': 'Δ Accuracy',
     'delta_win_rate': 'Δ Win Rate',
 }
@@ -200,6 +295,10 @@ def compute_correlation_matrix(
     rows = []
     for s_var, s_label, s_group, _ in survey_vars:
         for d_var, d_label, d_type in all_dvs:
+            # Skip redundant pairs (same variable, or same construct)
+            if _is_redundant_pair(s_var, d_var):
+                continue
+
             # Ensure numeric
             s_vals = pd.to_numeric(subj_df[s_var], errors='coerce')
             d_vals = pd.to_numeric(subj_df[d_var], errors='coerce')
@@ -508,11 +607,27 @@ def regression_followup(
         s_label = row['survey_label']
         d_label = row['dv_label']
 
-        # Build predictor list: survey var + covariates
-        predictors = [s_var] + [c for c in covariates if c != s_var]
+        # Skip if predictor and DV are redundant
+        if _is_redundant_pair(s_var, d_var):
+            continue
 
-        # Get clean data
-        all_cols = [d_var] + predictors
+        # Skip if the DV is one of the covariates (circular regression)
+        if d_var in covariates:
+            if verbose:
+                print(f'\n  {s_label} × {d_label}: DV is a covariate, skipping.')
+            continue
+
+        # Skip if the predictor IS a covariate (nothing new to test)
+        if s_var in covariates:
+            if verbose:
+                print(f'\n  {s_label} × {d_label}: predictor is already a covariate, skipping.')
+            continue
+
+        # Build predictor list: survey var + covariates (deduplicated)
+        predictors = [s_var] + [c for c in covariates if c != s_var and c != d_var]
+
+        # Build column list (deduplicated)
+        all_cols = list(dict.fromkeys([d_var] + predictors))
         available = [c for c in all_cols if c in subj_df.columns]
         if len(available) < len(all_cols):
             missing = set(all_cols) - set(available)
@@ -542,23 +657,29 @@ def regression_followup(
             model = sm.OLS(y, X_std).fit()
 
         # Also run base model (covariates only) for ΔR²
-        X_base = df[[c for c in covariates if c in df.columns]].copy()
-        X_base_std = (X_base - X_base.mean()) / X_base.std()
-        X_base_std = sm.add_constant(X_base_std)
+        base_covariates = [c for c in covariates if c != s_var and c != d_var and c in df.columns]
+        if len(base_covariates) == 0:
+            # No covariates left; ΔR² is just the full model R²
+            delta_r2 = model.rsquared
+            base_r2 = 0.0
+        else:
+            X_base = df[base_covariates].copy()
+            X_base_std = (X_base - X_base.mean()) / X_base.std()
+            X_base_std = sm.add_constant(X_base_std)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            base_model = sm.OLS(y, X_base_std).fit()
-
-        delta_r2 = model.rsquared - base_model.rsquared
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                base_model = sm.OLS(y, X_base_std).fit()
+            base_r2 = base_model.rsquared
+            delta_r2 = model.rsquared - base_r2
 
         result = {
             'model': model,
-            'base_model': base_model,
             'n': len(df),
             'r2': model.rsquared,
             'adj_r2': model.rsquared_adj,
             'delta_r2': delta_r2,
+            'base_r2': base_r2,
             'survey_beta': model.params[1],  # First predictor after constant
             'survey_p': model.pvalues[1],
             'bivariate_r': row['r'],
@@ -568,10 +689,10 @@ def regression_followup(
 
         if verbose:
             sig_marker = '*' if result['survey_p'] < 0.05 else ''
-            print(f'\n  {d_label} ~ {s_label} + {" + ".join(covariates)}')
+            print(f'\n  {d_label} ~ {s_label} + {" + ".join(predictors[1:])}')
             print(f'    N = {result["n"]}')
             print(f'    Full model: R² = {result["r2"]:.3f}, Adj R² = {result["adj_r2"]:.3f}')
-            print(f'    Base model: R² = {base_model.rsquared:.3f}')
+            print(f'    Base model: R² = {base_r2:.3f}')
             print(f'    ΔR² ({s_label}): {delta_r2:+.3f}')
             print(f'    {s_label}: β = {result["survey_beta"]:+.3f}, '
                   f'p = {result["survey_p"]:.4f}{sig_marker}')
@@ -589,6 +710,189 @@ def regression_followup(
                 print(f'    {pred:25s}: β = {beta:+.3f}, p = {p:.4f}{s}')
 
     return results
+
+
+# =============================================================================
+# Step 5b: Scatter plots for significant regression results
+# =============================================================================
+
+def plot_regression_scatters(
+    subj_df: pd.DataFrame,
+    reg_results: Dict,
+    corr_df: pd.DataFrame,
+    max_plots: int = 8,
+    show_fig: bool = True,
+) -> Optional[go.Figure]:
+    """
+    Generate scatter plots for significant regression follow-up results.
+    Shows the bivariate relationship with age gradient coloring.
+    """
+    # Filter to significant results
+    sig_results = {k: v for k, v in reg_results.items() if v['survey_p'] < 0.05}
+    if not sig_results:
+        return None
+
+    to_plot = list(sig_results.items())[:max_plots]
+    n_plots = len(to_plot)
+    n_cols = min(n_plots, 3)
+    n_rows = int(np.ceil(n_plots / n_cols))
+
+    # Look up labels from corr_df
+    label_map = {}
+    for _, row in corr_df.iterrows():
+        label_map[(row['survey_var'], row['dv_var'])] = (row['survey_label'], row['dv_label'])
+
+    subplot_titles = []
+    for (s_var, d_var), res in to_plot:
+        s_label, d_label = label_map.get((s_var, d_var), (s_var, d_var))
+        subplot_titles.append(
+            f'{s_label} → {d_label}'
+            f'<br><sub>β={res["survey_beta"]:+.3f}, p={res["survey_p"]:.3f}*, '
+            f'ΔR²={res["delta_r2"]:+.3f}</sub>'
+        )
+
+    fig = make_subplots(
+        rows=n_rows, cols=n_cols,
+        subplot_titles=subplot_titles,
+        horizontal_spacing=0.12,
+        vertical_spacing=0.18,
+    )
+
+    for idx, ((s_var, d_var), res) in enumerate(to_plot):
+        r_idx = idx // n_cols + 1
+        c_idx = idx % n_cols + 1
+        s_label, d_label = label_map.get((s_var, d_var), (s_var, d_var))
+
+        s_vals = pd.to_numeric(subj_df[s_var], errors='coerce')
+        d_vals = pd.to_numeric(subj_df[d_var], errors='coerce')
+        ages = subj_df['age']
+        valid = s_vals.notna() & d_vals.notna() & ages.notna()
+
+        x, y, a = s_vals[valid].values, d_vals[valid].values, ages[valid].values
+
+        for xi, yi, ai in zip(x, y, a):
+            fig.add_trace(go.Scatter(
+                x=[xi], y=[yi], mode='markers',
+                marker=dict(size=8, color=_age_to_rgb(ai),
+                            line=dict(width=0.5, color='white')),
+                opacity=0.8,
+                hovertemplate=f'Age: {ai:.0f}<br>{s_label}: {xi:.2f}'
+                              f'<br>{d_label}: {yi:.3f}<extra></extra>',
+                showlegend=False,
+            ), row=r_idx, col=c_idx)
+
+        # Regression line
+        if len(x) >= 3:
+            slope, intercept, _, _, _ = stats.linregress(x, y)
+            x_line = np.linspace(x.min(), x.max(), 50)
+            y_line = intercept + slope * x_line
+            fig.add_trace(go.Scatter(
+                x=x_line, y=y_line, mode='lines',
+                line=dict(color='#C62828', width=2),
+                showlegend=False, hoverinfo='skip',
+            ), row=r_idx, col=c_idx)
+
+        fig.update_xaxes(title_text=s_label, row=r_idx, col=c_idx)
+        fig.update_yaxes(title_text=d_label, row=r_idx, col=c_idx)
+
+    fig.update_layout(
+        height=350 * n_rows, width=350 * n_cols,
+        template=PLOTLY_TEMPLATE,
+        margin=dict(l=60, r=80, t=80, b=60),
+        font=dict(family=FONT_FAMILY, size=12),
+        title=dict(text='Significant Regression Results (controlling for age + global cog)',
+                   font=dict(size=14)),
+    )
+    fig.update_xaxes(showgrid=False, zeroline=False,
+                     showline=True, linewidth=1, linecolor='black')
+    fig.update_yaxes(showgrid=False, showline=True, linewidth=1, linecolor='black')
+
+    # Age colorbar
+    fig.add_trace(go.Scatter(
+        x=[None]*50, y=[None]*50, mode='markers',
+        marker=dict(size=0.1, color=np.linspace(AGE_MIN, AGE_MAX, 50),
+                    colorscale=AGE_COLORSCALE, cmin=AGE_MIN, cmax=AGE_MAX,
+                    colorbar=dict(x=1.04, y=0.5, len=0.5, thickness=10,
+                                  title='Age', titleside='right')),
+        showlegend=False, hoverinfo='skip',
+    ))
+
+    if show_fig:
+        fig.show(config=dict(toImageButtonOptions=dict(filename='regression_significant_scatters')))
+    return fig
+
+
+# =============================================================================
+# Step 5c: Age moderation of survey effects
+# =============================================================================
+
+def test_age_moderation_of_survey_effects(
+    subj_df: pd.DataFrame,
+    reg_results: Dict,
+    corr_df: pd.DataFrame,
+    verbose: bool = True,
+) -> Dict:
+    """
+    For each significant regression result, test whether age moderates
+    the survey → DV relationship by adding a survey × age interaction term.
+    """
+    sig_results = {k: v for k, v in reg_results.items() if v['survey_p'] < 0.05}
+
+    if verbose:
+        print(f'\n{"=" * 70}')
+        print(f'AGE MODERATION OF SIGNIFICANT SURVEY EFFECTS')
+        print(f'{"=" * 70}')
+
+    if not sig_results:
+        if verbose:
+            print('\n  No significant regression results to test for age moderation.')
+        return {}
+
+    # Import the interaction function from hypothesis_tests
+    from hypothesis_tests import run_ols_with_interaction
+
+    label_map = {}
+    for _, row in corr_df.iterrows():
+        label_map[(row['survey_var'], row['dv_var'])] = (row['survey_label'], row['dv_label'])
+
+    moderation_results = {}
+    for (s_var, d_var), res in sig_results.items():
+        s_label, d_label = label_map.get((s_var, d_var), (s_var, d_var))
+
+        # Skip if predictor is age itself
+        if s_var == 'age':
+            continue
+
+        result = run_ols_with_interaction(
+            dv=d_var, predictor=s_var, moderator='age',
+            data=subj_df, covariates=['global_composite'],
+            verbose=verbose,
+            model_label=f'{d_label} ~ {s_label} × Age + Global Cog'
+        )
+        if result is not None:
+            moderation_results[(s_var, d_var)] = result
+
+    # Summary
+    if verbose:
+        sig_int = [(k, v) for k, v in moderation_results.items()
+                   if v['interaction_p'] < 0.05]
+        marginal_int = [(k, v) for k, v in moderation_results.items()
+                        if 0.05 <= v['interaction_p'] < 0.10]
+        print(f'\n--- Age Moderation Summary ---')
+        print(f'  Tested: {len(moderation_results)} effects')
+        print(f'  Significant age × survey interactions: {len(sig_int)}')
+        for (s, d), v in sig_int:
+            sl, dl = label_map.get((s, d), (s, d))
+            print(f'    {sl} × Age → {dl}: β = {v["interaction_beta"]:+.3f}, '
+                  f'p = {v["interaction_p"]:.4f}')
+        if marginal_int:
+            print(f'  Marginal: {len(marginal_int)}')
+            for (s, d), v in marginal_int:
+                sl, dl = label_map.get((s, d), (s, d))
+                print(f'    {sl} × Age → {dl}: β = {v["interaction_beta"]:+.3f}, '
+                      f'p = {v["interaction_p"]:.4f}')
+
+    return moderation_results
 
 
 # =============================================================================
@@ -788,6 +1092,18 @@ def run_survey_exploration(
     # Step 6: Regression follow-up
     reg_results = regression_followup(subj_df, corr_df, verbose=verbose)
     results['regression_results'] = reg_results
+
+    # Step 6b: Scatter plots for significant regression results
+    if show_plots and reg_results:
+        fig = plot_regression_scatters(subj_df, reg_results, corr_df,
+                                       show_fig=show_plots)
+        if fig is not None:
+            results['figures']['regression_scatters'] = fig
+
+    # Step 6c: Age moderation of significant survey effects
+    age_mod = test_age_moderation_of_survey_effects(
+        subj_df, reg_results, corr_df, verbose=verbose)
+    results['age_moderation'] = age_mod
 
     # Step 7: tACS moderation
     mod_df = test_survey_moderation(subj_df, corr_df, verbose=verbose)

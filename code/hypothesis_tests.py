@@ -93,18 +93,7 @@ def run_ols(
     # Prepare design matrix
     X = df[predictors].copy()
     y = df[dv].values
-
-    # Ensure all predictors are numeric (REDCap exports can store numbers as strings)
-    X = X.apply(pd.to_numeric, errors='coerce')
-    valid = X.notna().all(axis=1)
-    X = X.loc[valid]
-    y = y[valid]
-
-    if len(X) < len(predictors) + 2:
-        if verbose:
-            print(f'  {model_label or dv}: Insufficient numeric data after coercion (n={len(X)})')
-        return None
-
+    
     # Standardize predictors for comparable coefficients
     X_std = (X - X.mean()) / X.std()
     X_std = sm.add_constant(X_std)
@@ -395,6 +384,395 @@ def paired_ttest_with_tost(
         print()
     
     return result
+
+
+# =============================================================================
+# Exploratory: Age × Predictor Interactions for H1
+# =============================================================================
+
+def run_ols_with_interaction(
+    dv: str,
+    predictor: str,
+    moderator: str,
+    data: pd.DataFrame,
+    covariates: List[str] = None,
+    verbose: bool = True,
+    model_label: Optional[str] = None,
+) -> Optional[Dict]:
+    """
+    Run OLS with a predictor × moderator interaction term.
+
+    All continuous variables are mean-centered before creating the interaction
+    to reduce multicollinearity and aid interpretation.
+    """
+    if covariates is None:
+        covariates = []
+
+    # Deduplicate
+    covariates = [c for c in covariates if c != predictor and c != moderator and c != dv]
+
+    all_cols = list(dict.fromkeys([dv, predictor, moderator] + covariates))
+    df = data[all_cols].copy()
+    for col in all_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.dropna()
+
+    if len(df) < len(covariates) + 4:
+        if verbose:
+            print(f'  {model_label or dv}: Insufficient data (n={len(df)})')
+        return None
+
+    y = df[dv].values
+
+    # Mean-center for interaction
+    pred_c = df[predictor] - df[predictor].mean()
+    mod_c = df[moderator] - df[moderator].mean()
+    interaction = pred_c * mod_c
+
+    X_dict = {predictor: pred_c, moderator: mod_c}
+    for cov in covariates:
+        X_dict[cov] = df[cov] - df[cov].mean()
+    interaction_name = f'{predictor} × {moderator}'
+    X_dict[interaction_name] = interaction
+
+    X = pd.DataFrame(X_dict)
+    X_std = (X - X.mean()) / X.std()
+    X_std = sm.add_constant(X_std)
+
+    model = sm.OLS(y, X_std).fit()
+
+    # Model WITHOUT interaction for ΔR²
+    X_no_int = X.drop(columns=[interaction_name])
+    X_no_int_std = (X_no_int - X_no_int.mean()) / X_no_int.std()
+    X_no_int_std = sm.add_constant(X_no_int_std)
+    model_no_int = sm.OLS(y, X_no_int_std).fit()
+
+    delta_r2 = model.rsquared - model_no_int.rsquared
+    int_idx = list(X_std.columns).index(interaction_name)
+
+    result = {
+        'model': model,
+        'model_no_interaction': model_no_int,
+        'n': len(df),
+        'r2': model.rsquared,
+        'adj_r2': model.rsquared_adj,
+        'r2_no_interaction': model_no_int.rsquared,
+        'delta_r2_interaction': delta_r2,
+        'interaction_beta': model.params[int_idx],
+        'interaction_p': model.pvalues[int_idx],
+        'f_stat': model.fvalue,
+        'f_pval': model.f_pvalue,
+    }
+
+    if verbose:
+        label = model_label or f'{dv} ~ {predictor} × {moderator}'
+        print(f'\n{label}')
+        print(f'  N = {result["n"]}')
+        print(f'  Full model (with interaction): R² = {result["r2"]:.3f}, '
+              f'Adj R² = {result["adj_r2"]:.3f}')
+        print(f'  Without interaction:           R² = {result["r2_no_interaction"]:.3f}')
+        print(f'  ΔR² (interaction):             {delta_r2:+.3f}')
+        print(f'  Coefficients (standardized):')
+        for pred, beta, p in zip(X_std.columns, model.params, model.pvalues):
+            if pred == 'const':
+                continue
+            s = '*' if p < 0.05 else ''
+            print(f'    {pred:30s}: β = {beta:+.3f}, p = {p:.4f} {s}')
+
+    return result
+
+
+def test_h1_age_interactions(
+    subj_df: pd.DataFrame,
+    verbose: bool = True
+) -> Dict:
+    """
+    Exploratory: Test whether age moderates H1 predictor-behavior relationships.
+
+    For each H1 predictor (global cognition, SPSRQ-SR, SPSRQ-SP), tests whether
+    the predictor × age interaction predicts baseline WSLS and RW parameters.
+    """
+    results = {}
+
+    if verbose:
+        print('=' * 70)
+        print('Exploratory: Age as Moderator of H1 Predictor-Behavior Relationships')
+        print('=' * 70)
+
+    # H1.1: Global Cognition × Age → WSLS
+    if verbose:
+        print('\n--- Global Cognition × Age → Baseline WSLS ---')
+
+    results['cog_x_age_stay'] = run_ols_with_interaction(
+        dv='sham_p_stay_win', predictor='global_composite', moderator='age',
+        data=subj_df, covariates=['education_years'],
+        verbose=verbose,
+        model_label='p(stay|win) ~ Global Cog × Age + Education')
+
+    results['cog_x_age_shift'] = run_ols_with_interaction(
+        dv='sham_p_shift_lose', predictor='global_composite', moderator='age',
+        data=subj_df, covariates=['education_years'],
+        verbose=verbose,
+        model_label='p(shift|lose) ~ Global Cog × Age + Education')
+
+    # H1.2: SPSRQ × Age → WSLS
+    if verbose:
+        print('\n--- SPSRQ × Age → Baseline WSLS ---')
+
+    results['sr_x_age_stay'] = run_ols_with_interaction(
+        dv='sham_p_stay_win', predictor='spsrq_sr', moderator='age',
+        data=subj_df, covariates=['global_composite', 'education_years'],
+        verbose=verbose,
+        model_label='p(stay|win) ~ SPSRQ-SR × Age + Global Cog + Education')
+
+    results['sp_x_age_shift'] = run_ols_with_interaction(
+        dv='sham_p_shift_lose', predictor='spsrq_sp', moderator='age',
+        data=subj_df, covariates=['global_composite', 'education_years'],
+        verbose=verbose,
+        model_label='p(shift|lose) ~ SPSRQ-SP × Age + Global Cog + Education')
+
+    # RW parameters
+    if verbose:
+        print('\n--- Global Cognition × Age → Baseline RW Parameters ---')
+
+    results['cog_x_age_alpha'] = run_ols_with_interaction(
+        dv='sham_alpha', predictor='global_composite', moderator='age',
+        data=subj_df, covariates=['education_years'],
+        verbose=verbose,
+        model_label='α ~ Global Cog × Age + Education')
+
+    results['cog_x_age_beta'] = run_ols_with_interaction(
+        dv='sham_beta', predictor='global_composite', moderator='age',
+        data=subj_df, covariates=['education_years'],
+        verbose=verbose,
+        model_label='β ~ Global Cog × Age + Education')
+
+    # Summary
+    if verbose:
+        sig = [(k, v) for k, v in results.items()
+               if v is not None and v['interaction_p'] < 0.05]
+        marginal = [(k, v) for k, v in results.items()
+                    if v is not None and 0.05 <= v['interaction_p'] < 0.10]
+        print(f'\n--- Summary ---')
+        print(f'  Significant interactions (p < .05): {len(sig)}')
+        for k, v in sig:
+            print(f'    {k}: β = {v["interaction_beta"]:+.3f}, p = {v["interaction_p"]:.4f}')
+        if marginal:
+            print(f'  Marginal interactions (.05 < p < .10): {len(marginal)}')
+            for k, v in marginal:
+                print(f'    {k}: β = {v["interaction_beta"]:+.3f}, p = {v["interaction_p"]:.4f}')
+
+    return results
+
+
+def plot_johnson_neyman(
+    dv: str,
+    predictor: str,
+    moderator: str,
+    data: pd.DataFrame,
+    covariates: List[str] = None,
+    dv_label: Optional[str] = None,
+    predictor_label: Optional[str] = None,
+    moderator_label: Optional[str] = None,
+    n_points: int = 200,
+    show_fig: bool = True,
+) -> Optional[go.Figure]:
+    """
+    Create a Johnson-Neyman plot showing the conditional effect of predictor
+    on DV across values of the moderator.
+
+    The plot shows:
+      - The simple slope of predictor → DV at each moderator value (blue line)
+      - 95% confidence band (shaded)
+      - Region(s) of significance (where CI excludes zero, shaded green)
+      - Johnson-Neyman point(s) (vertical dashed red lines)
+      - Rug plot of actual moderator values
+
+    Parameters
+    ----------
+    dv, predictor, moderator : str
+        Column names in data
+    data : DataFrame
+    covariates : list, optional
+        Additional covariates to include in the model
+    dv_label, predictor_label, moderator_label : str, optional
+        Display labels for axes/title
+    """
+    if covariates is None:
+        covariates = []
+    covariates = [c for c in covariates if c != predictor and c != moderator and c != dv]
+
+    all_cols = list(dict.fromkeys([dv, predictor, moderator] + covariates))
+    df = data[all_cols].copy()
+    for col in all_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.dropna()
+
+    if len(df) < 6:
+        return None
+
+    y = df[dv].values
+    pred_label = predictor_label or predictor
+    mod_label = moderator_label or moderator
+    dv_lab = dv_label or dv
+
+    # Mean-center predictor and covariates (NOT moderator — we probe across its range)
+    pred_c = df[predictor].values - df[predictor].mean()
+    mod_vals = df[moderator].values
+    mod_mean = mod_vals.mean()
+
+    # Build design matrix with raw (centered) values
+    X_dict = {'const': np.ones(len(df)), predictor: pred_c, moderator: mod_vals - mod_mean}
+    for cov in covariates:
+        X_dict[cov] = df[cov].values - df[cov].mean()
+    X_dict[f'{predictor}x{moderator}'] = pred_c * (mod_vals - mod_mean)
+
+    X = np.column_stack(list(X_dict.values()))
+    col_names = list(X_dict.keys())
+
+    # Fit OLS
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        model = sm.OLS(y, X).fit()
+
+    # Get indices for key parameters
+    b_pred = model.params[col_names.index(predictor)]
+    b_int = model.params[col_names.index(f'{predictor}x{moderator}')]
+    pred_idx = col_names.index(predictor)
+    int_idx = col_names.index(f'{predictor}x{moderator}')
+
+    # Compute simple slopes across moderator range
+    mod_range = np.linspace(df[moderator].min() - 1, df[moderator].max() + 1, n_points)
+    mod_centered = mod_range - mod_mean
+
+    simple_slopes = b_pred + b_int * mod_centered
+
+    # Compute SE of simple slope at each moderator value
+    # Var(b1 + b3*W) = Var(b1) + W²*Var(b3) + 2*W*Cov(b1,b3)
+    vcov = model.cov_params()
+    var_b1 = vcov[pred_idx, pred_idx]
+    var_b3 = vcov[int_idx, int_idx]
+    cov_b1b3 = vcov[pred_idx, int_idx]
+
+    se_slopes = np.sqrt(var_b1 + mod_centered**2 * var_b3 + 2 * mod_centered * cov_b1b3)
+
+    # t-critical for 95% CI
+    from scipy.stats import t as t_dist
+    df_resid = model.df_resid
+    t_crit = t_dist.ppf(0.975, df_resid)
+
+    ci_lower = simple_slopes - t_crit * se_slopes
+    ci_upper = simple_slopes + t_crit * se_slopes
+
+    # Find Johnson-Neyman points (where CI crosses zero)
+    # Solve: simple_slope ± t_crit * se_slope = 0
+    # (b1 + b3*w)² = t²(Var(b1) + w²*Var(b3) + 2w*Cov(b1,b3))
+    # Rearrange to quadratic in w:
+    # (b3² - t²*Var(b3))w² + (2*b1*b3 - 2*t²*Cov(b1,b3))w + (b1² - t²*Var(b1)) = 0
+    a_coef = b_int**2 - t_crit**2 * var_b3
+    b_coef = 2 * b_pred * b_int - 2 * t_crit**2 * cov_b1b3
+    c_coef = b_pred**2 - t_crit**2 * var_b1
+
+    discriminant = b_coef**2 - 4 * a_coef * c_coef
+    jn_points_centered = []
+    if discriminant >= 0 and abs(a_coef) > 1e-10:
+        w1 = (-b_coef + np.sqrt(discriminant)) / (2 * a_coef)
+        w2 = (-b_coef - np.sqrt(discriminant)) / (2 * a_coef)
+        jn_points_centered = [w1, w2]
+
+    jn_points = [w + mod_mean for w in jn_points_centered]
+    # Filter to within data range (±10%)
+    mod_min, mod_max = df[moderator].min(), df[moderator].max()
+    mod_span = mod_max - mod_min
+    jn_points = [p for p in jn_points if mod_min - 0.1*mod_span <= p <= mod_max + 0.1*mod_span]
+
+    # Determine significance regions
+    is_significant = (ci_lower > 0) | (ci_upper < 0)
+
+    # Build figure
+    fig = go.Figure()
+
+    # Significance shading
+    sig_ranges = []
+    in_sig = False
+    for i, s in enumerate(is_significant):
+        if s and not in_sig:
+            start_i = i
+            in_sig = True
+        elif not s and in_sig:
+            sig_ranges.append((start_i, i - 1))
+            in_sig = False
+    if in_sig:
+        sig_ranges.append((start_i, len(is_significant) - 1))
+
+    for start_i, end_i in sig_ranges:
+        fig.add_vrect(
+            x0=mod_range[start_i], x1=mod_range[end_i],
+            fillcolor='rgba(46, 125, 50, 0.1)', line_width=0,
+            annotation_text='Significant', annotation_position='top left',
+            annotation_font=dict(size=10, color='#2E7D32'),
+        )
+
+    # Confidence band
+    fig.add_trace(go.Scatter(
+        x=np.concatenate([mod_range, mod_range[::-1]]),
+        y=np.concatenate([ci_upper, ci_lower[::-1]]),
+        fill='toself', fillcolor='rgba(21, 101, 192, 0.15)',
+        line=dict(width=0), showlegend=False, hoverinfo='skip',
+    ))
+
+    # Simple slope line
+    fig.add_trace(go.Scatter(
+        x=mod_range, y=simple_slopes,
+        mode='lines', line=dict(color='#1565C0', width=2.5),
+        name='Simple slope',
+        hovertemplate=f'{mod_label}: %{{x:.1f}}<br>Slope: %{{y:.4f}}<extra></extra>',
+    ))
+
+    # Zero reference
+    fig.add_hline(y=0, line_dash='dot', line_color='gray', line_width=1)
+
+    # J-N points
+    for jn in jn_points:
+        fig.add_vline(x=jn, line_dash='dash', line_color='#C62828', line_width=1.5)
+        fig.add_annotation(
+            x=jn, y=max(ci_upper) * 0.9,
+            text=f'J-N: {jn:.1f}', showarrow=False,
+            font=dict(color='#C62828', size=11),
+        )
+
+    # Rug plot of actual moderator values
+    for val in df[moderator].values:
+        fig.add_trace(go.Scatter(
+            x=[val], y=[min(ci_lower) * 1.1],
+            mode='markers', marker=dict(symbol='line-ns', size=8,
+                                         color='black', line_width=1),
+            showlegend=False, hoverinfo='skip',
+        ))
+
+    fig.update_layout(
+        height=400, width=600,
+        template=PLOTLY_TEMPLATE,
+        font=dict(family=FONT_FAMILY, size=12),
+        xaxis_title=mod_label,
+        yaxis_title=f'Simple slope of {pred_label} → {dv_lab}',
+        title=dict(
+            text=f'Johnson-Neyman Plot: {pred_label} × {mod_label} → {dv_lab}'
+                 f'<br><sub>Shaded region = 95% CI; green = significant (p < .05)</sub>',
+            font=dict(size=13),
+        ),
+        showlegend=False,
+        margin=dict(l=70, r=40, t=80, b=60),
+    )
+    fig.update_xaxes(showgrid=False, showline=True, linewidth=1, linecolor='black')
+    fig.update_yaxes(showgrid=False, showline=True, linewidth=1, linecolor='black')
+
+    filename = f'jn_{predictor}_{moderator}_{dv}'.replace(' ', '_')
+    if show_fig:
+        fig.show(config=dict(toImageButtonOptions=dict(filename=filename)))
+
+    return fig
 
 
 def test_h2_1(
@@ -918,6 +1296,36 @@ def run_hypothesis_tests(
     
     # H1.2: SPSRQ → baseline WSLS
     results['h1_2'] = test_h1_2(subj_df, h1_1_results=results['h1_1'], verbose=verbose)
+    
+    # Exploratory: Age × H1 predictor interactions
+    results['h1_age_interactions'] = test_h1_age_interactions(subj_df, verbose=verbose)
+    
+    # Johnson-Neyman plots for significant/marginal interactions
+    if show_plots and results['h1_age_interactions']:
+        jn_figs = {}
+        for key, res in results['h1_age_interactions'].items():
+            if res is not None and res['interaction_p'] < 0.10:
+                # Parse the DV and predictor from the key name
+                dv_map = {
+                    'cog_x_age_stay': ('sham_p_stay_win', 'global_composite', 'p(stay|win)', 'Global Cognition'),
+                    'cog_x_age_shift': ('sham_p_shift_lose', 'global_composite', 'p(shift|lose)', 'Global Cognition'),
+                    'sr_x_age_stay': ('sham_p_stay_win', 'spsrq_sr', 'p(stay|win)', 'SPSRQ-SR'),
+                    'sp_x_age_shift': ('sham_p_shift_lose', 'spsrq_sp', 'p(shift|lose)', 'SPSRQ-SP'),
+                    'cog_x_age_alpha': ('sham_alpha', 'global_composite', 'α (learning rate)', 'Global Cognition'),
+                    'cog_x_age_beta': ('sham_beta', 'global_composite', 'β (inv. temperature)', 'Global Cognition'),
+                }
+                if key in dv_map:
+                    dv, pred, dv_label, pred_label = dv_map[key]
+                    fig = plot_johnson_neyman(
+                        dv=dv, predictor=pred, moderator='age',
+                        data=subj_df, covariates=['education_years'],
+                        dv_label=dv_label, predictor_label=pred_label,
+                        moderator_label='Age',
+                        show_fig=True,
+                    )
+                    if fig is not None:
+                        jn_figs[f'jn_{key}'] = fig
+        results['jn_figures'] = jn_figs
     
     # H2.1: Paired t-tests
     results['h2_1'] = test_h2_1(subj_df, verbose=verbose)
