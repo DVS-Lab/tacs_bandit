@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "mode": "THETA_NIC",
+    "mode": "LOCALIZER_FAST_THETA",
     "run_duration_minutes": 6,
     "run_types": {
       "1": "baseline",
@@ -30,6 +30,92 @@
     "outcome_duration": 1.0,
     "iti_duration": 0.25
   },
+  "localizer_fast_theta": {
+    "enabled": true,
+    "duration_minutes": 6,
+    "target_trials": 120,
+    "stop_rule": "duration_or_trials",
+    "min_feedback_epochs_total": 80,
+    "hard_min_usable_epochs": 60,
+    "recommended_min_usable_epochs": 80,
+    "win_fraction": 0.75,
+    "min_trials_same_contingency": 20,
+    "contingency_jitter": 4,
+    "timing": {
+      "fixation_duration": 0.3,
+      "max_response_time": 1.25,
+      "choice_highlight_duration": 0.25,
+      "wait_duration_min": 0.5,
+      "wait_duration_max": 0.7,
+      "outcome_duration": 0.7,
+      "iti_duration": 0.3
+    }
+  },
+  "eeg_recording": {
+    "record_lsl_eeg_during_localizer": true,
+    "preferred_stream_type": "EEG",
+    "preferred_stream_name_contains": "StarStim",
+    "write_raw_csv": true,
+    "write_raw_npz": true,
+    "allow_offline_import": true,
+    "offline_import_formats": ["csv", "edf", "bdf", "xdf", "set", "npz"],
+    "marker_stream_name": "LSLOutletStreamName-Markers"
+  },
+  "theta_estimation": {
+    "theta_label": "participant_specific_feedback_theta",
+    "frontocentral_roi": ["Fz", "FCz", "Cz", "F3", "F4"],
+    "fallback_roi_strategy": "use_available_frontocentral_channels",
+    "epoch_tmin_sec": -1.0,
+    "epoch_tmax_sec": 1.5,
+    "baseline_window_sec": [-0.5, -0.1],
+    "theta_window_sec": [0.2, 0.8],
+    "primary_theta_band_hz": [4.0, 8.0],
+    "exploratory_theta_band_hz": [3.0, 10.0],
+    "frequency_step_hz": 0.25,
+    "smooth_spectrum_hz": 0.5,
+    "round_to_nearest_hz": 0.5,
+    "default_fixed_theta_hz": 6.0,
+    "reject_edge_peaks": true,
+    "min_peak_prominence_z": 0.5,
+    "split_half_max_peak_diff_hz": 1.0,
+    "bootstrap_iterations": 500,
+    "max_bootstrap_ci_width_hz": 2.0,
+    "min_usable_epoch_fraction": 0.6,
+    "recommended_usable_epoch_fraction": 0.7,
+    "event_alignment_tolerance_sec": 0.05
+  },
+  "eeg_preprocessing": {
+    "highpass_hz": 0.5,
+    "lowpass_hz": 40.0,
+    "notch_hz": 60.0,
+    "resample_hz": 250,
+    "reference": "average_available",
+    "bad_channel_detection": true,
+    "flatline_threshold_sec": 2.0,
+    "max_bad_channels": 2,
+    "epoch_reject_uv": 150,
+    "step_reject_uv": 75,
+    "blink_rejection": true,
+    "use_eog_if_available": true,
+    "use_eyelink_blinks_if_available": true,
+    "ica_enabled": false
+  },
+  "stimulation_frequency_selection": {
+    "use_itheta_if_reliable": true,
+    "fallback_if_unreliable": "fixed_6hz",
+    "stop_if_no_theta_file": false,
+    "manual_override_allowed": true,
+    "manual_override_requires_reason": true,
+    "valid_theta_range_hz": [4.0, 8.0],
+    "default_fixed_theta_hz": 6.0
+  },
+  "qc_outputs": {
+    "write_json": true,
+    "write_csv": true,
+    "write_plots": true,
+    "write_html_report": true,
+    "qc_output_dir": "data/sub-{subject}/qc"
+  },
   "stimulation": {
     "enabled": true,
     "test_mode": false,
@@ -42,7 +128,7 @@
     "lsl": {
       "enabled": true,
       "marker_stream_timeout": 5.0,
-      "task_start_marker": 201,
+      "task_start_marker": 203,
       "stimulation_start_marker": 203,
       "stimulation_stop_marker": 204
     },
