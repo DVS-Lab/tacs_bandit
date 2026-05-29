@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Two-Armed Bandit Task
-Version 18: Added PANAS assessment, confidence slider, instructions gating
+Version 17: Multi-run support, display options, double-blinding
 """
 
 import pygame
@@ -277,23 +277,6 @@ class TwoArmedBanditTask:
         self.GREEN = (100, 255, 100)
         self.YELLOW = (255, 255, 100)
         self.GRAY = (128, 128, 128)
-        
-        # PANAS item pools
-        self.PANAS_POSITIVE = [
-            'Interested', 'Excited', 'Strong', 'Enthusiastic', 'Proud',
-            'Alert', 'Inspired', 'Determined', 'Attentive', 'Active'
-        ]
-        self.PANAS_NEGATIVE = [
-            'Distressed', 'Upset', 'Guilty', 'Scared', 'Hostile',
-            'Irritable', 'Ashamed', 'Nervous', 'Jittery', 'Afraid'
-        ]
-        self.PANAS_LABELS = [
-            '1: Very slightly\nor not at all',
-            '2: A little',
-            '3: Moderately',
-            '4: Quite a bit',
-            '5: Extremely'
-        ]
         
         # Load images
         self.load_images()
@@ -931,34 +914,24 @@ class TwoArmedBanditTask:
         return False
     
     def show_instructions(self):
-        """Show task instructions on run 1, brief transition screen on subsequent runs"""
+        """Show task instructions and wait for spacebar"""
         self.screen.fill(self.BLACK)
         
-        if self.run_number == 1:
-            # Full instructions on run 1
-            instructions = [
-                f"Two-Armed Bandit Task - Run {self.run_number}",
-                "",
-                "Choose between two flowers using",
-                "A for left and L for right",
-                "",
-                "One flower is better than the other",
-                "The better flower can change!",
-                "Try to win as much as possible",
-                "",
-                f"This run will last {self.config['experiment']['run_duration_minutes']} minutes",
-                "",
-                "Press SPACE when ready to begin"
-            ]
-        else:
-            # Brief transition screen for runs 2-8
-            instructions = [
-                f"Two-Armed Bandit Task - Run {self.run_number} of 8",
-                "",
-                f"This run will last {self.config['experiment']['run_duration_minutes']} minutes",
-                "",
-                "Press SPACE when ready to begin"
-            ]
+        # CHANGE #1: Removed stim condition from instructions
+        instructions = [
+            f"Two-Armed Bandit Task - Run {self.run_number}",
+            "",
+            "Choose between two flowers using",
+            "A for left and L for right",
+            "",
+            "One flower is better than the other",
+            "The better flower can change!",
+            "Try to win as much as possible",
+            "",
+            f"This run will last {self.config['experiment']['run_duration_minutes']} minutes",
+            "",
+            "Press SPACE when ready to begin"
+        ]
         
         for i, line in enumerate(instructions):
             font = self.font_large if i == 0 else self.font_small
@@ -1050,193 +1023,6 @@ class TwoArmedBanditTask:
         print(f"Stimulation guess for run {self.run_number}: {guess}")
         return guess
     
-    def show_slider(self, prompt_lines, slider_min, slider_max, default_value, labels=None, highlight_line=None):
-        """
-        Generic slider screen. A/L move left/right, SPACE confirms.
-        
-        Parameters:
-        -----------
-        prompt_lines : list of str
-            Lines of text to display above the slider
-        slider_min : int
-            Minimum slider value
-        slider_max : int
-            Maximum slider value
-        default_value : int
-            Starting value
-        labels : list of str or None
-            Labels to show beneath the slider (one per value, or just min/max)
-        highlight_line : int or None
-            Index into prompt_lines to render in medium font with yellow color
-            
-        Returns:
-        --------
-        int : Selected value, or None if escaped
-        """
-        current_value = default_value
-        clock = pygame.time.Clock()
-        
-        # Clear any stale events from previous screens
-        pygame.event.clear()
-        
-        while True:
-            self.screen.fill(self.BLACK)
-            
-            # Draw prompt text
-            for i, line in enumerate(prompt_lines):
-                if i == 0:
-                    font = self.font_large
-                    color = self.WHITE
-                elif highlight_line is not None and i == highlight_line:
-                    font = self.font_medium
-                    color = self.YELLOW
-                else:
-                    font = self.font_small
-                    color = self.WHITE
-                y_offset = -250 + i * 35
-                self.show_text(line, y_offset, font, color)
-            
-            # Draw slider track
-            slider_width = 600
-            slider_x = self.center_x - slider_width // 2
-            slider_y = self.center_y + 80
-            pygame.draw.line(self.screen, self.GRAY,
-                           (slider_x, slider_y), (slider_x + slider_width, slider_y), 3)
-            
-            # Draw tick marks and value labels
-            num_values = slider_max - slider_min + 1
-            for i in range(num_values):
-                tick_x = slider_x + int(i * slider_width / (num_values - 1))
-                pygame.draw.line(self.screen, self.GRAY,
-                               (tick_x, slider_y - 8), (tick_x, slider_y + 8), 2)
-                # Value number
-                val_text = self.font_small.render(str(slider_min + i), True, self.GRAY)
-                val_rect = val_text.get_rect(center=(tick_x, slider_y + 25))
-                self.screen.blit(val_text, val_rect)
-            
-            # Draw labels beneath tick marks if provided
-            if labels:
-                for i, label in enumerate(labels):
-                    if i < num_values:
-                        tick_x = slider_x + int(i * slider_width / (num_values - 1))
-                        # Handle multi-line labels
-                        label_lines = label.split('\n')
-                        for j, lbl_line in enumerate(label_lines):
-                            lbl_surface = pygame.font.Font(None, 24).render(lbl_line, True, self.GRAY)
-                            lbl_rect = lbl_surface.get_rect(center=(tick_x, slider_y + 50 + j * 18))
-                            self.screen.blit(lbl_surface, lbl_rect)
-            
-            # Draw cursor at current value
-            cursor_x = slider_x + int((current_value - slider_min) * slider_width / (num_values - 1))
-            pygame.draw.circle(self.screen, self.WHITE, (cursor_x, slider_y), 12)
-            
-            # Draw current value above cursor
-            val_display = self.font_medium.render(str(current_value), True, self.WHITE)
-            val_display_rect = val_display.get_rect(center=(cursor_x, slider_y - 35))
-            self.screen.blit(val_display, val_display_rect)
-            
-            # Instructions
-            self.show_text("A = left    L = right    SPACE = confirm", 180, self.font_small, self.GRAY)
-            
-            pygame.display.flip()
-            
-            # Handle input
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_a:
-                        current_value = max(slider_min, current_value - 1)
-                    elif event.key == pygame.K_l:
-                        current_value = min(slider_max, current_value + 1)
-                    elif event.key == pygame.K_SPACE:
-                        return current_value
-                    elif event.key == pygame.K_ESCAPE:
-                        return None
-            
-            clock.tick(60)
-    
-    def show_confidence_slider(self, stim_guess):
-        """
-        Show confidence rating slider after stimulation guess.
-        
-        Parameters:
-        -----------
-        stim_guess : str
-            'yes' (active) or 'no' (sham) — what the participant guessed
-            
-        Returns:
-        --------
-        int : Confidence rating 1-10, or None if escaped
-        """
-        guess_label = "active" if stim_guess == 'yes' else "sham"
-        
-        prompt_lines = [
-            f"Two-Armed Bandit Task - Run {self.run_number}",
-            "",
-            f"How confident are you that the",
-            f"stimulation was {guess_label}?",
-        ]
-        
-        confidence_labels = [
-            'Not at all\nconfident',
-            '', '', '', '', '', '', '', '',
-            'Totally\nconfident'
-        ]
-        
-        confidence = self.show_slider(prompt_lines, 1, 10, 5, labels=confidence_labels)
-        
-        if confidence is not None:
-            print(f"Confidence rating for run {self.run_number}: {confidence}")
-        
-        return confidence
-    
-    def show_panas_assessment(self):
-        """
-        Present 6 PANAS items (3 PA, 3 NA) in randomized order.
-        
-        Returns:
-        --------
-        list of dict : Each dict has 'item' (str), 'valence' (str), 'rating' (int)
-        """
-        # Sample 3 positive and 3 negative items (no duplicates within run)
-        pa_items = list(np.random.choice(self.PANAS_POSITIVE, size=3, replace=False))
-        na_items = list(np.random.choice(self.PANAS_NEGATIVE, size=3, replace=False))
-        
-        # Combine and randomize order
-        items = [(word, 'positive') for word in pa_items] + [(word, 'negative') for word in na_items]
-        np.random.shuffle(items)
-        
-        results = []
-        
-        for idx, (word, valence) in enumerate(items):
-            prompt_lines = [
-                f"Two-Armed Bandit Task - Run {self.run_number}",
-                "",
-                "Indicate the extent to which you",
-                "feel this way right now:",
-                "",
-                f"{word}",
-            ]
-            
-            rating = self.show_slider(
-                prompt_lines,
-                slider_min=1,
-                slider_max=5,
-                default_value=3,
-                labels=self.PANAS_LABELS,
-                highlight_line=5
-            )
-            
-            if rating is None:
-                # Escaped — store None but continue
-                results.append({'item': word, 'valence': valence, 'rating': None})
-            else:
-                results.append({'item': word, 'valence': valence, 'rating': rating})
-                print(f"PANAS item {idx+1}/6: {word} ({valence}) = {rating}")
-        
-        return results
-    
     def show_run_complete(self):
         """CHANGE #6: Show run completion with option to continue"""
         run_trials = [t for t in self.trial_data if t['run'] == self.run_number]
@@ -1325,6 +1111,30 @@ class TwoArmedBanditTask:
                         waiting = False
         
         return continue_to_next
+    
+    def reset_for_new_run(self):
+        """Reset variables for a new run"""
+        self.trial_data = []
+        self.current_trial = 0
+        self.current_good = np.random.randint(1, 3)
+        self.trial_in_contingency = 0
+        self.contingency_trials = self._get_contingency_duration()
+        self.task_should_stop = False
+    
+    def cleanup(self):
+        """Clean up and close"""
+        self.save_data()
+        
+        if self.lsl_trigger:
+            self.lsl_trigger.stop_listening()
+        
+        if self.stimulation_enabled and self.nic_interface:
+            try:
+                self.nic_interface.disconnect()
+            except Exception as e:
+                print(f"Warning: Error disconnecting stimulation: {e}")
+        
+        pygame.quit()
     
     def save_data(self):
         """Save trial data to CSV"""
@@ -1472,28 +1282,12 @@ class TwoArmedBanditTask:
         print(f"\nRun {self.run_number} complete!")
         print(f"Total trials: {trial_count}")
         
-        # --- Post-run assessments ---
-        
-        # 1. PANAS assessment (6 items: 3 PA, 3 NA)
-        panas_results = self.show_panas_assessment()
-        
-        # 2. Stimulation guess (active or sham)
+        # Ask participant to guess stimulation condition
         stim_guess = self.show_stimulation_guess()
         
-        # 3. Confidence slider
-        stim_confidence = None
-        if stim_guess is not None:
-            stim_confidence = self.show_confidence_slider(stim_guess)
-        
-        # Add post-run assessment data to all trial rows for this run
+        # Add stimulation guess to trial data for this run
         for trial in self.trial_data:
             trial['stim_guess'] = stim_guess
-            trial['stim_confidence'] = stim_confidence
-            # Add PANAS items and ratings
-            for i, panas in enumerate(panas_results):
-                trial[f'panas_item_{i+1}'] = panas['item']
-                trial[f'panas_valence_{i+1}'] = panas['valence']
-                trial[f'panas_rating_{i+1}'] = panas['rating']
         
         # Save data for this run
         self.save_data()
