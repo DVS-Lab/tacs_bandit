@@ -1,0 +1,14 @@
+{
+  "status": "unavailable",
+  "stream_name": null,
+  "stream_type": null,
+  "sampling_rate_hz": null,
+  "channel_names": [],
+  "n_samples": 0,
+  "start_lsl_time": null,
+  "end_lsl_time": null,
+  "output_npz": null,
+  "output_csv": null,
+  "output_metadata_json": null,
+  "message": "No matching EEG stream was found for type='EEG' and name containing 'StarStim'."
+}
