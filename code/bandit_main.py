@@ -1050,22 +1050,21 @@ class TwoArmedBanditTask:
         print(f"Stimulation guess for run {self.run_number}: {guess}")
         return guess
     
-    def show_slider(self, prompt_lines, slider_min, slider_max, default_value, labels=None, highlight_line=None):
+    def show_number_selection(self, prompt_lines, value_min, value_max, labels=None, highlight_line=None):
         """
-        Generic slider screen. A/L move left/right, SPACE confirms.
+        Number-key selection screen. Participant presses a number key to select,
+        SPACE to confirm. No default — forces deliberate choice.
         
         Parameters:
         -----------
         prompt_lines : list of str
-            Lines of text to display above the slider
-        slider_min : int
-            Minimum slider value
-        slider_max : int
-            Maximum slider value
-        default_value : int
-            Starting value
+            Lines of text to display above the options
+        value_min : int
+            Minimum value (must be 1-9)
+        value_max : int
+            Maximum value (must be 1-9)
         labels : list of str or None
-            Labels to show beneath the slider (one per value, or just min/max)
+            Labels to show beneath each number (one per value)
         highlight_line : int or None
             Index into prompt_lines to render in medium font with yellow color
             
@@ -1073,8 +1072,18 @@ class TwoArmedBanditTask:
         --------
         int : Selected value, or None if escaped
         """
-        current_value = default_value
+        selected_value = None
         clock = pygame.time.Clock()
+        
+        # Map number keys (1-9)
+        number_keys = {
+            pygame.K_1: 1, pygame.K_2: 2, pygame.K_3: 3,
+            pygame.K_4: 4, pygame.K_5: 5, pygame.K_6: 6,
+            pygame.K_7: 7, pygame.K_8: 8, pygame.K_9: 9,
+            pygame.K_KP1: 1, pygame.K_KP2: 2, pygame.K_KP3: 3,
+            pygame.K_KP4: 4, pygame.K_KP5: 5, pygame.K_KP6: 6,
+            pygame.K_KP7: 7, pygame.K_KP8: 8, pygame.K_KP9: 9,
+        }
         
         # Clear any stale events from previous screens
         pygame.event.clear()
@@ -1096,47 +1105,45 @@ class TwoArmedBanditTask:
                 y_offset = -250 + i * 35
                 self.show_text(line, y_offset, font, color)
             
-            # Draw slider track
-            slider_width = 600
-            slider_x = self.center_x - slider_width // 2
-            slider_y = self.center_y + 80
-            pygame.draw.line(self.screen, self.GRAY,
-                           (slider_x, slider_y), (slider_x + slider_width, slider_y), 3)
+            # Draw number options
+            num_values = value_max - value_min + 1
+            total_width = 600
+            option_x_start = self.center_x - total_width // 2
+            option_y = self.center_y + 80
             
-            # Draw tick marks and value labels
-            num_values = slider_max - slider_min + 1
             for i in range(num_values):
-                tick_x = slider_x + int(i * slider_width / (num_values - 1))
-                pygame.draw.line(self.screen, self.GRAY,
-                               (tick_x, slider_y - 8), (tick_x, slider_y + 8), 2)
-                # Value number
-                val_text = self.font_small.render(str(slider_min + i), True, self.GRAY)
-                val_rect = val_text.get_rect(center=(tick_x, slider_y + 25))
-                self.screen.blit(val_text, val_rect)
-            
-            # Draw labels beneath tick marks if provided
-            if labels:
-                for i, label in enumerate(labels):
-                    if i < num_values:
-                        tick_x = slider_x + int(i * slider_width / (num_values - 1))
-                        # Handle multi-line labels
-                        label_lines = label.split('\n')
+                val = value_min + i
+                option_x = option_x_start + int(i * total_width / (num_values - 1))
+                
+                # Highlight selected value
+                if selected_value == val:
+                    # Draw selection circle
+                    pygame.draw.circle(self.screen, self.WHITE, (option_x, option_y), 22)
+                    num_color = self.BLACK
+                    num_font = self.font_medium
+                else:
+                    num_color = self.GRAY
+                    num_font = self.font_small
+                
+                # Draw number
+                num_surface = num_font.render(str(val), True, num_color)
+                num_rect = num_surface.get_rect(center=(option_x, option_y))
+                self.screen.blit(num_surface, num_rect)
+                
+                # Draw labels beneath numbers if provided
+                if labels:
+                    if i < len(labels) and labels[i]:
+                        label_lines = labels[i].split('\n')
                         for j, lbl_line in enumerate(label_lines):
                             lbl_surface = pygame.font.Font(None, 24).render(lbl_line, True, self.GRAY)
-                            lbl_rect = lbl_surface.get_rect(center=(tick_x, slider_y + 50 + j * 18))
+                            lbl_rect = lbl_surface.get_rect(center=(option_x, option_y + 40 + j * 18))
                             self.screen.blit(lbl_surface, lbl_rect)
             
-            # Draw cursor at current value
-            cursor_x = slider_x + int((current_value - slider_min) * slider_width / (num_values - 1))
-            pygame.draw.circle(self.screen, self.WHITE, (cursor_x, slider_y), 12)
-            
-            # Draw current value above cursor
-            val_display = self.font_medium.render(str(current_value), True, self.WHITE)
-            val_display_rect = val_display.get_rect(center=(cursor_x, slider_y - 35))
-            self.screen.blit(val_display, val_display_rect)
-            
             # Instructions
-            self.show_text("A = left    L = right    SPACE = confirm", 180, self.font_small, self.GRAY)
+            if selected_value is not None:
+                self.show_text(f"Selected: {selected_value}  —  Press SPACE to confirm", 180, self.font_small, self.WHITE)
+            else:
+                self.show_text("Press a number key to select, then SPACE to confirm", 180, self.font_small, self.GRAY)
             
             pygame.display.flip()
             
@@ -1145,12 +1152,14 @@ class TwoArmedBanditTask:
                 if event.type == pygame.QUIT:
                     return None
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_a:
-                        current_value = max(slider_min, current_value - 1)
-                    elif event.key == pygame.K_l:
-                        current_value = min(slider_max, current_value + 1)
+                    if event.key in number_keys:
+                        val = number_keys[event.key]
+                        if value_min <= val <= value_max:
+                            selected_value = val
                     elif event.key == pygame.K_SPACE:
-                        return current_value
+                        if selected_value is not None:
+                            return selected_value
+                        # Ignore space if nothing selected yet
                     elif event.key == pygame.K_ESCAPE:
                         return None
             
@@ -1158,7 +1167,7 @@ class TwoArmedBanditTask:
     
     def show_confidence_slider(self, stim_guess):
         """
-        Show confidence rating slider after stimulation guess.
+        Show confidence rating after stimulation guess.
         
         Parameters:
         -----------
@@ -1167,7 +1176,7 @@ class TwoArmedBanditTask:
             
         Returns:
         --------
-        int : Confidence rating 1-10, or None if escaped
+        int : Confidence rating 1-9, or None if escaped
         """
         guess_label = "active" if stim_guess == 'yes' else "sham"
         
@@ -1180,11 +1189,11 @@ class TwoArmedBanditTask:
         
         confidence_labels = [
             'Not at all\nconfident',
-            '', '', '', '', '', '', '', '',
+            '', '', '', '', '', '', '',
             'Totally\nconfident'
         ]
         
-        confidence = self.show_slider(prompt_lines, 1, 10, 5, labels=confidence_labels)
+        confidence = self.show_number_selection(prompt_lines, 1, 9, labels=confidence_labels)
         
         if confidence is not None:
             print(f"Confidence rating for run {self.run_number}: {confidence}")
@@ -1219,11 +1228,10 @@ class TwoArmedBanditTask:
                 f"{word}",
             ]
             
-            rating = self.show_slider(
+            rating = self.show_number_selection(
                 prompt_lines,
-                slider_min=1,
-                slider_max=5,
-                default_value=3,
+                value_min=1,
+                value_max=5,
                 labels=self.PANAS_LABELS,
                 highlight_line=5
             )
