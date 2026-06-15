@@ -1,14 +1,14 @@
 <ProtocolTemplates>
  <Template>
-  <TemplateName>Bandit_Protocol-A_Run-1</TemplateName>
+  <TemplateName>Bandit_Impedance-Check</TemplateName>
   <NumOfChannels>8</NumOfChannels>
   <EOGTrainingTime>0</EOGTrainingTime>
   <Step>
-   <stepName>Run 1</stepName>
+   <stepName>Impedance Check Only</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
-   <stepType>7</stepType>
-   <stimulationTime>360</stimulationTime>
+   <stepType>0</stepType>
+   <stimulationTime>300</stimulationTime>
    <rampUp>30</rampUp>
    <rampDown>30</rampDown>
    <rampSham>0</rampSham>
@@ -20,47 +20,47 @@
    <Channel>
     <index>1</index>
     <location>F3</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
-    <ftacsValue>0.00</ftacsValue>
+    <atacsValue>750</atacsValue>
+    <ftacsValue>6.00</ftacsValue>
     <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>2</index>
     <location>Fp1</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
-    <ftacsValue>0.00</ftacsValue>
-    <ptacsValue>0</ptacsValue>
+    <atacsValue>250</atacsValue>
+    <ftacsValue>6.00</ftacsValue>
+    <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>3</index>
     <location>FCz</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
-    <ftacsValue>0.00</ftacsValue>
-    <ptacsValue>0</ptacsValue>
+    <atacsValue>250</atacsValue>
+    <ftacsValue>6.00</ftacsValue>
+    <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>4</index>
     <location>FT7</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
-    <atacsValue>0</atacsValue>
-    <ftacsValue>0.00</ftacsValue>
-    <ptacsValue>0</ptacsValue>
+    <atacsValue>250</atacsValue>
+    <ftacsValue>6.00</ftacsValue>
+    <ptacsValue>180</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>5</index>
     <location>F4</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -70,7 +70,7 @@
    <Channel>
     <index>6</index>
     <location>P4</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -80,7 +80,7 @@
    <Channel>
     <index>7</index>
     <location>P3</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
@@ -90,7 +90,7 @@
    <Channel>
     <index>8</index>
     <location>EOG1</location>
-    <electrodeType>1</electrodeType>
+    <electrodeType>2</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>

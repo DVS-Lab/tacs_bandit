@@ -89,8 +89,8 @@
    </Channel>
    <Channel>
     <index>8</index>
-    <location>Ch8</location>
-    <electrodeType>0</electrodeType>
+    <location>EOG1</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
