@@ -145,17 +145,33 @@ def rw_loglik_sequence(
     rewards: jnp.ndarray,
     alpha: float,
     beta: float,
+    mask: Optional[jnp.ndarray] = None,
 ) -> float:
-    """Compute total log-likelihood for a trial sequence under standard RW."""
+    """Compute total log-likelihood for a trial sequence under standard RW.
+
+    Parameters
+    ----------
+    mask : optional (n_trials,) bool array. If provided, only masked trials
+        contribute to the log-likelihood. Unmasked trials still update values
+        but their log-lik contribution is zeroed. When None, all trials count.
+    """
     V_init = jnp.array([0.5, 0.5])
 
-    def scan_fn(V, trial):
-        c, r = trial
-        ll = _softmax_log_prob(V, c, beta)
-        V = _rw_update(V, c, r, alpha)
-        return V, ll
+    if mask is None:
+        def scan_fn(V, trial):
+            c, r = trial
+            ll = _softmax_log_prob(V, c, beta)
+            V = _rw_update(V, c, r, alpha)
+            return V, ll
+        _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards))
+    else:
+        def scan_fn(V, trial):
+            c, r, m = trial
+            ll = _softmax_log_prob(V, c, beta) * m  # zero out padding
+            V = _rw_update(V, c, r, alpha)
+            return V, ll
+        _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards, mask))
 
-    _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards))
     return jnp.sum(log_liks)
 
 
@@ -165,17 +181,26 @@ def rw_dual_loglik_sequence(
     alpha_pos: float,
     alpha_neg: float,
     beta: float,
+    mask: Optional[jnp.ndarray] = None,
 ) -> float:
     """Log-likelihood under dual learning rate RW."""
     V_init = jnp.array([0.5, 0.5])
 
-    def scan_fn(V, trial):
-        c, r = trial
-        ll = _softmax_log_prob(V, c, beta)
-        V = _rw_dual_update(V, c, r, alpha_pos, alpha_neg)
-        return V, ll
+    if mask is None:
+        def scan_fn(V, trial):
+            c, r = trial
+            ll = _softmax_log_prob(V, c, beta)
+            V = _rw_dual_update(V, c, r, alpha_pos, alpha_neg)
+            return V, ll
+        _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards))
+    else:
+        def scan_fn(V, trial):
+            c, r, m = trial
+            ll = _softmax_log_prob(V, c, beta) * m
+            V = _rw_dual_update(V, c, r, alpha_pos, alpha_neg)
+            return V, ll
+        _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards, mask))
 
-    _, log_liks = jax.lax.scan(scan_fn, V_init, (choices, rewards))
     return jnp.sum(log_liks)
 
 
@@ -186,19 +211,29 @@ def ph_loglik_sequence(
     eta: float,
     kappa: float,
     beta: float,
+    mask: Optional[jnp.ndarray] = None,
 ) -> float:
     """Log-likelihood under Pearce-Hall hybrid."""
     V_init = jnp.array([0.5, 0.5])
     carry_init = (V_init, alpha_init)
 
-    def scan_fn(carry, trial):
-        V, assoc = carry
-        c, r = trial
-        ll = _softmax_log_prob(V, c, beta)
-        carry = _ph_update((V, assoc), c, r, eta, kappa)
-        return carry, ll
+    if mask is None:
+        def scan_fn(carry, trial):
+            V, assoc = carry
+            c, r = trial
+            ll = _softmax_log_prob(V, c, beta)
+            carry = _ph_update((V, assoc), c, r, eta, kappa)
+            return carry, ll
+        _, log_liks = jax.lax.scan(scan_fn, carry_init, (choices, rewards))
+    else:
+        def scan_fn(carry, trial):
+            V, assoc = carry
+            c, r, m = trial
+            ll = _softmax_log_prob(V, c, beta) * m
+            carry = _ph_update((V, assoc), c, r, eta, kappa)
+            return carry, ll
+        _, log_liks = jax.lax.scan(scan_fn, carry_init, (choices, rewards, mask))
 
-    _, log_liks = jax.lax.scan(scan_fn, carry_init, (choices, rewards))
     return jnp.sum(log_liks)
 
 
@@ -229,35 +264,34 @@ def _sample_hierarchical_param(
 def model_rw_hierarchical(
     choices: jnp.ndarray,
     rewards: jnp.ndarray,
-    subject_ids: jnp.ndarray,
+    masks: jnp.ndarray,
     n_subjects: int,
     *,
     condition_ids: Optional[jnp.ndarray] = None,
     n_conditions: int = 1,
+    **kwargs,
 ) -> None:
     """Hierarchical RW model.
 
     Parameters
     ----------
-    choices : (total_trials,) int array — 0 or 1
-    rewards : (total_trials,) float array — 0.0 or 1.0
-    subject_ids : (total_trials,) int array — subject index per trial
+    choices : (n_subjects, max_trials) int array — 0 or 1, padded with 0
+    rewards : (n_subjects, max_trials) float array — 0.0 or 1.0, padded with 0
+    masks : (n_subjects, max_trials) float array — 1.0 for real trials, 0.0 for padding
     n_subjects : int
-    condition_ids : optional (total_trials,) int array — condition index per trial
-        If provided, group-level means are estimated per condition.
-    n_conditions : int — number of conditions (only used if condition_ids provided)
+    condition_ids : optional (n_subjects,) int array — condition index per subject
+    n_conditions : int — number of conditions
     """
     use_conditions = condition_ids is not None and n_conditions > 1
 
     if use_conditions:
-        # Condition-level means (e.g., active vs. sham vs. baseline)
         mu_alpha_c = numpyro.sample(
             "mu_alpha_cond",
             dist.Normal(jnp.zeros(n_conditions), 1.5),
         )
         mu_beta_c = numpyro.sample(
             "mu_beta_cond",
-            dist.Normal(jnp.zeros(n_conditions), 1.5),
+            dist.Normal(jnp.ones(n_conditions), 1.5),
         )
         sigma_alpha = numpyro.sample("sigma_alpha", dist.HalfNormal(1.0))
         sigma_beta = numpyro.sample("sigma_beta", dist.HalfNormal(1.0))
@@ -273,31 +307,23 @@ def model_rw_hierarchical(
         beta_raw = _sample_hierarchical_param("beta", n_subjects, mu_loc=1.0)
 
     def subject_loglik(subj_idx):
-        mask = subject_ids == subj_idx
-        c = jnp.where(mask, choices, 0)
-        r = jnp.where(mask, rewards, 0.0)
-        n_trials = jnp.sum(mask)
+        c = choices[subj_idx]
+        r = rewards[subj_idx]
+        m = masks[subj_idx]
 
         if use_conditions:
-            # For condition-level model, use the most common condition for this
-            # subject's run. In practice, each subject-run maps to one condition.
-            subj_conds = jnp.where(mask, condition_ids, -1)
-            cond = jnp.argmax(jnp.bincount(subj_conds.clip(0), length=n_conditions))
+            cond = condition_ids[subj_idx]
             alpha = jax.nn.sigmoid(mu_alpha_c[cond] + sigma_alpha * offset_alpha[subj_idx])
             beta = jax.nn.softplus(mu_beta_c[cond] + sigma_beta * offset_beta[subj_idx])
         else:
             alpha = jax.nn.sigmoid(alpha_raw[subj_idx])
             beta = jax.nn.softplus(beta_raw[subj_idx])
 
-        ll = rw_loglik_sequence(c, r, alpha, beta)
-        # Scale by actual trial count to handle padding
-        return ll
+        return rw_loglik_sequence(c, r, alpha, beta, mask=m)
 
-    # Vectorize over subjects
     total_ll = jax.vmap(subject_loglik)(jnp.arange(n_subjects))
     numpyro.factor("obs", jnp.sum(total_ll))
 
-    # Store transformed parameters for posterior extraction
     if not use_conditions:
         numpyro.deterministic("alpha", jax.nn.sigmoid(alpha_raw))
         numpyro.deterministic("beta", jax.nn.softplus(beta_raw))
@@ -306,8 +332,9 @@ def model_rw_hierarchical(
 def model_rw_dual_hierarchical(
     choices: jnp.ndarray,
     rewards: jnp.ndarray,
-    subject_ids: jnp.ndarray,
+    masks: jnp.ndarray,
     n_subjects: int,
+    **kwargs,
 ) -> None:
     """Hierarchical dual learning rate RW."""
     alpha_pos_raw = _sample_hierarchical_param("alpha_pos", n_subjects)
@@ -315,13 +342,13 @@ def model_rw_dual_hierarchical(
     beta_raw = _sample_hierarchical_param("beta", n_subjects, mu_loc=1.0)
 
     def subject_loglik(subj_idx):
-        mask = subject_ids == subj_idx
-        c = jnp.where(mask, choices, 0)
-        r = jnp.where(mask, rewards, 0.0)
+        c = choices[subj_idx]
+        r = rewards[subj_idx]
+        m = masks[subj_idx]
         alpha_pos = jax.nn.sigmoid(alpha_pos_raw[subj_idx])
         alpha_neg = jax.nn.sigmoid(alpha_neg_raw[subj_idx])
         beta = jax.nn.softplus(beta_raw[subj_idx])
-        return rw_dual_loglik_sequence(c, r, alpha_pos, alpha_neg, beta)
+        return rw_dual_loglik_sequence(c, r, alpha_pos, alpha_neg, beta, mask=m)
 
     total_ll = jax.vmap(subject_loglik)(jnp.arange(n_subjects))
     numpyro.factor("obs", jnp.sum(total_ll))
@@ -334,8 +361,9 @@ def model_rw_dual_hierarchical(
 def model_ph_hierarchical(
     choices: jnp.ndarray,
     rewards: jnp.ndarray,
-    subject_ids: jnp.ndarray,
+    masks: jnp.ndarray,
     n_subjects: int,
+    **kwargs,
 ) -> None:
     """Hierarchical Pearce-Hall hybrid model."""
     alpha_init_raw = _sample_hierarchical_param("alpha_init", n_subjects)
@@ -344,14 +372,14 @@ def model_ph_hierarchical(
     beta_raw = _sample_hierarchical_param("beta", n_subjects, mu_loc=1.0)
 
     def subject_loglik(subj_idx):
-        mask = subject_ids == subj_idx
-        c = jnp.where(mask, choices, 0)
-        r = jnp.where(mask, rewards, 0.0)
+        c = choices[subj_idx]
+        r = rewards[subj_idx]
+        m = masks[subj_idx]
         alpha_init = jax.nn.sigmoid(alpha_init_raw[subj_idx])
         eta = jax.nn.sigmoid(eta_raw[subj_idx])
         kappa = jax.nn.softplus(kappa_raw[subj_idx])
         beta = jax.nn.softplus(beta_raw[subj_idx])
-        return ph_loglik_sequence(c, r, alpha_init, eta, kappa, beta)
+        return ph_loglik_sequence(c, r, alpha_init, eta, kappa, beta, mask=m)
 
     total_ll = jax.vmap(subject_loglik)(jnp.arange(n_subjects))
     numpyro.factor("obs", jnp.sum(total_ll))

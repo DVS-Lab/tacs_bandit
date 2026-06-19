@@ -55,7 +55,7 @@ def fit_model(
     num_samples: int = 2000,
     num_chains: int = 4,
     seed: int = 42,
-    target_accept_prob: float = 0.9,
+    target_accept_prob: float = 0.95,
     use_conditions: bool = False,
 ) -> FitResult:
     """Run NUTS MCMC for a hierarchical RL model.
@@ -82,7 +82,7 @@ def fit_model(
     model_kwargs = dict(
         choices=dataset.choices,
         rewards=dataset.rewards,
-        subject_ids=dataset.subject_ids,
+        masks=dataset.masks,
         n_subjects=dataset.n_subjects,
     )
 
@@ -101,7 +101,8 @@ def fit_model(
     )
 
     print(f"\nFitting {model_type.value} model...")
-    print(f"  {dataset.n_subjects} subjects, {len(dataset.choices)} total trials")
+    print(f"  {dataset.n_subjects} subjects, {int(jnp.sum(dataset.masks))} total trials "
+          f"(padded to {dataset.max_trials})")
     print(f"  {num_chains} chains × {num_samples} samples (+ {num_warmup} warmup)")
     print()
 

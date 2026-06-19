@@ -38,10 +38,12 @@ def test_dataset_construction():
     config = SimulationConfig(n_subjects=3, n_trials_per_subject=50, seed=0)
     dataset, true_params = generate_synthetic_dataset(config)
     assert dataset.n_subjects == 3
-    assert len(dataset.choices) == 150
+    assert dataset.choices.shape == (3, 50)
+    assert dataset.masks.shape == (3, 50)
     assert dataset.choices.dtype == jnp.int32
     assert dataset.rewards.dtype == jnp.float32
-    print(f"  Dataset: {dataset.n_subjects} subjects, {len(dataset.choices)} trials — OK")
+    assert float(jnp.sum(dataset.masks)) == 150
+    print(f"  Dataset: {dataset.n_subjects} subjects, shape={dataset.choices.shape} — OK")
 
 
 def test_mcmc_runs():

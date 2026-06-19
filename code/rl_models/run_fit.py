@@ -29,6 +29,13 @@ from pathlib import Path
 import jax
 jax.config.update("jax_platform_name", "cpu")
 
+import os
+import numpyro
+
+# Enable parallel MCMC chains across CPU cores
+_N_CPU = os.cpu_count() or 1
+numpyro.set_host_device_count(min(_N_CPU, 4))
+
 import arviz as az
 import numpy as np
 
@@ -65,16 +72,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only include trials from these run numbers",
     )
     parser.add_argument(
+        "--stim-condition",
+        type=str,
+        nargs="+",
+        choices=["active", "sham", "baseline"],
+        help="Only include trials from these stimulation conditions",
+    )
+    parser.add_argument(
         "--num-warmup",
         type=int,
-        default=1000,
-        help="MCMC warmup iterations (default: 1000)",
+        default=2000,
+        help="MCMC warmup iterations (default: 2000)",
     )
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=2000,
-        help="MCMC sampling iterations per chain (default: 2000)",
+        default=3000,
+        help="MCMC sampling iterations per chain (default: 3000)",
     )
     parser.add_argument(
         "--num-chains",
@@ -136,6 +150,7 @@ def main():
             args.data_dir,
             glob_pattern=args.glob,
             runs=args.runs,
+            conditions=args.stim_condition,
         )
         print(dataset.summary())
         true_params = None
@@ -145,6 +160,12 @@ def main():
         model_types = [ModelType.RW, ModelType.RW_DUAL, ModelType.PH]
     else:
         model_types = [ModelType(args.model)]
+
+    # Build output file suffix based on condition filter
+    if args.stim_condition:
+        cond_suffix = "_" + "_".join(args.stim_condition)
+    else:
+        cond_suffix = ""
 
     # --- Fit models ---
     results = {}
@@ -161,14 +182,18 @@ def main():
         print_diagnostics(result)
         results[mt.value] = result
 
+        tag = f"{mt.value}{cond_suffix}"
+
         # Save ArviZ InferenceData
-        netcdf_path = args.output_dir / f"{mt.value}_idata.nc"
-        result.idata.to_netcdf(str(netcdf_path))
-        print(f"  Saved InferenceData to {netcdf_path}")
+        import pickle
+        pkl_path = args.output_dir / f"{tag}_idata.pkl"
+        with open(pkl_path, "wb") as f:
+            pickle.dump(result.idata, f)
+        print(f"  Saved InferenceData to {pkl_path}")
 
         # Save group-level summary
         summary = result.summary()
-        summary_path = args.output_dir / f"{mt.value}_summary.csv"
+        summary_path = args.output_dir / f"{tag}_summary.csv"
         summary.to_csv(str(summary_path))
         print(f"  Saved summary to {summary_path}")
 
@@ -190,7 +215,7 @@ def main():
             except KeyError:
                 pass
 
-        indiv_path = args.output_dir / f"{mt.value}_individual_params.json"
+        indiv_path = args.output_dir / f"{tag}_individual_params.json"
         with open(indiv_path, "w") as f:
             json.dump(indiv_posteriors, f, indent=2)
         print(f"  Saved individual posteriors to {indiv_path}")

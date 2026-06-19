@@ -193,9 +193,6 @@ def generate_synthetic_dataset(
     betas = np.log(1 + np.exp(log_betas))
 
     subjects = []
-    all_choices = []
-    all_rewards = []
-    all_subject_ids = []
 
     for i in range(config.n_subjects):
         key = jr.PRNGKey(config.seed + i)
@@ -222,20 +219,22 @@ def generate_synthetic_dataset(
             raw_df=pd.DataFrame(),
         )
         subjects.append(subj)
-        all_choices.append(sim["choices"])
-        all_rewards.append(sim["rewards"])
-        all_subject_ids.append(np.full(config.n_trials_per_subject, i, dtype=int))
 
     dataset = BanditDataset(
         subjects=subjects,
-        choices=jnp.array(np.concatenate(all_choices), dtype=jnp.int32),
-        rewards=jnp.array(np.concatenate(all_rewards), dtype=jnp.float32),
-        subject_ids=jnp.array(np.concatenate(all_subject_ids), dtype=jnp.int32),
-        condition_ids=jnp.zeros(
-            config.n_subjects * config.n_trials_per_subject, dtype=jnp.int32
+        choices=jnp.array(
+            np.stack([s.choices for s in subjects]), dtype=jnp.int32
         ),
+        rewards=jnp.array(
+            np.stack([s.rewards for s in subjects]), dtype=jnp.float32
+        ),
+        masks=jnp.ones(
+            (config.n_subjects, config.n_trials_per_subject), dtype=jnp.float32
+        ),
+        condition_ids=jnp.zeros(config.n_subjects, dtype=jnp.int32),
         n_subjects=config.n_subjects,
         n_conditions=1,
+        max_trials=config.n_trials_per_subject,
         subject_id_map={f"sim_{i:03d}": i for i in range(config.n_subjects)},
         condition_map=DEFAULT_CONDITION_MAP,
     )
