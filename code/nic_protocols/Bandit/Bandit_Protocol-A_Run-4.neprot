@@ -7,8 +7,8 @@
    <stepName>Run 4</stepName>
    <stepConfigurationType>ADVANCED</stepConfigurationType>
    <stepBasicStimChannel>-1</stepBasicStimChannel>
-   <stepType>0</stepType>
-   <stimulationTime>300</stimulationTime>
+   <stepType>7</stepType>
+   <stimulationTime>360</stimulationTime>
    <rampUp>30</rampUp>
    <rampDown>30</rampDown>
    <rampSham>0</rampSham>
@@ -20,41 +20,41 @@
    <Channel>
     <index>1</index>
     <location>F3</location>
-    <electrodeType>2</electrodeType>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
-    <ftacsValue>6.00</ftacsValue>
+    <ftacsValue>0.00</ftacsValue>
     <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>2</index>
     <location>Fp1</location>
-    <electrodeType>2</electrodeType>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
-    <ftacsValue>6.00</ftacsValue>
-    <ptacsValue>180</ptacsValue>
+    <ftacsValue>0.00</ftacsValue>
+    <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>3</index>
     <location>FCz</location>
-    <electrodeType>2</electrodeType>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
-    <ftacsValue>6.00</ftacsValue>
-    <ptacsValue>180</ptacsValue>
+    <ftacsValue>0.00</ftacsValue>
+    <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
     <index>4</index>
     <location>FT7</location>
-    <electrodeType>2</electrodeType>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
-    <ftacsValue>6.00</ftacsValue>
-    <ptacsValue>180</ptacsValue>
+    <ftacsValue>0.00</ftacsValue>
+    <ptacsValue>0</ptacsValue>
     <atrnsValue>0</atrnsValue>
    </Channel>
    <Channel>
@@ -89,8 +89,8 @@
    </Channel>
    <Channel>
     <index>8</index>
-    <location>Ch8</location>
-    <electrodeType>0</electrodeType>
+    <location>EOG1</location>
+    <electrodeType>1</electrodeType>
     <atdcsValue>0</atdcsValue>
     <atacsValue>0</atacsValue>
     <ftacsValue>0.00</ftacsValue>
