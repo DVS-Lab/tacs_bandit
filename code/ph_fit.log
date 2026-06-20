@@ -1,0 +1,208 @@
+Loading data from: ../data/bandit
+Found 363 CSV files
+BanditDataset: 45 subjects, 26352 total trials (padded to 623), 3 conditions
+
+  10369: 587 trials, acc=53.7%, reward=51.1%
+  10418: 575 trials, acc=52.2%, reward=49.4%
+  10541: 551 trials, acc=69.5%, reward=58.8%
+  10559: 583 trials, acc=58.3%, reward=50.9%
+  10589: 594 trials, acc=75.1%, reward=63.0%
+  10590: 582 trials, acc=62.4%, reward=57.7%
+  10606: 596 trials, acc=53.7%, reward=52.7%
+  10608: 583 trials, acc=65.0%, reward=57.5%
+  10617: 579 trials, acc=63.7%, reward=56.0%
+  10636: 608 trials, acc=82.9%, reward=66.9%
+  10638: 568 trials, acc=56.3%, reward=51.1%
+  10641: 590 trials, acc=66.3%, reward=56.3%
+  10649: 577 trials, acc=61.7%, reward=54.2%
+  10656: 596 trials, acc=69.6%, reward=59.4%
+  10661: 601 trials, acc=71.5%, reward=63.9%
+  10685: 560 trials, acc=72.5%, reward=63.2%
+  10716: 596 trials, acc=50.0%, reward=50.3%
+  10804: 591 trials, acc=60.2%, reward=53.3%
+  10809: 542 trials, acc=70.5%, reward=60.9%
+  10810: 574 trials, acc=70.9%, reward=62.9%
+  10862: 579 trials, acc=70.6%, reward=59.6%
+  10866: 575 trials, acc=59.5%, reward=53.9%
+  10886: 601 trials, acc=69.7%, reward=58.1%
+  10898: 559 trials, acc=62.6%, reward=56.4%
+  10950: 611 trials, acc=66.9%, reward=55.5%
+  10951: 623 trials, acc=51.5%, reward=50.7%
+  10998: 589 trials, acc=64.7%, reward=57.2%
+  11016: 586 trials, acc=63.7%, reward=57.7%
+  11030: 595 trials, acc=70.4%, reward=61.5%
+  11031: 563 trials, acc=61.5%, reward=54.2%
+  11036: 615 trials, acc=55.8%, reward=52.8%
+  11116: 549 trials, acc=67.4%, reward=57.2%
+  11168: 599 trials, acc=52.4%, reward=54.1%
+  11286: 591 trials, acc=59.9%, reward=56.9%
+  11318: 597 trials, acc=57.0%, reward=52.6%
+  11326: 514 trials, acc=67.3%, reward=60.5%
+  11329: 588 trials, acc=58.7%, reward=56.1%
+  11440: 591 trials, acc=53.0%, reward=51.8%
+  11526: 620 trials, acc=79.0%, reward=64.5%
+  11563: 609 trials, acc=57.6%, reward=56.3%
+  11570: 594 trials, acc=63.8%, reward=55.2%
+  11628: 600 trials, acc=62.2%, reward=58.2%
+  11631: 582 trials, acc=66.3%, reward=57.4%
+  11681: 571 trials, acc=69.4%, reward=60.8%
+  11773: 618 trials, acc=66.5%, reward=61.5%
+
+Fitting PH model...
+  45 subjects, 26352 total trials (padded to 623)
+  4 chains × 3000 samples (+ 2000 warmup)
+
+  0%|          | 0/5000 [00:00<?, ?it/s]Compiling.. :   0%|          | 0/5000 [00:00<?, ?it/s]
+  0%|          | 0/5000 [00:00<?, ?it/s][A
+Compiling.. :   0%|          | 0/5000 [00:00<?, ?it/s][A
+
+  0%|          | 0/5000 [00:00<?, ?it/s][A[A
+
+Compiling.. :   0%|          | 0/5000 [00:00<?, ?it/s][A[A
+
+
+  0%|          | 0/5000 [00:00<?, ?it/s][A[A[A
+
+
+Compiling.. :   0%|          | 0/5000 [00:00<?, ?it/s][A[A[ARunning chain 0:   0%|          | 0/5000 [00:03<?, ?it/s]
+Running chain 1:   0%|          | 0/5000 [00:03<?, ?it/s][A
+
+Running chain 2:   0%|          | 0/5000 [00:03<?, ?it/s][A[A
+
+
+Running chain 3:   0%|          | 0/5000 [00:03<?, ?it/s][A[A[ARunning chain 0:   5%|▌         | 250/5000 [12:52<4:03:26,  3.07s/it]
+
+Running chain 2:   5%|▌         | 250/5000 [12:58<4:05:30,  3.10s/it][A[A
+
+
+Running chain 3:   5%|▌         | 250/5000 [12:59<4:05:45,  3.10s/it][A[A[A
+Running chain 1:   5%|▌         | 250/5000 [13:02<4:06:41,  3.12s/it][ARunning chain 0:  10%|█         | 500/5000 [26:42<4:01:33,  3.22s/it]
+
+
+Running chain 3:  10%|█         | 500/5000 [26:47<4:02:03,  3.23s/it][A[A[A
+
+Running chain 2:  10%|█         | 500/5000 [26:49<4:02:21,  3.23s/it][A[A
+Running chain 1:  10%|█         | 500/5000 [26:49<4:02:12,  3.23s/it][ARunning chain 0:  15%|█▌        | 750/5000 [40:43<3:52:43,  3.29s/it]
+
+
+Running chain 3:  15%|█▌        | 750/5000 [40:45<3:52:37,  3.28s/it][A[A[A
+
+Running chain 2:  15%|█▌        | 750/5000 [40:49<3:53:02,  3.29s/it][A[A
+Running chain 1:  15%|█▌        | 750/5000 [40:51<3:53:13,  3.29s/it][A
+
+
+Running chain 3:  20%|██        | 1000/5000 [55:15<3:44:04,  3.36s/it][A[A[ARunning chain 0:  20%|██        | 1000/5000 [55:19<3:44:49,  3.37s/it]
+
+Running chain 2:  20%|██        | 1000/5000 [55:25<3:44:58,  3.37s/it][A[A
+Running chain 1:  20%|██        | 1000/5000 [55:26<3:44:54,  3.37s/it][A
+
+
+Running chain 3:  25%|██▌       | 1250/5000 [1:09:41<3:32:21,  3.40s/it][A[A[ARunning chain 0:  25%|██▌       | 1250/5000 [1:09:46<3:32:55,  3.41s/it]
+
+Running chain 2:  25%|██▌       | 1250/5000 [1:09:50<3:32:50,  3.41s/it][A[A
+Running chain 1:  25%|██▌       | 1250/5000 [1:09:53<3:32:59,  3.41s/it][A
+
+
+Running chain 3:  30%|███       | 1500/5000 [1:23:49<3:18:04,  3.40s/it][A[A[ARunning chain 0:  30%|███       | 1500/5000 [1:23:59<3:18:47,  3.41s/it]
+
+Running chain 2:  30%|███       | 1500/5000 [1:24:00<3:18:30,  3.40s/it][A[A
+Running chain 1:  30%|███       | 1500/5000 [1:24:03<3:18:40,  3.41s/it][A
+
+
+Running chain 3:  35%|███▌      | 1750/5000 [1:38:03<3:04:19,  3.40s/it][A[A[ARunning chain 0:  35%|███▌      | 1750/5000 [1:38:18<3:05:04,  3.42s/it]
+
+Running chain 2:  35%|███▌      | 1750/5000 [1:38:18<3:04:52,  3.41s/it][A[A
+Running chain 1:  35%|███▌      | 1750/5000 [1:38:24<3:05:07,  3.42s/it][A
+
+
+Running chain 3:  40%|████      | 2000/5000 [1:51:57<2:49:03,  3.38s/it][A[A[ARunning chain 0:  40%|████      | 2000/5000 [1:52:16<2:49:48,  3.40s/it]
+
+Running chain 2:  40%|████      | 2000/5000 [1:52:19<2:49:50,  3.40s/it][A[A
+Running chain 1:  40%|████      | 2000/5000 [1:52:26<2:50:05,  3.40s/it][A
+
+
+Running chain 3:  45%|████▌     | 2250/5000 [2:06:18<2:35:51,  3.40s/it][A[A[ARunning chain 0:  45%|████▌     | 2250/5000 [2:06:38<2:36:24,  3.41s/it]
+
+Running chain 2:  45%|████▌     | 2250/5000 [2:06:40<2:36:24,  3.41s/it][A[A
+Running chain 1:  45%|████▌     | 2250/5000 [2:06:49<2:36:38,  3.42s/it][A
+
+
+Running chain 3:  50%|█████     | 2500/5000 [2:19:46<2:19:31,  3.35s/it][A[A[ARunning chain 0:  50%|█████     | 2500/5000 [2:20:11<2:20:09,  3.36s/it]
+
+Running chain 2:  50%|█████     | 2500/5000 [2:20:14<2:20:09,  3.36s/it][A[A
+Running chain 1:  50%|█████     | 2500/5000 [2:20:23<2:20:21,  3.37s/it][A
+
+
+Running chain 3:  55%|█████▌    | 2750/5000 [2:34:05<2:06:36,  3.38s/it][A[A[ARunning chain 0:  55%|█████▌    | 2750/5000 [2:34:36<2:07:13,  3.39s/it]
+
+Running chain 2:  55%|█████▌    | 2750/5000 [2:34:39<2:07:13,  3.39s/it][A[A
+Running chain 1:  55%|█████▌    | 2750/5000 [2:34:50<2:07:25,  3.40s/it][A
+
+
+Running chain 3:  60%|██████    | 3000/5000 [2:47:30<1:50:56,  3.33s/it][A[A[ARunning chain 0:  60%|██████    | 3000/5000 [2:47:58<1:51:11,  3.34s/it]
+
+Running chain 2:  60%|██████    | 3000/5000 [2:47:59<1:51:08,  3.33s/it][A[A
+Running chain 1:  60%|██████    | 3000/5000 [2:48:12<1:51:21,  3.34s/it][A
+
+
+Running chain 3:  65%|██████▌   | 3250/5000 [3:01:06<1:36:30,  3.31s/it][A[A[ARunning chain 0:  65%|██████▌   | 3250/5000 [3:01:37<1:36:46,  3.32s/it]
+
+Running chain 2:  65%|██████▌   | 3250/5000 [3:01:39<1:36:46,  3.32s/it][A[A
+Running chain 1:  65%|██████▌   | 3250/5000 [3:01:54<1:36:57,  3.32s/it][A
+
+
+Running chain 3:  70%|███████   | 3500/5000 [3:13:21<1:19:56,  3.20s/it][A[A[ARunning chain 0:  70%|███████   | 3500/5000 [3:13:39<1:19:41,  3.19s/it]
+
+Running chain 2:  70%|███████   | 3500/5000 [3:13:41<1:19:41,  3.19s/it][A[A
+Running chain 1:  70%|███████   | 3500/5000 [3:13:49<1:19:36,  3.18s/it][A
+
+
+Running chain 3:  75%|███████▌  | 3750/5000 [3:20:42<57:36,  2.77s/it]  [A[A[ARunning chain 0:  75%|███████▌  | 3750/5000 [3:21:03<57:33,  2.76s/it]  
+
+Running chain 2:  75%|███████▌  | 3750/5000 [3:21:05<57:33,  2.76s/it]  [A[A
+Running chain 1:  75%|███████▌  | 3750/5000 [3:21:16<57:34,  2.76s/it]  [A
+
+
+Running chain 3:  80%|████████  | 4000/5000 [3:28:57<42:09,  2.53s/it][A[A[ARunning chain 0:  80%|████████  | 4000/5000 [3:29:22<42:11,  2.53s/it]
+
+Running chain 2:  80%|████████  | 4000/5000 [3:29:24<42:11,  2.53s/it][A[A
+Running chain 1:  80%|████████  | 4000/5000 [3:29:35<42:12,  2.53s/it][A
+
+
+Running chain 3:  85%|████████▌ | 4250/5000 [3:36:36<29:00,  2.32s/it][A[A[ARunning chain 0:  85%|████████▌ | 4250/5000 [3:37:00<29:01,  2.32s/it]
+
+Running chain 2:  85%|████████▌ | 4250/5000 [3:37:01<29:00,  2.32s/it][A[A
+Running chain 1:  85%|████████▌ | 4250/5000 [3:37:13<29:00,  2.32s/it][A
+
+
+Running chain 3:  90%|█████████ | 4500/5000 [3:44:18<18:09,  2.18s/it][A[A[ARunning chain 0:  90%|█████████ | 4500/5000 [3:44:43<18:10,  2.18s/it]
+
+Running chain 2:  90%|█████████ | 4500/5000 [3:44:46<18:11,  2.18s/it][A[A
+Running chain 1:  90%|█████████ | 4500/5000 [3:44:59<18:12,  2.18s/it][A
+
+
+Running chain 3:  95%|█████████▌| 4750/5000 [3:51:59<08:39,  2.08s/it][A[A[ARunning chain 0:  95%|█████████▌| 4750/5000 [3:52:25<08:40,  2.08s/it]
+
+Running chain 2:  95%|█████████▌| 4750/5000 [3:52:29<08:40,  2.08s/it][A[A
+Running chain 1:  95%|█████████▌| 4750/5000 [3:52:43<08:41,  2.09s/it][A
+
+
+Running chain 3: 100%|██████████| 5000/5000 [3:59:33<00:00,  2.00s/it][A[A[ARunning chain 3: 100%|██████████| 5000/5000 [3:59:33<00:00,  2.87s/it]
+Running chain 0: 100%|██████████| 5000/5000 [3:59:58<00:00,  2.00s/it]Running chain 0: 100%|██████████| 5000/5000 [3:59:58<00:00,  2.88s/it]
+
+
+Running chain 2: 100%|██████████| 5000/5000 [4:00:03<00:00,  2.00s/it][A[ARunning chain 2: 100%|██████████| 5000/5000 [4:00:03<00:00,  2.88s/it]
+
+Running chain 1: 100%|██████████| 5000/5000 [4:00:13<00:00,  2.00s/it][ARunning chain 1: 100%|██████████| 5000/5000 [4:00:13<00:00,  2.88s/it]
+
+--- Diagnostics for PH ---
+  Divergences: 0
+  Max R-hat:   1.0185
+  Min ESS:     150
+  Status:      WARNING — ESS < 400
+
+  Saved InferenceData to results/PH_idata.pkl
+  Saved summary to results/PH_summary.csv
+  Saved individual posteriors to results/PH_individual_params.json
+
+Done.

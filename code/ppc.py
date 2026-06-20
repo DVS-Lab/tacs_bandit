@@ -53,9 +53,8 @@ def simulate_from_posterior(
     """Simulate one trial sequence using the subject's actual reward schedule
     but generating choices from the RW model with given parameters.
 
-    This is the core of posterior predictive checking: keep the task structure
-    identical (same contingencies, same reward probabilities) but let the
-    model choose. Then compare model choices to actual choices.
+    If alpha_neg is provided, uses dual learning rates (alpha for positive PEs,
+    alpha_neg for negative PEs). Otherwise uses a single learning rate.
     """
     n_trials = subject_data.n_trials
     choices_sim = np.zeros(n_trials, dtype=int)
@@ -74,7 +73,6 @@ def simulate_from_posterior(
 
         # Use the ACTUAL contingency to determine correctness
         current_good = subject_data.raw_df.iloc[t]["current_good"]
-        # current_good is 1 or 2 in raw data, remap to 0/1
         if isinstance(current_good, (int, float, np.integer, np.floating)):
             good_idx = int(current_good) - 1
         else:
@@ -223,6 +221,7 @@ def run_ppc(
         ))
         n_total_samples = alpha_post.shape[0]
         n_subjects_posterior = alpha_post.shape[1]
+
     n_subjects_data = len(dataset.subjects)
 
     if n_subjects_data != n_subjects_posterior:
