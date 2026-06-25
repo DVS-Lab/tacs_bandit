@@ -1,0 +1,7 @@
+trial_num,run,run_type,stim_condition,trial_in_contingency,current_good,contingency_trials,flower1,flower2,slot1_position,slot2_position,choice,rt,correct,reward,wait_time,iti,timestamp,trial_start_time,subject_id,session,age,gender,date
+0,1,baseline,baseline,0,1,28,30,31,right,left,,,,,2000.0,250.0,180.82277727127075,5.769146919250488,11542,1,61,M,2026-06-25_10-44-59
+1,1,baseline,baseline,1,1,28,30,31,right,left,2.0,1229.7892570495605,False,False,2000.0,250.0,186.31473517417908,11.261104822158813,11542,1,61,M,2026-06-25_10-44-59
+2,1,baseline,baseline,2,1,28,30,31,left,right,,,,,2000.0,250.0,192.07618379592896,17.022552490234375,11542,1,61,M,2026-06-25_10-44-59
+3,1,baseline,baseline,3,1,28,30,31,right,left,1.0,1497.6906776428223,True,False,2000.0,250.0,197.83496856689453,22.781337022781372,11542,1,61,M,2026-06-25_10-44-59
+4,1,baseline,baseline,4,1,28,30,31,left,right,,,,,2000.0,250.0,203.60183310508728,28.54820203781128,11542,1,61,M,2026-06-25_10-44-59
+5,1,baseline,baseline,5,1,28,30,31,left,right,,,,,2000.0,250.0,209.36552739143372,34.311896085739136,11542,1,61,M,2026-06-25_10-44-59
