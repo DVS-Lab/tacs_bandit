@@ -20,6 +20,7 @@ from config import (
     SUBJECT_INFO,
     DATA_DIR,
     EXCLUDE_PREFIXES,
+    DISSERTATION_SUBJECTS,
     get_condition_map,
 )
 
@@ -202,7 +203,8 @@ def load_all_subjects(
     subject_info: Optional[Dict] = None,
     exclude_prefixes: Optional[List[str]] = None,
     preprocess: bool = True,
-    verbose: bool = True
+    verbose: bool = True,
+    sample: str = 'dissertation',
 ) -> pd.DataFrame:
     """
     Load trial-level data for all subjects in the subject registry.
@@ -219,6 +221,11 @@ def load_all_subjects(
         If True, add WSLS columns via preprocess_trials()
     verbose : bool
         If True, print loading progress
+    sample : str
+        Which subject pool to use:
+        - 'dissertation' : frozen N=39 sample (default, backward-compatible)
+        - 'all'          : all subjects in SUBJECT_INFO
+        - 'new'          : only subjects added after the dissertation freeze
     
     Returns
     -------
@@ -228,14 +235,29 @@ def load_all_subjects(
     Raises
     ------
     ValueError
-        If no data could be loaded
+        If no data could be loaded or invalid sample specified
     """
+    if sample not in ('dissertation', 'all', 'new'):
+        raise ValueError(f"sample must be 'dissertation', 'all', or 'new'; got '{sample}'")
+    
     if data_dir is None:
         data_dir = DATA_DIR
     if subject_info is None:
         subject_info = SUBJECT_INFO
     if exclude_prefixes is None:
         exclude_prefixes = EXCLUDE_PREFIXES
+    
+    # Determine which subjects to include based on sample
+    if sample == 'dissertation':
+        allowed_subjects = set(DISSERTATION_SUBJECTS)
+    elif sample == 'new':
+        allowed_subjects = set(subject_info.keys()) - set(DISSERTATION_SUBJECTS)
+    else:  # 'all'
+        allowed_subjects = None  # no additional filter
+    
+    if verbose and sample != 'all':
+        pool_size = len(allowed_subjects) if allowed_subjects else len(subject_info)
+        print(f'Sample: {sample} ({pool_size} subjects in pool)')
     
     all_data = []
     
@@ -253,12 +275,16 @@ def load_all_subjects(
         if sub_id not in subject_info:
             continue
         
+        # Apply sample filter
+        if allowed_subjects is not None and sub_id not in allowed_subjects:
+            continue
+        
         df = load_subject_data(sub_id, sub_dir, subject_info, verbose=verbose)
         if df is not None:
             all_data.append(df)
     
     if not all_data:
-        raise ValueError(f"No data loaded from {data_dir}")
+        raise ValueError(f"No data loaded from {data_dir} (sample='{sample}')")
     
     data = pd.concat(all_data, ignore_index=True)
     
