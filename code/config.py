@@ -85,12 +85,63 @@ SUBJECT_INFO = {
     '10950': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
     '11036': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '11031': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
-    '10617': {'counterbalance': 'B', 'earclip': True, 'notes': ''}
+    '10617': {'counterbalance': 'B', 'earclip': True, 'notes': ''},##
+    '11066': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '10685': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11440': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11116': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11326': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11168': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11681': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11570': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11920': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11861': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11542': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11316': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11606': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11472': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11885': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11433': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11461': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11622': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11439': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11075': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11330': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '11900': {'counterbalance': 'B', 'earclip': True, 'notes': ''}, 
 }
 
 # Subjects without hardware earclip reference (first 4 participants)
 # These require software average re-referencing across EEG-only channels
 NO_EARCLIP_SUBJECTS = [sid for sid, info in SUBJECT_INFO.items() if not info['earclip']]
+
+
+# =============================================================================
+# Dissertation Sample Freeze (defended July 2026, N=39)
+# =============================================================================
+# Frozen subject list used for all dissertation analyses.
+# Do NOT modify this list. To add new subjects, add them to SUBJECT_INFO
+# above and use sample='all' in load_all_subjects().
+
+DISSERTATION_SUBJECTS = [
+    '10369', '10418', '10541', '10559', '10589', '10590', '10606',
+    '10608', '10617', '10636', '10638', '10641', '10649', '10656',
+    '10661', '10716', '10804', '10809', '10810', '10862', '10866',
+    '10886', '10898', '10950', '10951', '10961', '10998', '11016',
+    '11030', '11031', '11036', '11286', '11318', '11329', '11526',
+    '11563', '11628', '11631', '11773',
+]
+
+# Stim exclusions that applied to the dissertation sample
+DISSERTATION_STIM_EXCLUSIONS = {
+    ('10998', 6), ('11773', 6), ('11773', 7),
+}
+
+assert len(DISSERTATION_SUBJECTS) == 39, (
+    f"DISSERTATION_SUBJECTS should have 39 entries, got {len(DISSERTATION_SUBJECTS)}"
+)
+assert set(DISSERTATION_SUBJECTS).issubset(SUBJECT_INFO), (
+    "All DISSERTATION_SUBJECTS must be in SUBJECT_INFO"
+)
 
 
 # =============================================================================
