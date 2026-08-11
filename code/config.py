@@ -27,7 +27,11 @@ EEG_DIR = REPO_ROOT / 'data' / 'nic' / 'raw'
 # REDCap exports
 REDCAP_RF1_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce-FullScoringFinishedS_DATA_LABELS_2026-02-28_1613.csv'
 REDCAP_RF1_RAW_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_2026-02-28_1436.csv'
-REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-04-21_1210.csv'
+# July 2026 export: covers all 61 registered subjects (the April export stopped
+# at 40 and left the post-defense subjects without demographics). Identical
+# columns except the 16 per-run blinding/confidence items, which are dropped
+# here but come from the task's own stim_guess/stim_confidence, not REDCap.
+REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-07-14_1714.csv'
 
 # TabCAT cognitive battery
 TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcrossTheLifespan_2026-2-28.csv'
@@ -45,6 +49,27 @@ TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcr
 #   notes          : Free-text for subject-specific issues
 #
 # Subjects not in this dict are excluded from analyses (pilots, tests, etc.)
+#
+# Counterbalance verification (August 2026)
+# -----------------------------------------
+# Every counterbalance value was cross-checked against the 6 Hz tACS artifact
+# in that subject's NIC recording, which is what the stimulator actually
+# delivered rather than what anyone recorded afterward. See
+# stim_verification.py and derivatives/eeg/stim_verification_subjects.csv.
+#
+# Outcome across 438 runs: 40 confirmed, 14 corrected, 1 unresolvable (11773,
+# whose stim runs were both delivered as sham — already in STIM_EXCLUSIONS),
+# 6 with no EEG. Re-deriving each run's expected condition from the corrected
+# values leaves exactly 3 anomalous runs, and they are precisely the 3 already
+# in STIM_EXCLUSIONS — so the registry of administration errors is complete.
+#
+# ⚠ 10641 is in DISSERTATION_SUBJECTS and its counterbalance was wrong. Any
+#   analysis of the defended N=39 rerun after this change will differ from the
+#   defended numbers for that subject, whose active/sham labels were swapped.
+#   Tag dissertation-defense-v1 marks the pre-correction state.
+#
+# Where the EEG could not settle it, the config value is left as it was and the
+# note records what REDCap claims; those are unverified, not confirmed.
 
 SUBJECT_INFO = {
     '10998': {'counterbalance': 'B', 'earclip': False, 'notes': 'Missing Run 1; One intended stim run was sham (experimenter error)'},
@@ -70,7 +95,7 @@ SUBJECT_INFO = {
     '10809': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10961': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10541': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '10641': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
+    '10641': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG; CHANGES DEFENDED RESULTS (see note above SUBJECT_INFO)'},
     '10862': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10661': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10638': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
@@ -85,29 +110,39 @@ SUBJECT_INFO = {
     '10950': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
     '11036': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '11031': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
-    '10617': {'counterbalance': 'B', 'earclip': True, 'notes': ''},##
-    '11066': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '10685': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11440': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11116': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11326': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11168': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11681': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11570': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11920': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11861': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11542': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11316': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11606': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11472': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11885': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11433': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11461': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11622': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11439': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11075': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11330': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
-    '11900': {'counterbalance': 'B', 'earclip': True, 'notes': ''}, 
+    '10617': {'counterbalance': 'B', 'earclip': True, 'notes': ''},# New (i.e., post-defense) subs start below here;
+    '11066': {'counterbalance': 'B', 'earclip': True, 'notes': 'No EEG or behavioral data; counterbalance unverified'},
+    '10685': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11440': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11116': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance confirmed by EEG'},
+    '11326': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11168': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11681': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance confirmed by EEG'},
+    '11570': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11920': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11861': {'counterbalance': 'B', 'earclip': True, 'notes': 'No EEG; REDCap says A, config unverified'},
+    '11542': {'counterbalance': 'B', 'earclip': True, 'notes': 'No EEG; REDCap says A, config unverified'},
+    '11316': {'counterbalance': 'B', 'earclip': True, 'notes': 'No EEG; counterbalance unverified'},
+    '11606': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11472': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11885': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11433': {'counterbalance': 'B', 'earclip': True, 'notes': 'No EEG; REDCap says A, config unverified'},
+    '11461': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11622': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11439': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    '11075': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance confirmed by EEG'},
+    '11330': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance confirmed by EEG'},
+    '11900': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance corrected B->A from EEG'},
+    # Collected after the registry was last updated; counterbalance for these
+    # five was read off the 6 Hz artifact in their NIC recordings rather than
+    # assumed (see stim_verification.py). All five have 8 behavioral runs and a
+    # complete EEG session; active runs land at 111-137 dB against 63-73 dB
+    # elsewhere, well inside the earclip cohort's range.
+    '10741': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance verified from EEG'},
+    '10896': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance verified from EEG'},
+    '11492': {'counterbalance': 'A', 'earclip': True, 'notes': 'Counterbalance verified from EEG'},
+    '11539': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance verified from EEG'},
+    '11854': {'counterbalance': 'B', 'earclip': True, 'notes': 'Counterbalance verified from EEG'},
 }
 
 # Subjects without hardware earclip reference (first 4 participants)

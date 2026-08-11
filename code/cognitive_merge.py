@@ -974,6 +974,7 @@ def build_subject_df(
     rw_mle: Optional[pd.DataFrame] = None,
     ddm_params: Optional[pd.DataFrame] = None,
     theta_subject: Optional[pd.DataFrame] = None,
+    accuracy: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     verbose: bool = True
@@ -1137,6 +1138,30 @@ def build_subject_df(
             if 'sham_alpha' in subj_df.columns:
                 subj_df['delta_alpha'] = subj_df['active_alpha'] - subj_df['sham_alpha']
                 subj_df['delta_beta'] = subj_df['active_beta'] - subj_df['sham_beta']
+
+    # --- Accuracy and win rate ---
+    # Takes the subject x condition frame from
+    # accuracy_analysis.compute_condition_level_accuracy() and pivots it into
+    # the sham_/active_/delta_ columns the notebook expects.
+    if accuracy is not None and len(accuracy) > 0:
+        for cond in ['sham', 'active']:
+            cond_rows = accuracy[accuracy['condition'] == cond]
+            if len(cond_rows) == 0:
+                continue
+            cond_rows = cond_rows.set_index('subject_id')[['accuracy', 'win_rate']]
+            cond_rows = cond_rows.rename(columns={
+                'accuracy': f'{cond}_accuracy',
+                'win_rate': f'{cond}_win_rate',
+            })
+            subj_df = subj_df.merge(cond_rows, on='subject_id', how='left')
+
+        if 'sham_accuracy' in subj_df.columns and 'active_accuracy' in subj_df.columns:
+            subj_df['delta_accuracy'] = subj_df['active_accuracy'] - subj_df['sham_accuracy']
+            subj_df['delta_win_rate'] = subj_df['active_win_rate'] - subj_df['sham_win_rate']
+
+        if verbose:
+            n_acc = subj_df['sham_accuracy'].notna().sum() if 'sham_accuracy' in subj_df.columns else 0
+            print(f'  Accuracy (sham): {n_acc}')
 
     # --- DDM parameters ---
     if ddm_params is not None and len(ddm_params) > 0:
@@ -1393,6 +1418,7 @@ def run_cognitive_merge(
     rw_mle: Optional[pd.DataFrame] = None,
     ddm_params: Optional[pd.DataFrame] = None,
     theta_subject: Optional[pd.DataFrame] = None,
+    accuracy: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     export_csv: bool = True,
@@ -1492,6 +1518,7 @@ def run_cognitive_merge(
         rw_mle=rw_mle,
         ddm_params=ddm_params,
         theta_subject=theta_subject,
+        accuracy=accuracy,
         h2_subjects=h2_subjects,
         include_exploratory=include_exploratory,
         verbose=verbose
