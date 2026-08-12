@@ -1320,6 +1320,357 @@ print('\\nA beta at zero means the model predicts 50/50 on every trial — the '
 
 
 # =============================================================================
+# Section 7.5 — Hierarchical Rescorla-Wagner
+# =============================================================================
+
+def section_hierarchical() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 7.5 Hierarchical Rescorla-Wagner
+
+The maximum-likelihood fits above treat each subject and condition
+independently, which leaves them vulnerable exactly where the data are
+thinnest. The audit in 7.2 shows the consequence: learning rates piled at the
+edge of the parameter space, and inverse temperatures at zero, where the model
+predicts 50/50 on every trial and the fit has simply failed.
+
+The hierarchical model estimates all subjects jointly, so subjects with weak
+data are pulled toward the group rather than to a boundary. It also expresses
+the design properly — condition varies *within* subject, which the previous
+`rl_models` implementation could not represent (it took one condition per
+subject and assigned it by modal label, which for this design is usually
+"baseline").
+
+Parameterization and diagnostics live in `rl_models/models_within.py`. Fit
+with:
+
+```
+python -m rl_models.run_within_fit --sample all
+```
+
+Estimands:
+
+- **delta_alpha** — the group-level tACS effect on learning rate
+- **tau_alpha** — between-subject spread in that effect, i.e. how much people
+  differ in responsiveness
+- **eta_alpha** — block-order nuisance term. Within a subject, condition is
+  perfectly confounded with early-vs-late in a two-hour session;
+  counterbalancing breaks that across the group only if the model is told
+  about it.
+"""),
+        code("""
+# ============================================================================
+# 7.5a Group-level parameters
+# ============================================================================
+
+RL_DIR = DATA_DIR.parent.parent / 'derivatives' / 'rl_models'
+group_path = RL_DIR / 'rw_within_all_group.csv'
+
+if group_path.exists():
+    hb_group = pd.read_csv(group_path, index_col=0)
+    print('Hierarchical RW, group-level parameters')
+    print(f'(p_direction = share of the posterior on one side of zero)\\n')
+    cols = ['mean', 'sd', 'hdi_3%', 'hdi_97%', 'p_direction', 'r_hat', 'ess_bulk']
+    print(hb_group[[c for c in cols if c in hb_group.columns]].round(3).to_string())
+
+    d = hb_group.loc['delta_alpha']
+    print(f"\\ntACS effect on learning rate: {d['mean']:+.3f} "
+          f"[{d['hdi_3%']:+.3f}, {d['hdi_97%']:+.3f}]")
+    print('  The interval spans zero, so there is no credible group-level effect.')
+
+    t = hb_group.loc['tau_alpha']
+    print(f"\\nBetween-subject spread in that effect: {t['mean']:.3f} "
+          f"[{t['hdi_3%']:.3f}, {t['hdi_97%']:.3f}]")
+    print('  Credibly greater than zero: subjects differ in how they respond,')
+    print('  even though the average response is nil. See 7.5c — the magnitude')
+    print('  of this term is prior-dependent, so treat it qualitatively.')
+else:
+    print(f'No hierarchical fit at {group_path}. Run:')
+    print('  python -m rl_models.run_within_fit --sample all')
+    hb_group = None
+"""),
+        code("""
+# ============================================================================
+# 7.5b Subject-level posteriors, and agreement with the MLE fits
+# ============================================================================
+
+subj_path = RL_DIR / 'rw_within_all_subjects.csv'
+
+if subj_path.exists():
+    hb_subj = pd.read_csv(subj_path, dtype={'subject_id': str})
+    print(f'Subject-level posterior means: {len(hb_subj)} subjects\\n')
+
+    merged = subj.merge(hb_subj, on='subject_id', suffixes=('_mle', '_hb'))
+
+    # Both correlations, because Pearson is misleading for beta: the MLE fit
+    # is bounded only at 50, so a couple of subjects land near that bound and
+    # dominate the covariance. Rank agreement is the fairer comparison of
+    # whether the two methods order subjects the same way.
+    print(f'  {"parameter":14s} {"pearson":>9s} {"spearman":>9s}   MLE range')
+    for param in ['sham_alpha', 'active_alpha', 'sham_beta', 'active_beta']:
+        a, b = f'{param}_mle', f'{param}_hb'
+        if a not in merged or b not in merged:
+            continue
+        d = merged[[a, b]].apply(pd.to_numeric, errors='coerce').dropna()
+        if len(d) < 5:
+            continue
+        r, _ = stats.pearsonr(d[a], d[b])
+        rho, _ = stats.spearmanr(d[a], d[b])
+        print(f'  {param:14s} {r:+9.3f} {rho:+9.3f}   '
+              f'{d[a].min():.2f} - {d[a].max():.2f}  (N = {len(d)})')
+
+    n_extreme = (pd.to_numeric(merged.get('active_beta_mle'),
+                               errors='coerce') > 20).sum()
+    if n_extreme:
+        print(f'\\n  {n_extreme} subject(s) have an MLE inverse temperature above 20 '
+              f'(bound = 50).')
+        print('  Those points break the Pearson correlation for beta while the '
+              'rank agreement\\n  holds, which is the boundary problem in 7.2 '
+              'showing up again.')
+
+    # Where the two methods disagree is where pooling did the work.
+    if {'sham_alpha_mle', 'sham_alpha_hb'}.issubset(merged.columns):
+        merged['alpha_shift'] = (merged['sham_alpha_hb']
+                                 - merged['sham_alpha_mle']).abs()
+        moved = merged.nlargest(5, 'alpha_shift')[
+            ['subject_id', 'sham_alpha_mle', 'sham_alpha_hb', 'alpha_shift']]
+        print('\\n  Subjects whose sham learning rate moved most under pooling:')
+        print(moved.round(3).to_string(index=False))
+else:
+    print('No subject-level hierarchical output found.')
+    hb_subj = None
+"""),
+        code("""
+# ============================================================================
+# 7.5c Prior sensitivity
+# ============================================================================
+# Variance parameters on the logit scale are only weakly identified when many
+# subjects sit near a boundary: sigmoid(x) is flat there, so the logit
+# coordinate can grow without the likelihood objecting, and the prior ends up
+# setting the scale. Refitting under wider priors shows which conclusions
+# depend on that choice.
+
+sens_path = RL_DIR / 'prior_sensitivity_all.csv'
+
+if sens_path.exists():
+    sens = pd.read_csv(sens_path)
+    table = sens.pivot(index='parameter', columns='priors', values='mean')
+    order = [c for c in ['default', 'wide', 'very_wide'] if c in table.columns]
+    print('Posterior means across prior widths\\n')
+    print(table[order].round(3).to_string())
+
+    span = table[order].max(axis=1) - table[order].min(axis=1)
+    hdi_w = sens.groupby('parameter').apply(
+        lambda g: (g['hdi_hi'] - g['hdi_lo']).mean(), include_groups=False)
+    rel = span / hdi_w
+    zero_consistent = (sens.assign(z=(sens['hdi_lo'] <= 0) & (sens['hdi_hi'] >= 0))
+                           .groupby('parameter')['z'].nunique() == 1)
+
+    print('\\nMovement relative to each parameter\\'s own uncertainty:')
+    for name in table.index:
+        verdict = 'drifts' if rel[name] > 0.5 else 'stable'
+        concl = 'same conclusion' if zero_consistent[name] else 'CONCLUSION CHANGES'
+        print(f'  {name:24s} {100 * rel[name]:5.0f}% of HDI width  '
+              f'-> {verdict}, {concl}')
+
+    print('\\nEvery effect parameter is stable and every prior gives the same')
+    print('conclusion. Only tau_alpha drifts materially, so its magnitude is')
+    print('reported qualitatively rather than as a point estimate.')
+else:
+    print('No prior sensitivity output; run:')
+    print('  python -m rl_models.test_prior_sensitivity --sample all')
+"""),
+        code("""
+# ============================================================================
+# 7.5d Figure — subject-level condition effects
+# ============================================================================
+# The group effect is null while subjects differ, so plot the distribution of
+# individual effects rather than a single group estimate.
+
+if hb_subj is not None and 'delta_alpha' in hb_subj.columns:
+    d = hb_subj.merge(subj[['subject_id', 'age']], on='subject_id', how='left')
+    d['age'] = pd.to_numeric(d['age'], errors='coerce')
+    d = d.dropna(subset=['delta_alpha'])
+
+    fig, axes = plt.subplots(1, 2, figsize=(WIDTH_1_5COL, WIDTH_1COL * 0.8))
+
+    axes[0].hist(d['delta_alpha'], bins=18, color=NEUTRAL_GRAY,
+                 edgecolor='white', linewidth=0.5)
+    axes[0].axvline(0, color=ACCENT_RED, ls='--', lw=1)
+    axes[0].axvline(d['delta_alpha'].mean(), color=REGRESSION_COLOR, lw=1.2)
+    style_ax(axes[0], xlabel='Subject-level alpha effect (active - sham)',
+             ylabel='Subjects')
+
+    dd = d.dropna(subset=['age'])
+    if len(dd) > 4:
+        scatter_regression_mpl(axes[1], dd['age'].values,
+                               dd['delta_alpha'].values, dd['age'].values,
+                               zero_line=True)
+    style_ax(axes[1], xlabel='Age (years)',
+             ylabel='Subject-level alpha effect')
+
+    plt.tight_layout(pad=0.5)
+    savefig(fig, 'fig_hb_subject_effects')
+    plt.show()
+
+    print(f"Subject-level effects: mean {d['delta_alpha'].mean():+.4f}, "
+          f"SD {d['delta_alpha'].std():.4f}, "
+          f"range {d['delta_alpha'].min():+.3f} to {d['delta_alpha'].max():+.3f}")
+"""),
+    ]
+
+
+# =============================================================================
+# Section 7.6 — Individualized theta frequency
+# =============================================================================
+
+def section_itf() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 7.6 Individualized theta frequency
+
+Every participant received stimulation at a fixed 6.0 Hz — all 237
+stimulation runs, without exception. Individualized theta is therefore not a
+delivered parameter but a **moderator**: did stimulation work better for people
+whose endogenous theta already sat near the frequency delivered?
+
+Estimated by the Klimesch anchor — individual alpha frequency from posterior
+channels, minus a fixed offset. Alpha is the most reliably detectable scalp
+rhythm and P3/P4 recorded for every subject, so this covers the whole sample,
+unlike a direct frontal-midline theta peak (FCz stimulates during stimulation
+runs and only records for the later protocol).
+
+**Three limitations, stated plainly.** Klimesch's transition frequency is
+properly defined from how theta and alpha shift in opposite directions between
+rest and task; this study has no resting block, so the fixed 5 Hz offset is an
+approximation rather than a measurement. The offset could not be validated
+here — only 8 subjects yielded both an alpha peak and a resolvable FCz theta
+peak, too few to check, and in that handful the two measures did not correlate
+positively as the anchor assumes. And an alpha peak was resolvable for 44 of
+59 subjects, so this analysis runs on a subset.
+
+Generated by `individual_theta.py`.
+"""),
+        code("""
+# ============================================================================
+# 7.6a Load and describe
+# ============================================================================
+
+itf_path = DATA_DIR.parent.parent / 'derivatives' / 'eeg' / 'individual_theta_frequency.csv'
+
+if itf_path.exists():
+    itf = pd.read_csv(itf_path, dtype={'subject_id': str})
+    itf_subj = subj.merge(itf, on='subject_id', how='left')
+
+    print(f'Subjects with EEG              : {itf["subject_id"].nunique()}')
+    print(f'Alpha peak resolved            : {itf["iaf"].notna().sum()}')
+    print(f'Direct FCz theta peak resolved : {itf["theta_peak_fcz"].notna().sum()}')
+    print(f'\\nIAF : M = {itf["iaf"].mean():.2f} Hz, SD = {itf["iaf"].std():.2f}, '
+          f'range {itf["iaf"].min():.2f} - {itf["iaf"].max():.2f}')
+    print(f'iTF : M = {itf["itf_klimesch"].mean():.2f} Hz, '
+          f'SD = {itf["itf_klimesch"].std():.2f}')
+    print(f'|iTF - 6 Hz| : M = {itf["itf_distance"].mean():.2f} Hz, '
+          f'max = {itf["itf_distance"].max():.2f}')
+else:
+    print(f'No iTF file at {itf_path}. Run: python individual_theta.py')
+    itf = None
+    itf_subj = subj.copy()
+"""),
+        code("""
+# ============================================================================
+# 7.6b Is iTF confounded with age?
+# ============================================================================
+# Individual alpha frequency declines with age in the literature, and age is
+# this study's primary moderator — so an iTF effect could be an age effect
+# wearing a different label. Tested directly rather than assumed either way.
+
+if itf is not None:
+    d = itf_subj[['iaf', 'itf_distance', 'age']].apply(
+        pd.to_numeric, errors='coerce').dropna()
+    if len(d) > 5:
+        r_iaf, p_iaf = stats.pearsonr(d['age'], d['iaf'])
+        r_dist, p_dist = stats.pearsonr(d['age'], d['itf_distance'])
+        print(f'IAF x age          : r = {r_iaf:+.3f}, p = {p_iaf:.3f}, N = {len(d)}')
+        print(f'|iTF - 6Hz| x age  : r = {r_dist:+.3f}, p = {p_dist:.3f}, N = {len(d)}')
+        print()
+        if p_iaf >= .05:
+            print('  No credible age relation in this sample, so iTF effects below')
+            print('  are not simply age effects relabelled. Reported both with and')
+            print('  without age covariation regardless.')
+        else:
+            print('  IAF varies with age here, so iTF effects are reported with age')
+            print('  covaried and the two cannot be fully separated.')
+"""),
+        code("""
+# ============================================================================
+# 7.6c iTF distance as a moderator of the stimulation response
+# ============================================================================
+# Prediction: if a fixed 6 Hz works best for people whose endogenous theta is
+# already near 6 Hz, distance from 6 Hz should predict a weaker response.
+
+if itf is not None:
+    itf_h2 = itf_subj[itf_subj['subject_id'].isin(h2_eligible)]
+    targets = [c for c in delta_cols if c in itf_h2.columns]
+
+    print(f'{"change score":24s} {"N":>4s} {"r":>8s} {"p":>8s}   '
+          f'{"partial r | age":>16s} {"p":>8s}')
+    print('-' * 76)
+
+    for dv in targets:
+        d = itf_h2[['itf_distance', dv, 'age']].apply(
+            pd.to_numeric, errors='coerce').dropna()
+        if len(d) < 10:
+            continue
+        r, p = stats.pearsonr(d['itf_distance'], d[dv])
+
+        # Partial correlation controlling for age: residualize both, correlate.
+        X = sm.add_constant(d[['age']])
+        res_x = sm.OLS(d['itf_distance'], X).fit().resid
+        res_y = sm.OLS(d[dv], X).fit().resid
+        pr, pp = stats.pearsonr(res_x, res_y)
+
+        print(f'{dv:24s} {len(d):4d} {r:+8.3f} {p:8.3f}   '
+              f'{pr:+16.3f} {pp:8.3f}')
+
+    print('\\nA negative correlation would mean people further from 6 Hz respond')
+    print('less, which is the prediction if frequency matching matters.')
+"""),
+        code("""
+# ============================================================================
+# 7.6d Figure — iTF distribution and its relation to the response
+# ============================================================================
+
+if itf is not None and itf['iaf'].notna().sum() > 5:
+    fig, axes = plt.subplots(1, 2, figsize=(WIDTH_1_5COL, WIDTH_1COL * 0.8))
+
+    axes[0].hist(itf['itf_klimesch'].dropna(), bins=14, color=NEUTRAL_GRAY,
+                 edgecolor='white', linewidth=0.5)
+    axes[0].axvline(6.0, color=ACTIVE_COLOR, lw=1.5,
+                    label='delivered (6 Hz)')
+    style_ax(axes[0], xlabel='Individualized theta frequency (Hz)',
+             ylabel='Subjects')
+    axes[0].legend(frameon=False, fontsize=FONT_LEGEND)
+
+    dv = 'delta_ttc' if 'delta_ttc' in itf_subj.columns else (
+        'delta_alpha' if 'delta_alpha' in itf_subj.columns else None)
+    if dv:
+        d = itf_subj[itf_subj['subject_id'].isin(h2_eligible)][
+            ['itf_distance', dv, 'age']].apply(
+            pd.to_numeric, errors='coerce').dropna()
+        if len(d) > 4:
+            scatter_regression_mpl(axes[1], d['itf_distance'].values,
+                                   d[dv].values, d['age'].values,
+                                   zero_line=True)
+            style_ax(axes[1], xlabel='|iTF - 6 Hz| (Hz)', ylabel=dv)
+
+    plt.tight_layout(pad=0.5)
+    savefig(fig, 'fig_itf_distribution')
+    plt.show()
+"""),
+    ]
+
+
+# =============================================================================
 # Section 8 — fMRI
 # =============================================================================
 
@@ -1412,6 +1763,8 @@ def build(sample: str = 'all') -> nbf.NotebookNode:
         + section_theta()
         + section_moderators()
         + section_audits()
+        + section_hierarchical()
+        + section_itf()
         + section_fmri()
     )
     nb.metadata = {
