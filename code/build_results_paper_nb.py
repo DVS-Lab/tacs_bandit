@@ -966,6 +966,440 @@ if len(age_mod_df):
     ]
 
 
+# =============================================================================
+# Section 5 — EEG theta and electric field
+# =============================================================================
+
+def section_theta() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 5. Endogenous theta and electric field
+
+Baseline theta power as a moderator of the stimulation response, and the
+modelled electric field as a dose proxy.
+
+`theta_p95` is the 95th percentile of theta power during the baseline runs,
+averaged over clean runs. Coverage rose from 34 subjects at the defense to 59
+here — partly the larger sample, but mostly because `eeg_theta.find_eeg_run`
+globbed only one of the NIC naming conventions, so subjects whose recordings
+were saved as `Bandit-{id}_Run N` or `{id} TACS_Run N` returned no theta at
+all. That is fixed in `nic_files.py` and both consumers now share it.
+"""),
+        code("""
+# ============================================================================
+# 5.1 Theta as a moderator of the stimulation response
+# ============================================================================
+
+theta_targets = [c for c in ['delta_ttc', 'delta_alpha', 'delta_accuracy',
+                             'delta_p_shift_lose'] if c in subj.columns]
+
+print(f'theta_p95 available for {subj["theta_p95"].notna().sum()}/{len(subj)} subjects\\n')
+print(f'{"Change score":28s} {"N":>4s} {"r":>8s} {"p":>8s}')
+print('-' * 52)
+
+theta_rows = []
+for col in theta_targets:
+    d = subj[subj['subject_id'].isin(h2_eligible)][['theta_p95', col]].dropna()
+    if len(d) < 5:
+        continue
+    r, p = stats.pearsonr(d['theta_p95'].astype(float), d[col].astype(float))
+    print(f'{col:28s} {len(d):4d} {r:+8.3f} {p:8.3f}{" *" if p < .05 else ""}')
+    theta_rows.append({'dv': col, 'r': r, 'p': p, 'n': len(d)})
+
+theta_df = pd.DataFrame(theta_rows)
+"""),
+        code("""
+# ============================================================================
+# 5.2 Figure — baseline theta x change in trials-to-criterion
+# ============================================================================
+
+if 'delta_ttc' in subj.columns:
+    d = subj[subj['subject_id'].isin(h2_eligible)][
+        ['theta_p95', 'delta_ttc', 'age']].dropna()
+    if len(d) > 4:
+        fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
+        scatter_regression_mpl(ax,
+                               d['theta_p95'].astype(float).values,
+                               d['delta_ttc'].astype(float).values,
+                               d['age'].astype(float).values,
+                               zero_line=True)
+        style_ax(ax, xlabel='Baseline theta power (p95, % change)',
+                 ylabel='Delta trials-to-criterion (active - sham)')
+        savefig(fig, 'fig_theta_x_delta_ttc')
+        plt.show()
+    else:
+        print(f'Insufficient overlap for the theta x delta-TTC figure (N = {len(d)}).')
+"""),
+        code("""
+# ============================================================================
+# 5.3 Theta x cognition moderation of the stimulation response
+# ============================================================================
+# Mean-centered predictors, so the lower-order terms read at the sample mean.
+
+moderation_models = {}
+
+for dv in [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]:
+    d = subj[subj['subject_id'].isin(h2_eligible)][
+        ['subject_id', dv, 'theta_p95', COG_COMPOSITE, 'age']].dropna().copy()
+    if len(d) < 12:
+        print(f'{dv}: insufficient data (N = {len(d)})')
+        continue
+
+    for c in [dv, 'theta_p95', COG_COMPOSITE, 'age']:
+        d[c] = pd.to_numeric(d[c], errors='coerce')
+    d = d.dropna()
+
+    d['theta_c'] = d['theta_p95'] - d['theta_p95'].mean()
+    d['cog_c'] = d[COG_COMPOSITE] - d[COG_COMPOSITE].mean()
+    d['theta_x_cog'] = d['theta_c'] * d['cog_c']
+
+    X = sm.add_constant(d[['theta_c', 'cog_c', 'theta_x_cog', 'age']].astype(float))
+    model = sm.OLS(d[dv].astype(float), X).fit()
+    moderation_models[dv] = model
+
+    b, p = model.params['theta_x_cog'], model.pvalues['theta_x_cog']
+    print(f'{dv:16s}: theta x cognition b = {b:+.5f}, p = {p:.3f}'
+          f'{" *" if p < .05 else ""}, N = {int(model.nobs)}, '
+          f'R2 = {model.rsquared:.3f}')
+
+# Print full coefficient tables for whatever was fit, rather than depending on
+# variables having been created by an earlier cell.
+for dv, model in moderation_models.items():
+    print(f'\\n{"=" * 60}\\n{dv}\\n{"=" * 60}')
+    print(pd.DataFrame({'coef': model.params, 't': model.tvalues,
+                        'p': model.pvalues}).round(4).to_string())
+"""),
+        code("""
+# ============================================================================
+# 5.4 Electric field as a dose proxy
+# ============================================================================
+# Modelled field strength in the DLPFC ROI, from the SimNIBS pipeline. Lives in
+# its own CSV rather than the master table.
+
+EFIELD_METRIC = 'mean_magnE'
+efield_path = DATA_DIR / 'efield_roi_summary.csv'
+
+if efield_path.exists():
+    efield = pd.read_csv(efield_path, dtype={'subject_id': str})
+    efield = efield.merge(subj[['subject_id', 'age'] +
+                               [c for c in ['delta_ttc', 'delta_alpha']
+                                if c in subj.columns]],
+                          on='subject_id', how='inner')
+    print(f'E-field data: {len(efield)} subjects overlap the current sample')
+
+    d = efield[['age', EFIELD_METRIC]].apply(pd.to_numeric, errors='coerce').dropna()
+    if len(d) > 4:
+        r, p = stats.pearsonr(d['age'], d[EFIELD_METRIC])
+        rho, p_s = stats.spearmanr(d['age'], d[EFIELD_METRIC])
+        print(f'  field range: {d[EFIELD_METRIC].min():.4f} - '
+              f'{d[EFIELD_METRIC].max():.4f} V/m')
+        print(f'  Age x field: r = {r:+.3f}, p = {p:.3f} '
+              f'(Spearman rho = {rho:+.3f}, p = {p_s:.3f}), N = {len(d)}')
+
+        fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
+        scatter_regression_mpl(ax, d['age'].values, d[EFIELD_METRIC].values,
+                               d['age'].values)
+        style_ax(ax, xlabel='Age (years)',
+                 ylabel='Mean |E| in DLPFC ROI (V/m)')
+        savefig(fig, 'fig_age_x_efield')
+        plt.show()
+
+    # Does the modelled dose track the behavioural response?
+    for dv in [c for c in ['delta_ttc', 'delta_alpha'] if c in efield.columns]:
+        dd = efield[[EFIELD_METRIC, dv]].apply(pd.to_numeric, errors='coerce').dropna()
+        if len(dd) > 4:
+            r, p = stats.pearsonr(dd[EFIELD_METRIC], dd[dv])
+            print(f'  field x {dv}: r = {r:+.3f}, p = {p:.3f}, N = {len(dd)}')
+else:
+    print(f'No e-field summary at {efield_path}; skipping.')
+"""),
+    ]
+
+
+# =============================================================================
+# Section 6 — Secondary moderators and exploratory sweep
+# =============================================================================
+
+def section_moderators() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 6. Secondary moderators and exploratory sweep
+
+Preregistered secondary moderators first, then a systematic sweep across all
+available predictors with FDR correction within each family. The sweep is
+exploratory and labelled as such; it is included so the reported effects can be
+read against the full space that was searched rather than against a selected
+subset.
+"""),
+        code("""
+# ============================================================================
+# 6.1 Preregistered secondary moderators
+# ============================================================================
+
+secondary_moderators = [c for c in [
+    COG_COMPOSITE, 'ef_composite', 'spsrq_sr', 'spsrq_sp',
+    'education_years', 'theta_p95',
+] if c in subj.columns]
+
+delta_cols = [c for c in ['delta_p_stay_win', 'delta_p_shift_lose',
+                          'delta_alpha', 'delta_beta', 'delta_accuracy',
+                          'delta_ttc'] if c in subj.columns]
+
+h2s = subj[subj['subject_id'].isin(h2_eligible)]
+
+rows = []
+for mod in secondary_moderators:
+    for dv in delta_cols:
+        d = h2s[[mod, dv]].apply(pd.to_numeric, errors='coerce').dropna()
+        if len(d) < 8:
+            continue
+        r, p = stats.pearsonr(d[mod], d[dv])
+        rows.append({'moderator': mod, 'dv': dv, 'r': r, 'p': p, 'n': len(d)})
+
+secondary_df = pd.DataFrame(rows)
+if len(secondary_df):
+    print(f'{len(secondary_df)} moderator x change-score tests\\n')
+    show = secondary_df.sort_values('p').head(12)
+    print(f'{"moderator":18s} {"dv":22s} {"N":>4s} {"r":>8s} {"p":>8s}')
+    print('-' * 66)
+    for _, row in show.iterrows():
+        print(f'{row["moderator"]:18s} {row["dv"]:22s} {row["n"]:4.0f} '
+              f'{row["r"]:+8.3f} {row["p"]:8.3f}{" *" if row["p"] < .05 else ""}')
+    print(f'\\nUncorrected p < .05: {(secondary_df["p"] < .05).sum()} of '
+          f'{len(secondary_df)} (expected by chance: '
+          f'{0.05 * len(secondary_df):.1f})')
+"""),
+        code("""
+# ============================================================================
+# 6.2 Exploratory sweep with FDR correction
+# ============================================================================
+# Two families, corrected separately: predictors of baseline behaviour, and
+# predictors of the stimulation change scores.
+
+from statsmodels.stats.multitest import multipletests
+
+baseline_dvs = [c for c in ['sham_p_stay_win', 'sham_p_shift_lose',
+                            'sham_alpha', 'sham_beta', 'sham_accuracy',
+                            'sham_ttc'] if c in subj.columns]
+
+predictors = [c for c in [
+    'age', 'education_years', COG_COMPOSITE, 'ef_composite',
+    'attention_composite', 'memory_composite', 'speed_composite',
+    'spsrq_sr', 'spsrq_sp', 'theta_p95', 'bpsqi_global', 'crt_total',
+    'ffmq_total', 'audit_total', 'promis_anxiety', 'promis_depression',
+    'loneliness_total',
+] if c in subj.columns]
+
+
+def sweep(data, preds, dvs, family):
+    out = []
+    for pr in preds:
+        for dv in dvs:
+            if pr == dv:
+                continue
+            d = data[[pr, dv]].apply(pd.to_numeric, errors='coerce').dropna()
+            if len(d) < 10:
+                continue
+            r, p = stats.pearsonr(d[pr], d[dv])
+            out.append({'family': family, 'predictor': pr, 'dv': dv,
+                        'r': r, 'p': p, 'n': len(d)})
+    df = pd.DataFrame(out)
+    if len(df):
+        df['p_fdr'] = multipletests(df['p'], method='fdr_bh')[1]
+    return df
+
+
+sweep_baseline = sweep(subj, predictors, baseline_dvs, 'baseline')
+sweep_change = sweep(h2s, predictors, delta_cols, 'change')
+sweep_all = pd.concat([sweep_baseline, sweep_change], ignore_index=True)
+
+for family, df in [('baseline behaviour', sweep_baseline),
+                   ('stimulation change scores', sweep_change)]:
+    if not len(df):
+        continue
+    n_raw = (df['p'] < .05).sum()
+    n_fdr = (df['p_fdr'] < .05).sum()
+    print(f'{family}: {len(df)} tests, {n_raw} at p < .05 '
+          f'(chance: {0.05 * len(df):.1f}), {n_fdr} survive FDR')
+    top = df.nsmallest(8, 'p')
+    for _, row in top.iterrows():
+        mark = ' **' if row['p_fdr'] < .05 else (' *' if row['p'] < .05 else '')
+        print(f'    {row["predictor"]:20s} x {row["dv"]:20s} '
+              f'r = {row["r"]:+.3f}, p = {row["p"]:.4f}, '
+              f'q = {row["p_fdr"]:.3f}, N = {row["n"]:.0f}{mark}')
+    print()
+"""),
+    ]
+
+
+# =============================================================================
+# Section 7 — Robustness and audits
+# =============================================================================
+
+def section_audits() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 7. Robustness checks
+
+Missingness in the cognitive battery, and the parameter-boundary problem that
+motivates the hierarchical model.
+"""),
+        code("""
+# ============================================================================
+# 7.1 Cognitive battery missingness
+# ============================================================================
+# Digit Span, BVMT and Trails were administered only to participants aged 40+,
+# so a composite including them is missing-not-at-random with respect to age —
+# which is the study's primary moderator. This is why the primary composite is
+# built from the five near-complete measures.
+
+battery = ['flanker_score', 'running_dots_score', 'hvlt_total',
+           'salthouse_letter', 'salthouse_pattern',
+           'digit_span_total', 'bvmt_total', 'trails_a_time', 'trails_b_time']
+battery = [c for c in battery if c in subj.columns]
+
+print(f'{"measure":22s} {"N":>4s} {"% present":>10s} {"mean age present":>18s}')
+print('-' * 60)
+for m in battery:
+    present = subj[subj[m].notna()]
+    age_present = pd.to_numeric(present['age'], errors='coerce').mean()
+    print(f'{m:22s} {len(present):4d} {100*len(present)/len(subj):9.0f}% '
+          f'{age_present:18.1f}')
+
+print(f'\\nPrimary composite ({COG_COMPOSITE}): '
+      f'{subj[COG_COMPOSITE].notna().sum()}/{len(subj)} subjects')
+
+# A non-null composite does not mean a complete one. compute_cognitive_
+# composites averages across whatever measures a subject has, so the
+# full-battery composite is non-null for nearly everyone while being built
+# from different tests for different people — and which tests are missing is
+# tied to age. Report the measure counts, not just the coverage.
+if 'global_composite' in subj.columns:
+    print(f'Full-battery composite (global_composite): '
+          f'{subj["global_composite"].notna().sum()}/{len(subj)} non-null, but '
+          f'built from a varying number of domains:')
+    if 'global_n_domains' in subj.columns:
+        counts = subj['global_n_domains'].value_counts().sort_index()
+        for n_dom, n_subj in counts.items():
+            print(f'    {n_dom} of 3 domains: {n_subj} subjects')
+        print('  Subjects contributing fewer domains are systematically '
+              'younger, so this composite is not comparable across the age\\n'
+              '  range. That is why the reduced composite is primary.')
+"""),
+        code("""
+# ============================================================================
+# 7.2 Learning-rate boundary audit
+# ============================================================================
+# Maximum-likelihood R-W fits can land on the edge of the parameter space,
+# where the estimate is not identified. In the defended data one subject
+# (10804) sat at both bounds with a likelihood exactly at chance level.
+#
+# This is the motivation for the hierarchical model rather than an incidental
+# check: partial pooling pulls such subjects toward the group and yields a
+# usable estimate. The hierarchical fit for that subject is well away from the
+# boundary, and its likelihood is better.
+
+BOUNDARY_LO, BOUNDARY_HI = 0.02, 0.98
+
+for col in [c for c in ['sham_alpha', 'active_alpha'] if c in subj.columns]:
+    a = pd.to_numeric(subj[col], errors='coerce').dropna()
+    at_lo = (a <= BOUNDARY_LO).sum()
+    at_hi = (a >= BOUNDARY_HI).sum()
+    print(f'{col:16s}: {at_lo} at the lower bound, {at_hi} at the upper bound, '
+          f'of {len(a)}')
+
+for col in [c for c in ['sham_beta', 'active_beta'] if c in subj.columns]:
+    b = pd.to_numeric(subj[col], errors='coerce').dropna()
+    print(f'{col:16s}: {(b <= 0.05).sum()} near zero (choice at chance), '
+          f'max = {b.max():.2f}')
+
+print('\\nA beta at zero means the model predicts 50/50 on every trial — the '
+      'fit has failed rather than found a low-sensitivity subject.')
+"""),
+    ]
+
+
+# =============================================================================
+# Section 8 — fMRI
+# =============================================================================
+
+def section_fmri() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 8. Ventral striatal reactivity
+
+Reward-related VS activation from an independent scan session, related to
+baseline behaviour and to the stimulation change scores.
+"""),
+        code("""
+# ============================================================================
+# 8.1 Load ROI data and relate to behaviour
+# ============================================================================
+
+roi_path = DATA_DIR.parent / 'roi-analyses-final.csv'
+
+if roi_path.exists():
+    roi = pd.read_csv(roi_path)
+    roi = roi.rename(columns={'sub': 'subject_id'})
+    roi['subject_id'] = roi['subject_id'].astype(str)
+
+    # Average the two reward tasks; win>loss is the contrast of interest.
+    roi['vs_win_baseline'] = (roi['doors_win'] + roi['social_win']) / 2
+    roi['vs_win_loss'] = ((roi['doors_win'] + roi['social_win']) / 2
+                          - (roi['doors_loss'] + roi['social_loss']) / 2)
+
+    subj_fmri = subj.merge(roi[['subject_id', 'vs_win_baseline', 'vs_win_loss']],
+                           on='subject_id', how='inner')
+    print(f'ROI file: {len(roi)} subjects; {len(subj_fmri)} overlap the '
+          f'current bandit sample of {len(subj)}')
+
+    fmri_metrics = ['vs_win_baseline', 'vs_win_loss']
+    targets = [c for c in (baseline_dvs + delta_cols) if c in subj_fmri.columns]
+
+    rows = []
+    for metric in fmri_metrics:
+        for dv in targets:
+            d = subj_fmri[[metric, dv]].apply(pd.to_numeric, errors='coerce').dropna()
+            if len(d) < 10:
+                continue
+            r, p = stats.pearsonr(d[metric], d[dv])
+            rows.append({'metric': metric, 'dv': dv, 'r': r, 'p': p, 'n': len(d)})
+
+    fmri_df = pd.DataFrame(rows)
+    if len(fmri_df):
+        fmri_df['p_fdr'] = multipletests(fmri_df['p'], method='fdr_bh')[1]
+        print(f'\\n{len(fmri_df)} tests, {(fmri_df["p"] < .05).sum()} at p < .05, '
+              f'{(fmri_df["p_fdr"] < .05).sum()} surviving FDR\\n')
+        for _, row in fmri_df.nsmallest(8, 'p').iterrows():
+            mark = ' **' if row['p_fdr'] < .05 else (' *' if row['p'] < .05 else '')
+            print(f'  {row["metric"]:18s} x {row["dv"]:20s} '
+                  f'r = {row["r"]:+.3f}, p = {row["p"]:.4f}, '
+                  f'q = {row["p_fdr"]:.3f}, N = {row["n"]:.0f}{mark}')
+else:
+    print(f'No ROI file at {roi_path}; skipping.')
+"""),
+        md("""
+---
+
+## Notes
+
+Generated by `build_results_paper_nb.py`. Regenerate with:
+
+```
+python build_results_paper_nb.py --execute
+```
+
+Set `--sample dissertation` to reproduce the defended analyses; section 0.5
+then checks the reproduction and flags any subject differing for reasons other
+than the two documented ones.
+
+Still to add: the hierarchical Rescorla-Wagner results (`rl_models`), which
+replace the MLE point estimates as the primary parameter estimates, and the
+individualized theta frequency work.
+"""),
+    ]
+
+
 def build(sample: str = 'all') -> nbf.NotebookNode:
     nb = nbf.v4.new_notebook()
     nb.cells = (
@@ -975,6 +1409,10 @@ def build(sample: str = 'all') -> nbf.NotebookNode:
         + section_h1()
         + section_reversal()
         + section_h2()
+        + section_theta()
+        + section_moderators()
+        + section_audits()
+        + section_fmri()
     )
     nb.metadata = {
         'kernelspec': {'display_name': 'Python 3', 'language': 'python',
