@@ -39,6 +39,22 @@ class SimulationConfig:
     seed: int = 0
 
 
+def _seed_from_key(rng_key: jax.Array) -> int:
+    """Derive a NumPy seed from a JAX PRNG key.
+
+    Both words have to be mixed. jax.random.PRNGKey(n) puts the seed in word 1
+    and leaves word 0 as zero, so seeding from word 0 alone gives the same
+    seed for every key — every "independent" simulated agent comes out
+    byte-identical, which silently removes all between-subject variance from a
+    recovery test.
+    """
+    key = np.asarray(rng_key).astype(np.uint64).ravel()
+    mixed = 0
+    for word in key:
+        mixed = (mixed * np.uint64(6364136223846793005) + np.uint64(word)) % (2**63)
+    return int(mixed % (2**31))
+
+
 def simulate_rw_agent(
     rng_key: jax.Array,
     alpha: float,
@@ -53,7 +69,7 @@ def simulate_rw_agent(
 
     Returns a dict with choices, rewards, correct, current_good arrays.
     """
-    rng = np.random.RandomState(int(rng_key[0]) % 2**31)
+    rng = np.random.RandomState(_seed_from_key(rng_key))
 
     V = np.array([0.5, 0.5])
     current_good = rng.randint(0, 2)  # 0 or 1
@@ -110,7 +126,7 @@ def simulate_rw_dual_agent(
     **kwargs,
 ) -> dict[str, np.ndarray]:
     """Simulate a dual learning-rate RW agent."""
-    rng = np.random.RandomState(int(rng_key[0]) % 2**31)
+    rng = np.random.RandomState(_seed_from_key(rng_key))
 
     n_trials = kwargs.get("n_trials", 200)
     win_fraction = kwargs.get("win_fraction", 0.75)
