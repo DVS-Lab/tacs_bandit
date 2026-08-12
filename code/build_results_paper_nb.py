@@ -665,6 +665,117 @@ h1_2b_model, _ = run_h1_regression(
     ]
 
 
+# =============================================================================
+# Section 3 — Reversal learning
+# =============================================================================
+
+def section_reversal() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 3. Reversal learning
+
+Trials-to-criterion and reversal-locked accuracy, by condition.
+
+The previous notebook carried a 15KB cell that reimplemented reversal
+identification and trials-to-criterion inline. That was a workaround:
+`reversal_analysis.identify_reversals` initialized `reversal_id` from
+`np.nan`, giving the column float64, and pandas 2.x raises rather than
+upcasting when string IDs are then assigned. With that fixed at the source the
+module is used directly — verified to produce identical output to the inline
+version (same 909 reversals, same values throughout).
+"""),
+        code("""
+# ============================================================================
+# 3.1 Identify reversals and compute trials-to-criterion
+# ============================================================================
+
+from reversal_analysis import (
+    identify_reversals,
+    compute_trials_to_criterion,
+    compute_reversal_accuracy,
+)
+
+CRITERION = 3        # consecutive correct choices
+WINDOW_PRE = 5
+WINDOW_POST = 15
+
+trials = identify_reversals(trials, window_pre=WINDOW_PRE,
+                            window_post=WINDOW_POST, verbose=True)
+
+ttc = compute_trials_to_criterion(trials, criterion=CRITERION)
+print(f'\\nTrials-to-criterion: {len(ttc)} reversals, '
+      f'{ttc["subject_id"].nunique()} subjects')
+print(ttc.groupby('condition')['trials_to_criterion']
+        .agg(['count', 'mean', 'std']).round(3).to_string())
+"""),
+        code("""
+# ============================================================================
+# 3.2 Subject-level TTC and the active-vs-sham contrast
+# ============================================================================
+
+ttc_subj = (ttc.groupby(['subject_id', 'condition'])['trials_to_criterion']
+              .mean().unstack())
+
+for cond in ['sham', 'active']:
+    if cond in ttc_subj.columns:
+        subj[f'{cond}_ttc'] = subj['subject_id'].map(ttc_subj[cond])
+
+if {'sham', 'active'}.issubset(ttc_subj.columns):
+    subj['delta_ttc'] = subj['active_ttc'] - subj['sham_ttc']
+
+paired = subj[subj['subject_id'].isin(h2_eligible)][['sham_ttc', 'active_ttc']].dropna()
+if len(paired) > 2:
+    t, p = stats.ttest_rel(paired['active_ttc'], paired['sham_ttc'])
+    diff = paired['active_ttc'] - paired['sham_ttc']
+    dz = diff.mean() / diff.std(ddof=1)
+    print(f'Trials-to-criterion, active vs sham (H2-eligible):')
+    print(f'  N  = {len(paired)}')
+    print(f'  sham   M = {paired["sham_ttc"].mean():.3f} '
+          f'(SD {paired["sham_ttc"].std():.3f})')
+    print(f'  active M = {paired["active_ttc"].mean():.3f} '
+          f'(SD {paired["active_ttc"].std():.3f})')
+    print(f'  t({len(paired)-1}) = {t:.3f}, p = {p:.3f}, dz = {dz:+.3f}')
+else:
+    print('Insufficient paired TTC data.')
+"""),
+        code("""
+# ============================================================================
+# 3.3 Figure — reversal-locked accuracy by condition
+# ============================================================================
+
+rev_window = trials[trials['in_rev_window'] &
+                    trials['condition'].isin(['sham', 'active'])].copy()
+
+# `correct` arrives as object dtype (True/False stored as Python bools), and
+# aggregating it keeps the object dtype, which matplotlib's fill_between then
+# rejects. Coerce once here rather than casting at every use.
+rev_window['correct_num'] = pd.to_numeric(rev_window['correct'], errors='coerce')
+
+curves = (rev_window.groupby(['condition', 'trial_from_rev'])['correct_num']
+                    .agg(['mean', 'sem', 'count']).reset_index())
+for col in ['mean', 'sem']:
+    curves[col] = curves[col].astype(float)
+
+fig, ax = plt.subplots(figsize=(WIDTH_1_5COL, WIDTH_1COL * 0.8))
+
+for cond, color in [('sham', SHAM_COLOR), ('active', ACTIVE_COLOR)]:
+    c = curves[curves['condition'] == cond].sort_values('trial_from_rev')
+    if len(c) == 0:
+        continue
+    ax.plot(c['trial_from_rev'], c['mean'], '-', color=color, lw=1.4, label=cond)
+    ax.fill_between(c['trial_from_rev'], c['mean'] - c['sem'], c['mean'] + c['sem'],
+                    color=color, alpha=0.18, linewidth=0)
+
+ax.axvline(0, color='#757575', ls='--', lw=0.8)
+ax.axhline(0.5, color='#BDBDBD', ls=':', lw=0.7)
+style_ax(ax, xlabel='Trial relative to reversal', ylabel='p(correct)')
+ax.legend(frameon=False, fontsize=FONT_LEGEND)
+savefig(fig, 'fig_reversal_locked_accuracy')
+plt.show()
+"""),
+    ]
+
+
 def build(sample: str = 'all') -> nbf.NotebookNode:
     nb = nbf.v4.new_notebook()
     nb.cells = (
@@ -672,6 +783,7 @@ def build(sample: str = 'all') -> nbf.NotebookNode:
         + section_data()
         + section_descriptives()
         + section_h1()
+        + section_reversal()
     )
     nb.metadata = {
         'kernelspec': {'display_name': 'Python 3', 'language': 'python',

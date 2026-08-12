@@ -52,6 +52,25 @@ import numpyro.distributions as dist
 from .models import rw_loglik_sequence
 
 
+# Default prior scales. Kept here rather than inline so a sensitivity analysis
+# is an argument change instead of an edit to the model body.
+#
+# These are weakly informative on the link scale: mu on the logit/softplus
+# scale, delta as a plausible condition shift, sigma and tau as between-subject
+# spreads. If a posterior for one of the variance terms sits far into its
+# prior's tail, the prior is constraining the estimate downward and the run
+# should be repeated with a wider scale — see test_prior_sensitivity.py.
+DEFAULT_PRIORS = {
+    'mu_alpha': 1.5,
+    'mu_beta': 1.5,
+    'delta': 0.5,     # condition effects (alpha and beta)
+    'eta': 0.5,       # block-order effects
+    'sigma': 1.0,     # between-subject spread in the parameter
+    'tau': 0.5,       # between-subject spread in the condition effect
+    'gamma': 0.5,     # moderator coefficients
+}
+
+
 def model_rw_within_subject(
     choices: jnp.ndarray,
     rewards: jnp.ndarray,
@@ -64,6 +83,7 @@ def model_rw_within_subject(
     moderators: Optional[jnp.ndarray] = None,
     include_block: bool = True,
     include_random_slope: bool = True,
+    priors: Optional[dict] = None,
 ) -> None:
     """
     Hierarchical Rescorla-Wagner with a within-subject condition effect.
@@ -86,17 +106,21 @@ def model_rw_within_subject(
     include_random_slope : set False for a fixed condition effect across
         subjects; mainly useful as a simpler comparison model.
     """
+    p = dict(DEFAULT_PRIORS)
+    if priors:
+        p.update(priors)
+
     # --- Group means ---
-    mu_alpha = numpyro.sample('mu_alpha', dist.Normal(0.0, 1.5))
-    mu_beta = numpyro.sample('mu_beta', dist.Normal(1.0, 1.5))
+    mu_alpha = numpyro.sample('mu_alpha', dist.Normal(0.0, p['mu_alpha']))
+    mu_beta = numpyro.sample('mu_beta', dist.Normal(1.0, p['mu_beta']))
 
     # --- Condition effects (the estimands) ---
-    delta_alpha = numpyro.sample('delta_alpha', dist.Normal(0.0, 0.5))
-    delta_beta = numpyro.sample('delta_beta', dist.Normal(0.0, 0.5))
+    delta_alpha = numpyro.sample('delta_alpha', dist.Normal(0.0, p['delta']))
+    delta_beta = numpyro.sample('delta_beta', dist.Normal(0.0, p['delta']))
 
     # --- Between-subject variation in the parameters themselves ---
-    sigma_alpha = numpyro.sample('sigma_alpha', dist.HalfNormal(1.0))
-    sigma_beta = numpyro.sample('sigma_beta', dist.HalfNormal(1.0))
+    sigma_alpha = numpyro.sample('sigma_alpha', dist.HalfNormal(p['sigma']))
+    sigma_beta = numpyro.sample('sigma_beta', dist.HalfNormal(p['sigma']))
     z_alpha = numpyro.sample('z_alpha', dist.Normal(jnp.zeros(n_subjects), 1.0))
     z_beta = numpyro.sample('z_beta', dist.Normal(jnp.zeros(n_subjects), 1.0))
 
@@ -107,17 +131,17 @@ def model_rw_within_subject(
     if moderators is not None:
         n_mod = moderators.shape[1]
         gamma_alpha = numpyro.sample(
-            'gamma_alpha', dist.Normal(jnp.zeros(n_mod), 0.5)
+            'gamma_alpha', dist.Normal(jnp.zeros(n_mod), p['gamma'])
         )
         gamma_beta = numpyro.sample(
-            'gamma_beta', dist.Normal(jnp.zeros(n_mod), 0.5)
+            'gamma_beta', dist.Normal(jnp.zeros(n_mod), p['gamma'])
         )
         delta_alpha_subj = delta_alpha + moderators @ gamma_alpha
         delta_beta_subj = delta_beta + moderators @ gamma_beta
 
     if include_random_slope:
-        tau_alpha = numpyro.sample('tau_alpha', dist.HalfNormal(0.5))
-        tau_beta = numpyro.sample('tau_beta', dist.HalfNormal(0.5))
+        tau_alpha = numpyro.sample('tau_alpha', dist.HalfNormal(p['tau']))
+        tau_beta = numpyro.sample('tau_beta', dist.HalfNormal(p['tau']))
         w_alpha = numpyro.sample('w_alpha', dist.Normal(jnp.zeros(n_subjects), 1.0))
         w_beta = numpyro.sample('w_beta', dist.Normal(jnp.zeros(n_subjects), 1.0))
         slope_alpha = delta_alpha_subj + tau_alpha * w_alpha
@@ -128,8 +152,8 @@ def model_rw_within_subject(
 
     # --- Block-order nuisance term ---
     if include_block:
-        eta_alpha = numpyro.sample('eta_alpha', dist.Normal(0.0, 0.5))
-        eta_beta = numpyro.sample('eta_beta', dist.Normal(0.0, 0.5))
+        eta_alpha = numpyro.sample('eta_alpha', dist.Normal(0.0, p['eta']))
+        eta_beta = numpyro.sample('eta_beta', dist.Normal(0.0, p['eta']))
     else:
         eta_alpha = 0.0
         eta_beta = 0.0

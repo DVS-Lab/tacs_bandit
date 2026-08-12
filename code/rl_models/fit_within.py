@@ -81,6 +81,7 @@ def fit_within_model(
     moderators: Optional[np.ndarray] = None,
     include_block: bool = True,
     include_random_slope: bool = True,
+    priors: Optional[Dict[str, float]] = None,
     num_warmup: int = 1000,
     num_samples: int = 1000,
     num_chains: int = 4,
@@ -108,6 +109,7 @@ def fit_within_model(
         n_subjects=dataset.n_subjects,
         include_block=include_block,
         include_random_slope=include_random_slope,
+        priors=priors,
     )
     if moderators is not None:
         model_kwargs['moderators'] = jnp.array(np.asarray(moderators, dtype=np.float32))
