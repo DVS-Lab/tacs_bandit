@@ -57,7 +57,16 @@ CH_LABELS = ['F3', 'Fp1', 'FCz', 'FT7', 'F4', 'P4', 'P3', 'EXT']
 POSTERIOR_CH = ['P3', 'P4']      # alpha is largest posteriorly
 MIDLINE_CH = ['FCz']             # frontal-midline theta
 
-ALPHA_BAND = (7.5, 13.0)
+# Search wider than the band of interest so a peak sitting at the nominal edge
+# can still be resolved; only a maximum at the edge of the *search* range is
+# treated as unresolved. A genuine 13 Hz alpha is not rare, and with a search
+# range ending at 13 it would be discarded as an edge artifact.
+ALPHA_BAND = (7.0, 14.0)
+# Theta stays at the conventional 4-8 Hz. Widening it the way the alpha search
+# was widened is not symmetric: theta and alpha are adjacent, so a search
+# reaching past 8 Hz picks up the low shoulder of a 9-10 Hz alpha peak and
+# reports it as theta. Doing so shrank the observed IAF-minus-theta offset from
+# 4.8 to 2.8 Hz, i.e. it pulled the "theta" estimate up into alpha.
 THETA_BAND = (4.0, 8.0)
 STIM_FREQ_HZ = 6.0
 
@@ -69,6 +78,8 @@ ITF_BOUNDS = (4.0, 8.0)
 
 SKIP_FIRST_SEC = 10
 ARTIFACT_THRESH_UV = 150
+HIGHPASS_HZ = 1.0     # removes the slow drift that dominates raw amplitude
+LOWPASS_HZ = 45.0
 
 
 def load_easy(path: Path) -> np.ndarray:
@@ -80,6 +91,28 @@ def load_easy(path: Path) -> np.ndarray:
 
 def channel_index(label: str) -> int:
     return CH_LABELS.index(label)
+
+
+def apply_reference(eeg: np.ndarray, channels: List[str],
+                    has_earclip: bool) -> np.ndarray:
+    """
+    Re-reference the recording.
+
+    The first participants were run without the CMS/DRL earclip, so their
+    channels share a large common-mode signal. Subtracting the average across
+    the recording channels removes it. Without this step their amplitude stays
+    far above any sensible artifact threshold even after high-pass filtering,
+    and every window gets rejected — which downstream looks like a subject with
+    no alpha rhythm rather than a referencing problem.
+    """
+    if has_earclip:
+        return eeg
+
+    idx = [channel_index(c) for c in channels]
+    reference = eeg[:, idx].mean(axis=1, keepdims=True)
+    out = eeg.copy()
+    out[:, idx] = eeg[:, idx] - reference
+    return out
 
 
 def usable_channels(easy_path: Path, info_path: Optional[Path]) -> List[str]:
@@ -106,19 +139,52 @@ def usable_channels(easy_path: Path, info_path: Optional[Path]) -> List[str]:
 
 
 def compute_psd(x: np.ndarray, fs: int = FS) -> Tuple[np.ndarray, np.ndarray]:
-    """Welch PSD after dropping the startup transient and gross artifacts."""
+    """
+    Welch PSD after dropping the startup transient, slow drift, and artifacts.
+
+    The high-pass matters more than it looks. These recordings carry large slow
+    drift that linear detrending does not remove — across subjects the
+    post-detrend SD ranges from ~25 to ~2700 uV, all of it well below the band
+    of interest. Applying a fixed amplitude threshold to that signal rejects
+    almost every sample for the drifty subjects, which reads downstream as "no
+    alpha peak" rather than as a preprocessing failure. Filtering first puts
+    every subject on the same footing so the threshold means the same thing.
+
+    Rejection is also done by window rather than by sample: dropping individual
+    samples and concatenating the survivors splices discontinuities into the
+    signal, which spreads broadband power and corrupts the spectrum being
+    measured.
+    """
     x = x[int(SKIP_FIRST_SEC * fs):]
     if len(x) < fs * 20:
         return np.array([]), np.array([])
 
-    x = signal.detrend(x)
-    x = x[np.abs(x) < ARTIFACT_THRESH_UV]
-    if len(x) < fs * 20:
+    # Band-pass to the range that carries the rhythms of interest.
+    sos = signal.butter(4, [HIGHPASS_HZ, LOWPASS_HZ], btype='bandpass',
+                        fs=fs, output='sos')
+    x = signal.sosfiltfilt(sos, signal.detrend(x))
+
+    # Reject whole windows containing an artifact, keeping each retained
+    # segment contiguous.
+    win = int(2 * fs)
+    n_win = len(x) // win
+    if n_win < 10:
         return np.array([]), np.array([])
 
-    freqs, psd = signal.welch(x, fs=fs, nperseg=int(4 * fs),
-                              noverlap=int(2 * fs), scaling='density')
-    return freqs, psd
+    windows = x[:n_win * win].reshape(n_win, win)
+    clean = windows[np.abs(windows).max(axis=1) < ARTIFACT_THRESH_UV]
+    if len(clean) < 10:
+        return np.array([]), np.array([])
+
+    # Welch per clean window, then average — avoids splicing artifacts.
+    freqs, psds = None, []
+    for w in clean:
+        f, p = signal.welch(w, fs=fs, nperseg=min(len(w), int(2 * fs)),
+                            scaling='density')
+        freqs = f
+        psds.append(p)
+
+    return freqs, np.mean(psds, axis=0)
 
 
 def band_peak(freqs: np.ndarray, psd: np.ndarray,
@@ -177,6 +243,9 @@ def estimate_subject(subject_id: str, runs: List[int],
 
         chans = usable_channels(files['easy'], files['info'])
         n_channels_seen.add(len(chans))
+
+        has_earclip = SUBJECT_INFO.get(subject_id, {}).get('earclip', True)
+        eeg = apply_reference(eeg, chans, has_earclip)
 
         # --- IAF from posterior channels ---
         run_iaf = []
