@@ -35,6 +35,7 @@ from config import (
     COLOR_GREEN,
     COLOR_RED,
 )
+from nic_files import find_run as nic_find_run
 
 warnings.filterwarnings('ignore', message='loadtxt: input contained no data')
 
@@ -66,24 +67,16 @@ SKIP_FIRST_SEC = 10
 # =============================================================================
 
 def find_eeg_run(eeg_dir: Path, subject_id: str, run_num: int) -> Optional[str]:
-    """Find EEG .easy file for a given subject and run."""
-    pattern = str(eeg_dir / f'*sub-{subject_id}_Run*{run_num}*.easy')
-    files = glob.glob(pattern)
-    
-    matches = []
-    for f in files:
-        fname = os.path.basename(f)
-        try:
-            run_str = fname.split('Run')[1].strip().split('.')[0].strip()
-            if int(run_str) == run_num:
-                matches.append(f)
-        except (IndexError, ValueError):
-            continue
-    
-    if not matches:
-        return None
-    
-    return max(matches, key=os.path.getsize)
+    """
+    Find EEG .easy file for a given subject and run.
+
+    Delegates to nic_files, which knows every filename convention in the raw
+    directory. This previously globbed only for `*sub-{id}_Run*`, so subjects
+    recorded as `Bandit-{id}_Run N` or `{id} TACS_Run N` looked like they had
+    no EEG at all.
+    """
+    path = nic_find_run(str(subject_id), run_num, Path(eeg_dir))
+    return str(path) if path is not None else None
 
 
 def get_latest_behavioral_file(subject_dir: Path, run_num: int) -> Optional[str]:

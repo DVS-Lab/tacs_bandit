@@ -30,8 +30,6 @@ Writes run-level and subject-level CSVs to derivatives/eeg/.
 """
 
 import argparse
-import glob
-import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -41,13 +39,13 @@ import pandas as pd
 from scipy import signal
 
 from config import (
-    EEG_DIR,
     REPO_ROOT,
     SUBJECT_INFO,
     DISSERTATION_SUBJECTS,
     REDCAP_TACS_PATH,
     get_condition_map,
 )
+from nic_files import discover_runs
 
 OUTPUT_DIR = REPO_ROOT / 'derivatives' / 'eeg'
 
@@ -93,72 +91,8 @@ STIM_THRESHOLDS = {
 # =============================================================================
 # File Discovery
 # =============================================================================
-# The raw NIC directory accumulated several naming conventions over the study.
-# Ordered most- to least-common; a subject's files may use more than one.
-
-FILENAME_PATTERNS = [
-    'sub-{sid}_Run *.easy',
-    'Bandit-{sid}_Run *.easy',
-    '{sid} TACS_Run *.easy',
-    'sub-{sid}_*_run-*_Run *.easy',
-    '*_{sid}_Run *.easy',
-]
-
-_RUN_RE = re.compile(r'Run\s*(\d+)')
-
-
-def _parse_run_number(path: Path) -> Optional[int]:
-    """Pull the run number out of a NIC filename, or None if absent."""
-    match = _RUN_RE.search(path.stem)
-    if not match:
-        return None
-    try:
-        return int(match.group(1))
-    except ValueError:
-        return None
-
-
-def discover_runs(subject_id: str, eeg_dir: Optional[Path] = None) -> Dict[int, Dict]:
-    """
-    Find NIC recordings for one subject across all known naming conventions.
-
-    Where a run has several files (restarts), the largest is kept — a restarted
-    run leaves a short truncated file behind and the full recording is the one
-    that matters.
-
-    Returns
-    -------
-    dict
-        {run_number: {'easy': Path, 'info': Path or None, 'pattern': str}}
-    """
-    if eeg_dir is None:
-        eeg_dir = EEG_DIR
-
-    runs: Dict[int, Dict] = {}
-
-    for pattern in FILENAME_PATTERNS:
-        for match in glob.glob(str(eeg_dir / ('*' + pattern.format(sid=subject_id)))):
-            easy_path = Path(match)
-            run_num = _parse_run_number(easy_path)
-            if run_num is None:
-                continue
-
-            size = easy_path.stat().st_size
-            if run_num in runs and runs[run_num]['size'] >= size:
-                continue
-
-            info_path = easy_path.with_suffix('.info')
-            runs[run_num] = {
-                'easy': easy_path,
-                'info': info_path if info_path.exists() else None,
-                'pattern': pattern,
-                'size': size,
-            }
-
-    for run in runs.values():
-        del run['size']
-
-    return runs
+# Lives in nic_files so the theta pipeline uses the same conventions; see the
+# note there about how many ways these recordings got named.
 
 
 def load_detection_channel(easy_path: Path, ch_idx: int = DETECTION_CH_IDX) -> np.ndarray:

@@ -22,16 +22,40 @@ Usage
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Optional, List
 
 import pandas as pd
 
+from config import REPO_ROOT
 from data_loading import load_all_subjects
 from exclusions import apply_all_exclusions
 from wsls import compute_wsls_h1_h2
 from rescorla_wagner import fit_rw_by_condition
 from accuracy_analysis import compute_condition_level_accuracy
 from cognitive_merge import run_cognitive_merge
+
+# Produced by run_theta_metrics.py. Theta needs the EEG recordings processed,
+# which takes far longer than the behavioral measures, so it is computed
+# separately and read from disk here rather than recomputed on every build.
+THETA_PATH = REPO_ROOT / 'derivatives' / 'eeg' / 'theta_subject_metrics.csv'
+
+
+def load_theta(path: Optional[Path] = None, verbose: bool = True) -> Optional[pd.DataFrame]:
+    """Read subject-level theta metrics, or return None if not yet computed."""
+    if path is None:
+        path = THETA_PATH
+
+    if not Path(path).exists():
+        if verbose:
+            print(f'  Theta: {path.name} not found — run run_theta_metrics.py '
+                  f'(theta columns will be absent)')
+        return None
+
+    theta = pd.read_csv(path, dtype={'subject_id': str})
+    if verbose:
+        print(f'  Theta: {len(theta)} subjects from {path.name}')
+    return theta
 
 
 def build(
@@ -76,6 +100,8 @@ def build(
     accuracy = compute_condition_level_accuracy(data_clean, verbose=False)
     print(f'  Accuracy: {len(accuracy)} subject-conditions')
 
+    theta_subject = load_theta(verbose=verbose)
+
     print('\n' + '=' * 70)
     print('Merging into master subject data')
     print('=' * 70)
@@ -84,6 +110,7 @@ def build(
         wsls_h2=wsls_h2,
         rw_mle=rw_mle,
         accuracy=accuracy,
+        theta_subject=theta_subject,
         h2_subjects=h2_eligible,
         include_exploratory=include_exploratory,
         export_csv=export_csv,
@@ -97,6 +124,7 @@ def build(
         'wsls_h2': wsls_h2,
         'rw_mle': rw_mle,
         'accuracy': accuracy,
+        'theta_subject': theta_subject,
     })
     return results
 
@@ -112,6 +140,7 @@ def report_coverage(subj_df: pd.DataFrame) -> None:
                 'delta_alpha', 'delta_beta'],
         'Accuracy': ['sham_accuracy', 'sham_win_rate', 'active_accuracy',
                      'active_win_rate', 'delta_accuracy', 'delta_win_rate'],
+        'Theta': ['theta_p95', 'theta_p75', 'theta_median'],
     }
     n = len(subj_df)
     print('\n' + '=' * 70)
