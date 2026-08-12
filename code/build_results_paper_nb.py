@@ -776,6 +776,196 @@ plt.show()
     ]
 
 
+# =============================================================================
+# Section 4 — H2: effects of stimulation
+# =============================================================================
+
+def section_h2() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 4. H2 — Effects of stimulation
+
+Paired active-vs-sham comparisons with equivalence tests, then age moderation
+of the change scores.
+
+Two departures from the previous notebook, both corrections rather than
+choices:
+
+1. **Restricted to H2-eligible subjects for every DV.** Previously some
+   measures were implicitly restricted (WSLS and R-W came from the H2 dataset)
+   while accuracy came from `data_clean` and was not, so different rows of the
+   same table described different samples.
+2. **Sample SD (ddof=1) for `dz` and TOST.** The previous code took `.std()`
+   on a NumPy array, which defaults to the population SD. That inflates `dz`
+   slightly and shrinks the standard error used in the equivalence test,
+   making TOST anti-conservative — it declares equivalence a little too
+   readily, which is the wrong direction for a null-supporting claim.
+"""),
+        code("""
+# ============================================================================
+# 4.1 Paired comparisons and equivalence tests
+# ============================================================================
+
+h2_dvs = [
+    ('sham_p_stay_win', 'active_p_stay_win', 'p(stay|win)'),
+    ('sham_p_shift_lose', 'active_p_shift_lose', 'p(shift|lose)'),
+    ('sham_alpha', 'active_alpha', 'Learning rate (alpha)'),
+    ('sham_beta', 'active_beta', 'Inverse temperature (beta)'),
+    ('sham_accuracy', 'active_accuracy', 'Accuracy'),
+    ('sham_win_rate', 'active_win_rate', 'Win rate'),
+    ('sham_ttc', 'active_ttc', 'Trials-to-criterion'),
+]
+
+# Every DV uses the same sample, so the rows of the table are comparable.
+h2_subj_df = subj[subj['subject_id'].isin(h2_eligible)]
+
+
+def tost(diff, sesoi_dz):
+    \"\"\"Two one-sided tests. Returns the larger of the two p-values.\"\"\"
+    n = len(diff)
+    sd = diff.std(ddof=1)
+    if n < 3 or sd == 0:
+        return np.nan
+    se = sd / np.sqrt(n)
+    bound = sesoi_dz * sd
+    p_upper = stats.t.cdf((diff.mean() - bound) / se, n - 1)
+    p_lower = 1 - stats.t.cdf((diff.mean() + bound) / se, n - 1)
+    return max(p_upper, p_lower)
+
+
+h2_results = []
+print(f'H2.1 paired comparisons, active vs sham (H2-eligible, N pool = {len(h2_subj_df)})\\n')
+print(f'{"DV":28s} {"N":>4s} {"Sham":>8s} {"Active":>9s} {"Delta":>9s} '
+      f'{"t":>8s} {"p":>7s} {"dz":>7s}')
+print('-' * 84)
+
+for sham_col, active_col, label in h2_dvs:
+    if sham_col not in h2_subj_df.columns or active_col not in h2_subj_df.columns:
+        continue
+    d = h2_subj_df[[sham_col, active_col]].dropna()
+    if len(d) < 3:
+        continue
+
+    s = d[sham_col].astype(float).values
+    a = d[active_col].astype(float).values
+    diff = a - s
+    n = len(diff)
+
+    t_stat, p_val = stats.ttest_rel(a, s)
+    sd = diff.std(ddof=1)
+    dz = diff.mean() / sd if sd > 0 else np.nan
+
+    print(f'{label:28s} {n:4d} {s.mean():8.3f} {a.mean():9.3f} '
+          f'{diff.mean():+9.4f} {t_stat:+8.3f} {p_val:7.3f} {dz:+7.3f}'
+          f'{" *" if p_val < .05 else ""}')
+
+    h2_results.append({
+        'label': label, 'n': n, 'sham_m': s.mean(), 'active_m': a.mean(),
+        'delta': diff.mean(), 'delta_se': sd / np.sqrt(n),
+        't': t_stat, 'p': p_val, 'dz': dz,
+        'tost_p_03': tost(diff, 0.3), 'tost_p_05': tost(diff, 0.5),
+    })
+
+h2_df = pd.DataFrame(h2_results)
+
+print('\\nEquivalence tests (TOST). "Equivalent" means the effect is credibly')
+print('smaller than the smallest effect size of interest.\\n')
+print(f'{"DV":28s} {"N":>4s} {"p(0.3)":>8s} {"":<9s} {"p(0.5)":>8s}')
+print('-' * 66)
+for r in h2_results:
+    v3 = 'equivalent' if r['tost_p_03'] < .05 else 'inconclusive'
+    v5 = 'equivalent' if r['tost_p_05'] < .05 else 'inconclusive'
+    print(f'{r["label"]:28s} {r["n"]:4d} {r["tost_p_03"]:8.3f} {v3:<13s} '
+          f'{r["tost_p_05"]:8.3f} {v5}')
+"""),
+        code("""
+# ============================================================================
+# 4.2 Figure — effect sizes with 95% CI
+# ============================================================================
+
+if len(h2_df):
+    plot_df = h2_df.iloc[::-1].reset_index(drop=True)
+    fig, ax = plt.subplots(figsize=(WIDTH_1_5COL, 0.32 * len(plot_df) + 1.0))
+
+    y = np.arange(len(plot_df))
+    ci = 1.96 * plot_df['delta_se'] / plot_df['delta'].abs().replace(0, np.nan)
+    # Effect sizes in dz units with a normal-approximation interval.
+    dz_se = np.sqrt(1 / plot_df['n'] + plot_df['dz'] ** 2 / (2 * plot_df['n']))
+
+    ax.axvline(0, color='#BDBDBD', lw=0.8, ls='--', zorder=0)
+    for lo, hi, color in [(-0.5, 0.5, SESOI_COLOR)]:
+        ax.axvspan(lo, hi, color=color, alpha=0.25, zorder=0)
+
+    ax.errorbar(plot_df['dz'], y, xerr=1.96 * dz_se, fmt='o', ms=4,
+                color=REGRESSION_COLOR, ecolor=NEUTRAL_GRAY,
+                elinewidth=1, capsize=2, zorder=3)
+    ax.set_yticks(y)
+    ax.set_yticklabels(plot_df['label'], fontsize=FONT_TICK)
+    style_ax(ax, xlabel="Effect size (dz), active - sham")
+    ax.text(0.0, len(plot_df) - 0.3, 'shaded: SESOI dz = +/-0.5',
+            fontsize=FONT_ANNOTATION, color=NEUTRAL_GRAY, ha='center')
+    savefig(fig, 'fig_h2_effect_sizes')
+    plt.show()
+"""),
+        code("""
+# ============================================================================
+# 4.3 H2.2 — Age moderation of the stimulation change scores
+# ============================================================================
+
+delta_dvs = [
+    ('delta_p_stay_win', 'Delta p(stay|win)'),
+    ('delta_p_shift_lose', 'Delta p(shift|lose)'),
+    ('delta_alpha', 'Delta alpha'),
+    ('delta_beta', 'Delta beta'),
+    ('delta_accuracy', 'Delta accuracy'),
+    ('delta_ttc', 'Delta trials-to-criterion'),
+]
+
+print('Age moderation of stimulation change scores (H2-eligible)\\n')
+print(f'{"DV":28s} {"N":>4s} {"r":>8s} {"p":>8s}')
+print('-' * 52)
+
+age_moderation = []
+for col, label in delta_dvs:
+    if col not in h2_subj_df.columns:
+        continue
+    d = h2_subj_df[[col, 'age']].dropna()
+    if len(d) < 5:
+        continue
+    r, p = stats.pearsonr(d['age'].astype(float), d[col].astype(float))
+    print(f'{label:28s} {len(d):4d} {r:+8.3f} {p:8.3f}'
+          f'{" *" if p < .05 else ""}')
+    age_moderation.append({'dv': col, 'label': label, 'r': r, 'p': p, 'n': len(d)})
+
+age_mod_df = pd.DataFrame(age_moderation)
+"""),
+        code("""
+# ============================================================================
+# 4.4 Figure — Age x change score, for whichever DV shows the strongest relation
+# ============================================================================
+
+if len(age_mod_df):
+    best = age_mod_df.loc[age_mod_df['p'].idxmin()]
+    d = h2_subj_df[[best['dv'], 'age']].dropna()
+
+    fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
+    scatter_regression_mpl(ax,
+                           d['age'].astype(float).values,
+                           d[best['dv']].astype(float).values,
+                           d['age'].astype(float).values,
+                           zero_line=True)
+    style_ax(ax, xlabel='Age (years)', ylabel=best['label'])
+    savefig(fig, 'fig_h2_age_moderation')
+    plt.show()
+
+    print(f"Strongest age relation: {best['label']} "
+          f"(r = {best['r']:+.3f}, p = {best['p']:.3f}, N = {best['n']})")
+    print('Selected by smallest p across the change scores above, so this is '
+          'a display choice, not an independent test.')
+"""),
+    ]
+
+
 def build(sample: str = 'all') -> nbf.NotebookNode:
     nb = nbf.v4.new_notebook()
     nb.cells = (
@@ -784,6 +974,7 @@ def build(sample: str = 'all') -> nbf.NotebookNode:
         + section_descriptives()
         + section_h1()
         + section_reversal()
+        + section_h2()
     )
     nb.metadata = {
         'kernelspec': {'display_name': 'Python 3', 'language': 'python',
