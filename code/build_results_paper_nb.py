@@ -39,7 +39,7 @@ def code(text: str) -> nbf.NotebookNode:
 # Section 0 — Setup
 # =============================================================================
 
-def section_setup() -> List[nbf.NotebookNode]:
+def section_setup(sample: str = 'all') -> List[nbf.NotebookNode]:
     return [
         md("""
 # tACS Bandit — Results for the Empirical Paper
@@ -62,18 +62,18 @@ active/sham labels were previously swapped, and 10804, whose defended
 Rescorla-Wagner fit was pinned at the parameter bounds with a likelihood
 exactly at chance. Section 0.4 checks precisely that.
 """),
-        code("""
+        code(f"""
 # ============================================================================
 # 0.1 Sample selection
 # ============================================================================
 # 'all'          — every registered subject with usable data (expanded sample)
 # 'dissertation' — the frozen N=39 defended sample, for reproduction checks
 
-SAMPLE = 'all'
+SAMPLE = {sample!r}
 
 # Guard against a typo silently selecting a different analysis.
-assert SAMPLE in ('all', 'dissertation', 'new'), f'unexpected SAMPLE: {SAMPLE!r}'
-print(f'SAMPLE = {SAMPLE!r}')
+assert SAMPLE in ('all', 'dissertation', 'new'), f'unexpected SAMPLE: {{SAMPLE!r}}'
+print(f'SAMPLE = {{SAMPLE!r}}')
 """),
         code("""
 # ============================================================================
@@ -172,7 +172,48 @@ def style_ax(ax, xlabel=None, ylabel=None, title=None):
     return ax
 
 
-print('Figure style set.')
+def stats_box(ax, text, x=0.97, y=0.97, ha='right', va='top'):
+    ax.text(x, y, text, transform=ax.transAxes, fontsize=FONT_STATS_BOX,
+            fontfamily=FONT_FAMILY, color='#404040', ha=ha, va=va,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                      alpha=0.9, edgecolor='none'))
+
+
+def scatter_regression_mpl(ax, x, y, age, zero_line=False):
+    \"\"\"Scatter coloured by age, with a regression line and 95% CI band.\"\"\"
+    mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(age)
+    x, y, age = x[mask], y[mask], age[mask]
+    n = len(x)
+
+    for xi, yi, ai in zip(x, y, age):
+        ax.plot(xi, yi, 'o', color=age_to_hex(ai), markersize=3.5,
+                markeredgewidth=0.3, markeredgecolor='white', zorder=3)
+
+    slope, intercept, r, p, se = stats.linregress(x, y)
+    x_line = np.linspace(x.min(), x.max(), 200)
+    y_line = intercept + slope * x_line
+    y_pred = intercept + slope * x
+    resid_se = np.sqrt(np.sum((y - y_pred) ** 2) / (n - 2))
+    ci = stats.t.ppf(0.975, n - 2) * resid_se * np.sqrt(
+        1 / n + (x_line - x.mean()) ** 2 / np.sum((x - x.mean()) ** 2))
+
+    ax.fill_between(x_line, y_line - ci, y_line + ci,
+                    color=CI_COLOR, alpha=CI_ALPHA, zorder=1, linewidth=0)
+    ax.plot(x_line, y_line, color=REGRESSION_COLOR, linewidth=1.2, zorder=2)
+    if zero_line:
+        ax.axhline(0, color='#BDBDBD', linewidth=0.6, linestyle='--', zorder=0)
+
+    stats_box(ax, f"r = {r:.3f}, p = {p:.3f}{'*' if p < .05 else ''}, N = {n}")
+    return {'r': r, 'p': p, 'n': n, 'slope': slope}
+
+
+def savefig(fig, name):
+    \"\"\"Write a figure as both PNG and SVG into FIG_DIR.\"\"\"
+    fig.savefig(str(FIG_DIR / f'{name}.png'), dpi=300, bbox_inches='tight')
+    fig.savefig(str(FIG_DIR / f'{name}.svg'), format='svg', bbox_inches='tight')
+
+
+print('Figure style and helpers set.')
 """),
     ]
 
@@ -248,13 +289,21 @@ if SAMPLE == 'dissertation':
 
         check_cols = ['sham_p_stay_win', 'sham_p_shift_lose', 'sham_accuracy',
                       'sham_alpha', 'sham_beta', 'theta_p95']
+
+        # Relative tolerance, not absolute. These parameters live on very
+        # different scales — WSLS rates are bounded in [0, 1] while theta_p95
+        # runs to several hundred percent — so a fixed absolute threshold
+        # flags floating-point noise on the large ones as a real difference.
+        RTOL, ATOL = 0.01, 1e-6
         unexpected = set()
         for col in check_cols:
             a, b = merged.get(f'{col}_old'), merged.get(f'{col}_new')
             if a is None or b is None:
                 continue
             both = a.notna() & b.notna()
-            differing = merged.loc[both & ((a - b).abs() > 0.01), 'subject_id']
+            close = np.isclose(a.where(both), b.where(both),
+                               rtol=RTOL, atol=ATOL, equal_nan=True)
+            differing = merged.loc[both & ~close, 'subject_id']
             unexpected |= set(differing) - EXPECTED_DIFFERENCES
             print(f'  {col:20s}: n={both.sum():2d}, '
                   f'differing={sorted(set(differing))}')
@@ -394,12 +443,235 @@ if len(df) > 2:
     ]
 
 
-def build() -> nbf.NotebookNode:
+# =============================================================================
+# Section 2 — H1: baseline cognition and behavior (sham only)
+# =============================================================================
+
+def section_h1() -> List[nbf.NotebookNode]:
+    return [
+        md("""
+## 2. H1 — Cognition and baseline learning behavior
+
+Sham-condition analyses. Each preregistered model includes education; because
+education is missing for a subset of participants, every model is also refit
+without it on the full sample, and the two are compared rather than one being
+reported alone.
+"""),
+        code("""
+# ============================================================================
+# 2.1 Shared regression helper
+# ============================================================================
+
+def run_h1_regression(y_col, x_cols, data, label, verbose=True):
+    \"\"\"OLS with an APA-style summary. Returns (model, analysis frame).\"\"\"
+    df = data[['subject_id', y_col] + x_cols].dropna()
+    if len(df) < len(x_cols) + 2:
+        if verbose:
+            print(f'\\n{label}\\n  insufficient data (N = {len(df)})')
+        return None, df
+
+    y = df[y_col].astype(float)
+    X = sm.add_constant(df[x_cols].astype(float))
+    model = sm.OLS(y, X).fit()
+
+    if verbose:
+        print(f'\\n{label}')
+        print(f'  N = {int(model.nobs)}')
+        print(f'  F({model.df_model:.0f}, {model.df_resid:.0f}) = {model.fvalue:.2f}, '
+              f'p = {model.f_pvalue:.3f}, R2 = {model.rsquared:.3f}')
+        for var in x_cols:
+            b, p = model.params[var], model.pvalues[var]
+            beta = b * (df[var].std() / y.std()) if y.std() > 0 else np.nan
+            print(f'  {var:25s}: b = {b:+.4f}, beta = {beta:+.3f}, '
+                  f'p = {p:.3f}{" *" if p < .05 else ""}')
+    return model, df
+
+
+def compare_specifications(prereg, full, term, label):
+    \"\"\"Report whether a term survives dropping the education covariate.\"\"\"
+    if prereg is None or full is None:
+        print(f'  {label}: one specification could not be fit.')
+        return
+    p_pre, p_full = prereg.pvalues[term], full.pvalues[term]
+    n_pre, n_full = int(prereg.nobs), int(full.nobs)
+    print(f'\\n  {label}')
+    print(f'    with education    (N={n_pre:3d}): p = {p_pre:.3f}'
+          f'{" *" if p_pre < .05 else ""}')
+    print(f'    without education (N={n_full:3d}): p = {p_full:.3f}'
+          f'{" *" if p_full < .05 else ""}')
+    if p_pre < .05 and p_full >= .05:
+        print(f'    -> significant only in the preregistered model; '
+              f'{abs(n_full - n_pre)} subjects differ, so the result is '
+              f'sensitive to sample composition.')
+    elif p_pre < .05 and p_full < .05:
+        print('    -> robust across both specifications.')
+    elif p_pre >= .05 and p_full < .05:
+        print('    -> emerges only at full N.')
+    else:
+        print('    -> null in both.')
+"""),
+        code("""
+# ============================================================================
+# 2.2 H1.1 — Cognition predicts win-stay / lose-shift
+# ============================================================================
+
+h1_1a_model, h1_1a_df = run_h1_regression(
+    'sham_p_stay_win', [COG_COMPOSITE, 'age', 'education_years'], subj,
+    'H1.1a [preregistered]: p(stay|win) ~ Global Cognition + Age + Education')
+
+h1_1b_model, h1_1b_df = run_h1_regression(
+    'sham_p_shift_lose', [COG_COMPOSITE, 'age', 'education_years'], subj,
+    'H1.1b [preregistered]: p(shift|lose) ~ Global Cognition + Age + Education')
+
+print('\\n-- Full sample (education dropped to preserve N) --')
+h1_1a_full, _ = run_h1_regression(
+    'sham_p_stay_win', [COG_COMPOSITE, 'age'], subj,
+    'H1.1a [full sample]: p(stay|win) ~ Global Cognition + Age')
+h1_1b_full, _ = run_h1_regression(
+    'sham_p_shift_lose', [COG_COMPOSITE, 'age'], subj,
+    'H1.1b [full sample]: p(shift|lose) ~ Global Cognition + Age')
+
+print('\\n-- Sensitivity to the education covariate --')
+compare_specifications(h1_1a_model, h1_1a_full, COG_COMPOSITE, 'H1.1a cognition term')
+compare_specifications(h1_1b_model, h1_1b_full, COG_COMPOSITE, 'H1.1b cognition term')
+
+print('\\n-- Bivariate (full sample) --')
+for dv, label in [('sham_p_stay_win', 'p(stay|win)'),
+                  ('sham_p_shift_lose', 'p(shift|lose)')]:
+    d = subj[[COG_COMPOSITE, dv]].dropna()
+    r, p = stats.pearsonr(d[COG_COMPOSITE].astype(float), d[dv].astype(float))
+    print(f'  Cognition x {label:14s}: r = {r:+.3f}, p = {p:.3f}, N = {len(d)}')
+"""),
+        code("""
+# ============================================================================
+# 2.3 Figure — Cognition x WSLS
+# ============================================================================
+
+fig, axes = plt.subplots(1, 2, figsize=(WIDTH_1_5COL, WIDTH_1COL * 0.85))
+
+for ax, (dv, dv_label) in zip(axes, [('sham_p_stay_win', 'p(stay|win)'),
+                                     ('sham_p_shift_lose', 'p(shift|lose)')]):
+    d = subj[[COG_COMPOSITE, dv, 'age']].dropna()
+    scatter_regression_mpl(ax,
+                           d[COG_COMPOSITE].astype(float).values,
+                           d[dv].astype(float).values,
+                           d['age'].astype(float).values)
+    style_ax(ax, xlabel='Global Cognitive Composite', ylabel=dv_label)
+
+sm_age = plt.cm.ScalarMappable(cmap=AGE_CMAP, norm=plt.Normalize(AGE_MIN, AGE_MAX))
+cbar = fig.colorbar(sm_age, ax=axes, fraction=0.03, pad=0.02)
+cbar.set_label('Age (years)', fontsize=FONT_AXIS_TITLE)
+cbar.ax.tick_params(labelsize=FONT_TICK)
+
+savefig(fig, 'fig_h1_cognition_wsls')
+plt.show()
+"""),
+        code("""
+# ============================================================================
+# 2.4 H1.1.1 — Inverse temperature predicts lose-shifting
+# ============================================================================
+
+d_beta = subj[['sham_beta', 'sham_p_shift_lose', 'age']].dropna()
+
+fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
+stats_beta = scatter_regression_mpl(
+    ax,
+    d_beta['sham_beta'].astype(float).values,
+    d_beta['sham_p_shift_lose'].astype(float).values,
+    d_beta['age'].astype(float).values,
+)
+style_ax(ax, xlabel='Inverse Temperature (beta)', ylabel='p(shift|lose)')
+savefig(fig, 'fig_h1_beta_loseshift')
+plt.show()
+
+print(f"Bivariate: r = {stats_beta['r']:.3f}, p = {stats_beta['p']:.3f}, "
+      f"N = {stats_beta['n']}")
+
+h1_beta_prereg, _ = run_h1_regression(
+    'sham_p_shift_lose', ['sham_beta', COG_COMPOSITE, 'age', 'education_years'],
+    subj, 'p(shift|lose) ~ beta + Global Cog + Age + Education [preregistered]')
+h1_beta_full, _ = run_h1_regression(
+    'sham_p_shift_lose', ['sham_beta', COG_COMPOSITE, 'age'],
+    subj, 'p(shift|lose) ~ beta + Global Cog + Age [full sample]')
+
+compare_specifications(h1_beta_prereg, h1_beta_full, 'sham_beta', 'beta term')
+"""),
+        code("""
+# ============================================================================
+# 2.5 H1.1.2 — Age x Cognition interactions
+# ============================================================================
+# Continuous predictors are mean-centered so the lower-order terms stay
+# interpretable at the sample mean rather than at zero.
+
+interaction_dvs = [
+    ('sham_p_shift_lose', 'p(shift|lose)'),
+    ('sham_alpha', 'Learning rate (alpha)'),
+    ('sham_beta', 'Inverse temperature (beta)'),
+]
+
+interaction_results = {}
+
+for dv_col, dv_label in interaction_dvs:
+    cols = [dv_col, COG_COMPOSITE, 'age', 'education_years']
+    d = subj[['subject_id'] + cols].dropna().copy()
+    if len(d) < 10:
+        print(f'{dv_label}: insufficient data (N = {len(d)})')
+        continue
+
+    for c in [COG_COMPOSITE, 'age', dv_col]:
+        d[c] = pd.to_numeric(d[c], errors='coerce')
+    d = d.dropna()
+
+    d['cog_c'] = d[COG_COMPOSITE] - d[COG_COMPOSITE].mean()
+    d['age_c'] = d['age'] - d['age'].mean()
+    d['cog_x_age'] = d['cog_c'] * d['age_c']
+
+    y = d[dv_col].astype(float)
+    X = sm.add_constant(d[['cog_c', 'age_c', 'education_years', 'cog_x_age']].astype(float))
+    model = sm.OLS(y, X).fit()
+    interaction_results[dv_col] = {'model': model, 'df': d}
+
+    b, p = model.params['cog_x_age'], model.pvalues['cog_x_age']
+    print(f'{dv_label:26s}: interaction b = {b:+.5f}, p = {p:.3f}'
+          f'{" *" if p < .05 else ""}, N = {int(model.nobs)}')
+"""),
+        code("""
+# ============================================================================
+# 2.6 H1.2 — Reward/punishment sensitivity (SPSRQ) and WSLS
+# ============================================================================
+
+for pred, dv, label in [
+    ('spsrq_sr', 'sham_p_stay_win', 'SR (reward sensitivity) -> p(stay|win)'),
+    ('spsrq_sp', 'sham_p_shift_lose', 'SP (punishment sensitivity) -> p(shift|lose)'),
+]:
+    if pred not in subj.columns:
+        print(f'{label}: {pred} unavailable')
+        continue
+    d = subj[[pred, dv]].dropna()
+    if len(d) < 5:
+        print(f'{label}: insufficient data (N = {len(d)})')
+        continue
+    r, p = stats.pearsonr(d[pred].astype(float), d[dv].astype(float))
+    print(f'{label:46s}: r = {r:+.3f}, p = {p:.3f}, N = {len(d)}')
+
+print()
+h1_2a_model, _ = run_h1_regression(
+    'sham_p_stay_win', ['spsrq_sr', 'age', 'education_years'], subj,
+    'H1.2a [preregistered]: p(stay|win) ~ SR + Age + Education')
+h1_2b_model, _ = run_h1_regression(
+    'sham_p_shift_lose', ['spsrq_sp', 'age', 'education_years'], subj,
+    'H1.2b [preregistered]: p(shift|lose) ~ SP + Age + Education')
+"""),
+    ]
+
+
+def build(sample: str = 'all') -> nbf.NotebookNode:
     nb = nbf.v4.new_notebook()
     nb.cells = (
-        section_setup()
+        section_setup(sample)
         + section_data()
         + section_descriptives()
+        + section_h1()
     )
     nb.metadata = {
         'kernelspec': {'display_name': 'Python 3', 'language': 'python',
@@ -413,10 +685,13 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     parser.add_argument('--execute', action='store_true',
                         help='run the notebook after writing it')
+    parser.add_argument('--sample', default='all',
+                        choices=['all', 'dissertation', 'new'],
+                        help='value baked into the SAMPLE constant')
     parser.add_argument('--output', default=str(OUTPUT))
     args = parser.parse_args(argv)
 
-    nb = build()
+    nb = build(args.sample)
     out = Path(args.output)
     nbf.write(nb, str(out))
     n_code = sum(c['cell_type'] == 'code' for c in nb.cells)
@@ -424,13 +699,21 @@ def main(argv=None) -> int:
 
     if args.execute:
         print('\nExecuting...')
+        # Always run from this file's directory: the notebook imports config,
+        # data_loading and the rest from code/, so executing anywhere else
+        # fails on import. nbconvert reports that as a silent no-op unless the
+        # return code is checked, which is how an earlier run wrote a notebook
+        # with no execution counts and looked like it had succeeded.
         result = subprocess.run(
             ['jupyter', 'nbconvert', '--to', 'notebook', '--execute',
              '--inplace', '--ExecutePreprocessor.timeout=1800', str(out)],
-            cwd=str(out.parent), capture_output=True, text=True,
+            cwd=str(Path(__file__).parent), capture_output=True, text=True,
         )
         sys.stdout.write(result.stdout[-4000:])
         sys.stderr.write(result.stderr[-4000:])
+        if result.returncode != 0:
+            print(f'\nExecution FAILED (exit {result.returncode}) — '
+                  f'the notebook on disk has no outputs.')
         return result.returncode
 
     return 0
