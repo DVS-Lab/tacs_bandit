@@ -33,8 +33,14 @@ REDCAP_RF1_RAW_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_202
 # here but come from the task's own stim_guess/stim_confidence, not REDCap.
 REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-07-14_1714.csv'
 
-# TabCAT cognitive battery
-TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcrossTheLifespan_2026-2-28.csv'
+# TabCAT cognitive battery.
+# The August export covers 5 more subjects than February but drops 36 columns
+# (RT and detail measures). Neither file is a superset, so both are read and
+# merged: the newest wins wherever they overlap, older exports only fill gaps.
+TABCAT_PATH = REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcrossTheLifespan_2026-8-13.csv'
+TABCAT_LEGACY_PATHS = [
+    REPO_ROOT / 'data' / 'TabCATStudyData_rf1SocialRewardProcessingAcrossTheLifespan_2026-2-28.csv',
+]
 
 
 # =============================================================================

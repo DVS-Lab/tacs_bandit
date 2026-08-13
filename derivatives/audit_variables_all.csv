@@ -1,0 +1,39 @@
+group,variable,n_present,n_missing,status,by_design,excluded,absent
+behavioral (sham),sham_p_stay_win,59,7,ok,0,1,6
+behavioral (sham),sham_p_shift_lose,59,7,ok,0,1,6
+behavioral (sham),sham_alpha,59,7,ok,0,1,6
+behavioral (sham),sham_beta,59,7,ok,0,1,6
+behavioral (sham),sham_accuracy,59,7,ok,0,1,6
+behavioral (sham),sham_win_rate,59,7,ok,0,1,6
+behavioral (active),active_p_stay_win,55,11,ok,0,7,4
+behavioral (active),active_p_shift_lose,55,11,ok,0,7,4
+behavioral (active),active_alpha,55,11,ok,0,7,4
+behavioral (active),active_beta,55,11,ok,0,7,4
+behavioral (active),active_accuracy,55,11,ok,0,7,4
+behavioral (active),active_win_rate,55,11,ok,0,7,4
+EEG,theta_p95,59,7,ok,0,0,7
+EEG,theta_p75,59,7,ok,0,0,7
+EEG,theta_median,59,7,ok,0,0,7
+demographics,age,65,1,ok,0,0,1
+demographics,gender,66,0,ok,0,0,0
+demographics,race,65,1,ok,0,0,1
+demographics,ethnicity,65,1,ok,0,0,1
+demographics,education_years,55,11,ok,0,0,11
+cognition,hvlt_total,66,0,ok,0,0,0
+cognition,flanker_score,63,3,ok,0,0,3
+cognition,running_dots_score,57,9,ok,0,0,9
+cognition,salthouse_letter,62,4,ok,0,0,4
+cognition,salthouse_pattern,62,4,ok,0,0,4
+cognition,digit_span_total,23,43,ok,43,0,0
+cognition,bvmt_total,27,39,ok,39,0,0
+cognition,trails_a_time,27,39,ok,39,0,0
+questionnaires,spsrq_sr,57,9,ok,0,0,9
+questionnaires,spsrq_sp,57,9,ok,0,0,9
+questionnaires,bpsqi_global,61,5,ok,0,0,5
+questionnaires,ffmq_total,61,5,ok,0,0,5
+questionnaires,crt_total,66,0,ok,0,0,0
+questionnaires,bbs_avg,23,43,ok,43,0,0
+questionnaires,audit_total,15,51,ok,0,0,51
+questionnaires,ctq_total,63,3,ok,0,0,3
+questionnaires,promis_anxiety,15,51,ok,0,0,51
+questionnaires,loneliness_total,12,54,ok,0,0,54

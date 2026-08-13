@@ -43,6 +43,7 @@ from config import (
     REDCAP_RF1_RAW_PATH,
     REDCAP_TACS_PATH,
     TABCAT_PATH,
+    TABCAT_LEGACY_PATHS,
     DATA_DIR,
 )
 
@@ -331,7 +332,13 @@ def load_rf1_substance_mood(
             n = promis_scores[col].notna().sum()
             print(f'    {col}: {n}/{len(promis_scores)}')
 
-    # ---- UCLA Loneliness (3-item, Mock Scan event) ----
+    # ---- UCLA Loneliness (3-item) ----
+    # These items are administered at the follow-up appointment, not the mock
+    # scan. Reading them from the mock-scan frame returns no rows at all, so
+    # every loneliness column came out empty for every subject while looking
+    # like a legitimately missing measure. Search the whole export instead of
+    # assuming an event, so a future change of schedule does not silently
+    # empty the column again.
     loneliness_items = {
         'How often do you feel that you lack companionship?': 'loneliness_companionship',
         'How often do you feel left out?': 'loneliness_left_out',
@@ -342,8 +349,14 @@ def load_rf1_substance_mood(
         'Hardly ever': 1, 'Some of the time': 2, 'Often': 3,
     }
 
-    lone_cols_present = ['subject_id'] + [c for c in loneliness_items.keys() if c in mock_study.columns]
-    loneliness = mock_study[lone_cols_present].copy()
+    lone_source = rf1_raw[rf1_raw['subject_id'].isin(study_subjects)].copy()
+    lone_cols_present = ['subject_id'] + [c for c in loneliness_items.keys()
+                                          if c in lone_source.columns]
+    loneliness = lone_source[lone_cols_present].copy()
+    # Keep the row that actually carries the responses, whichever event it is.
+    item_cols = [c for c in lone_cols_present if c != 'subject_id']
+    if item_cols:
+        loneliness = loneliness[loneliness[item_cols].notna().any(axis=1)]
     loneliness = loneliness.rename(columns=loneliness_items)
     loneliness = loneliness.groupby('subject_id').first().reset_index()
 
@@ -493,14 +506,42 @@ def _score_promis(
 
 def load_tabcat(
     filepath: str = TABCAT_PATH,
-    study_subjects: Optional[List[str]] = None
+    study_subjects: Optional[List[str]] = None,
+    legacy_paths: Optional[List] = None,
 ) -> pd.DataFrame:
-    """Load TabCAT cognitive measures (Flanker, RunningDots, SetShifting)."""
+    """
+    Load TabCAT cognitive measures (Flanker, RunningDots, SetShifting).
+
+    Successive TabCAT exports are not nested: the August 2026 export covers
+    five more subjects than February but drops 36 columns. Taking either alone
+    loses something, so the newest is used as the base and older exports fill
+    in subjects and columns it lacks. Values from the newest export always win
+    where both have one.
+    """
     if study_subjects is None:
         study_subjects = list(SUBJECT_INFO.keys())
+    if legacy_paths is None:
+        legacy_paths = TABCAT_LEGACY_PATHS
 
     tabcat = pd.read_csv(filepath)
     tabcat['subject_id'] = tabcat['Examinee_Identifier'].astype(str)
+
+    for legacy in legacy_paths:
+        if not Path(legacy).exists():
+            continue
+        old = pd.read_csv(legacy, low_memory=False)
+        old['subject_id'] = old['Examinee_Identifier'].astype(str)
+
+        # Columns the current export no longer carries.
+        extra_cols = [c for c in old.columns if c not in tabcat.columns]
+        if extra_cols:
+            tabcat = tabcat.merge(old[['subject_id'] + extra_cols],
+                                  on='subject_id', how='left')
+
+        # Subjects absent from the current export.
+        missing = old[~old['subject_id'].isin(set(tabcat['subject_id']))]
+        if len(missing):
+            tabcat = pd.concat([tabcat, missing], ignore_index=True)
 
     col_map = {
         'Flanker_TotalScore': 'flanker_score',
@@ -1146,6 +1187,17 @@ def build_subject_df(
     if accuracy is not None and len(accuracy) > 0:
         for cond in ['sham', 'active']:
             cond_rows = accuracy[accuracy['condition'] == cond]
+
+            # Restrict the active condition to H2-eligible subjects, matching
+            # how the R-W and WSLS parameters are handled. Without this the
+            # accuracy columns cover a wider sample than every other
+            # active-condition measure, and they include subjects excluded
+            # from H2 for good reason — 11773's "active" runs both delivered
+            # sham, so its active_accuracy and delta_accuracy describe a
+            # comparison that did not happen.
+            if cond == 'active' and h2_subjects is not None:
+                cond_rows = cond_rows[cond_rows['subject_id'].isin(h2_subjects)]
+
             if len(cond_rows) == 0:
                 continue
             cond_rows = cond_rows.set_index('subject_id')[['accuracy', 'win_rate']]
