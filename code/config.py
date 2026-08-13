@@ -25,13 +25,51 @@ DATA_DIR = REPO_ROOT / 'data' / 'bandit'
 EEG_DIR = REPO_ROOT / 'data' / 'nic' / 'raw'
 
 # REDCap exports
-REDCAP_RF1_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce-FullScoringFinishedS_DATA_LABELS_2026-02-28_1613.csv'
-REDCAP_RF1_RAW_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_2026-02-28_1436.csv'
-# July 2026 export: covers all 61 registered subjects (the April export stopped
-# at 40 and left the post-defense subjects without demographics). Identical
-# columns except the 16 per-run blinding/confidence items, which are dropped
-# here but come from the task's own stim_guess/stim_confidence, not REDCap.
-REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-07-14_1714.csv'
+# August 2026 wave-2 scoring report. A clean superset of the February export
+# for every column the loaders use, and it carries Salthouse for three more
+# subjects.
+REDCAP_RF1_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce-FullScoringFinishedW_DATA_LABELS_2026-08-13_1351.csv'
+
+# Wave-1 companion report: demographics only, but complete for all 66 subjects,
+# so it fills race/ethnicity/gender where the tACS REDCap has gaps. Its age
+# column is empty and is not used.
+REDCAP_RF1_DEMO_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce-FullScoringFinishedW_DATA_LABELS_2026-08-13_1350.csv'
+
+# Full-project export: the source for AUDIT, DUDIT, PROMIS, loneliness, CTQ
+# and education.
+#
+# Successive exports are not nested in either direction. Relative to February,
+# the August export adds rows (Follow Up 1: 15 -> 34) and gains CTQ, education
+# and loneliness — but it drops 183 columns (the DUDIT items), scores PROMIS
+# for nobody, and carries AUDIT for 5 subjects where February had 15, the same
+# column at the same event. So neither file alone is safe to use.
+#
+# Both are read and coalesced per subject: the newest supplies a value where it
+# has one, older exports fill the gaps. See _coalesce_by_subject.
+REDCAP_RF1_RAW_PATH = REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_2026-08-13_1428.csv'
+REDCAP_RF1_RAW_LEGACY_PATHS = [
+    REPO_ROOT / 'data' / 'RF1SocialRewardProce_DATA_LABELS_2026-02-28_1436.csv',
+]
+# Full-project export, August 2026. A verified strict superset of the July
+# report (every one of its 150 columns present, plus 155 more) and it carries
+# more complete questionnaire data: BPSQI and FFMQ 61 -> 65 subjects, BBS
+# 23 -> 25, counterbalance 57 -> 62.
+#
+# The earlier reports are kept for reference. The April one is the only source
+# for the 16 per-run blinding/confidence items, which nothing reads — blinding
+# is computed from the task's own stim_guess/stim_confidence columns.
+REDCAP_TACS_PATH = REPO_ROOT / 'data' / 'TACSBandit_DATA_LABELS_2026-08-13_1430.csv'
+REDCAP_TACS_REPORT_PATHS = [
+    REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-07-14_1714.csv',
+    REPO_ROOT / 'data' / 'TACSBandit-TACSBandittestReport_DATA_LABELS_2026-04-21_1210.csv',
+]
+
+# Island screener pool. Links to this study through `rf1_id`, NOT through its
+# own `Study ID` column, which is a separate screener-pool numbering (values
+# like 552, 553) that coincidentally collides with a few of our five-digit
+# subject IDs. Joining on the wrong column produces plausible-looking rows for
+# unrelated people.
+ISLAND_SCREENER_PATH = REPO_ROOT / 'data' / 'IslandScreener_DATA_LABELS_2026-08-13_1429.csv'
 
 # TabCAT cognitive battery.
 # The August export covers 5 more subjects than February but drops 36 columns
@@ -244,7 +282,7 @@ EXCLUDE_PREFIXES = ['avi-pilot', 'p1001', '00002', '1122', '1432']
 # =============================================================================
 # Pre-Registered Exclusion Criteria Thresholds
 # =============================================================================
-# Per Section 6 of the pre-registration (https://osf.io/vhyz2)
+# Per Section 6 of the pre-registration (https://osf.io/s9k64/overview)
 
 EXCLUSION_THRESHOLDS = {
     'missed_pct': 20.0,           # >20% missed trials → exclude run

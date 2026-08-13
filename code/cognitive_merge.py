@@ -44,6 +44,9 @@ from config import (
     REDCAP_TACS_PATH,
     TABCAT_PATH,
     TABCAT_LEGACY_PATHS,
+    REDCAP_RF1_DEMO_PATH,
+    REDCAP_RF1_RAW_LEGACY_PATHS,
+    ISLAND_SCREENER_PATH,
     DATA_DIR,
 )
 
@@ -230,15 +233,67 @@ def load_rf1_exploratory(
 # RF1 Raw REDCap Loader
 # =============================================================================
 
+def _coalesce_by_subject(frames: List[pd.DataFrame],
+                         key: str = 'subject_id') -> pd.DataFrame:
+    """
+    Combine per-subject frames, earlier frames winning.
+
+    Used to merge results derived from successive REDCap exports. Those exports
+    are not nested — each release has gained some fields and lost others, and
+    at least one calculated field (AUDIT sum) has fewer values in the newer
+    export than the older one despite living at the same event. Taking any
+    single export therefore discards data.
+
+    `frames` should be ordered most- to least-preferred. A later frame only
+    ever fills a cell the earlier ones left empty, and contributes subjects
+    they lack entirely.
+    """
+    frames = [f for f in frames if f is not None and len(f)]
+    if not frames:
+        return pd.DataFrame()
+
+    combined = frames[0].copy()
+    for other in frames[1:]:
+        new_cols = [c for c in other.columns if c not in combined.columns]
+        if new_cols:
+            combined = combined.merge(other[[key] + new_cols], on=key, how='outer')
+
+        shared = [c for c in other.columns if c in combined.columns and c != key]
+        if shared:
+            lookup = other.set_index(key)
+            for col in shared:
+                mapped = combined[key].map(lookup[col])
+                combined[col] = combined[col].fillna(mapped)
+
+        missing = other[~other[key].isin(set(combined[key]))]
+        if len(missing):
+            combined = pd.concat([combined, missing], ignore_index=True)
+
+    return combined
+
+
 def load_rf1_raw(
     filepath: str = REDCAP_RF1_RAW_PATH,
-    study_subjects: Optional[List[str]] = None
+    study_subjects: Optional[List[str]] = None,
+    legacy_paths: Optional[List] = None,
 ) -> pd.DataFrame:
     """
     Load cognitive measures from RF1 Raw export.
 
     Includes: Digit Span, BVMT, Trail Making, Education
+
+    Reads every available export and coalesces per subject, because successive
+    exports each gained and lost fields; see _coalesce_by_subject.
     """
+    if legacy_paths is None:
+        legacy_paths = REDCAP_RF1_RAW_LEGACY_PATHS
+    if legacy_paths:
+        frames = [load_rf1_raw(filepath, study_subjects, legacy_paths=[])]
+        for extra in legacy_paths:
+            if Path(extra).exists():
+                frames.append(load_rf1_raw(extra, study_subjects, legacy_paths=[]))
+        return _coalesce_by_subject(frames)
+
     if study_subjects is None:
         study_subjects = list(SUBJECT_INFO.keys())
 
@@ -275,7 +330,8 @@ def load_rf1_raw(
 def load_rf1_substance_mood(
     filepath: str = REDCAP_RF1_RAW_PATH,
     study_subjects: Optional[List[str]] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    legacy_paths: Optional[List] = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Load substance use, mood, and health measures from RF1 Raw export.
@@ -285,9 +341,34 @@ def load_rf1_substance_mood(
     - Mock Scan Questionnaires event: PROMIS subscales, UCLA Loneliness
 
     Returns dict with keys: 'audit_dudit', 'promis', 'loneliness'
+
+    Reads every available export and coalesces each returned frame per subject.
+    This matters concretely here: the August export scores PROMIS for nobody
+    and carries AUDIT for 5 subjects where February had 15, while gaining CTQ
+    and loneliness. Using either alone loses real data.
     """
     if study_subjects is None:
         study_subjects = list(SUBJECT_INFO.keys())
+
+    if legacy_paths is None:
+        legacy_paths = REDCAP_RF1_RAW_LEGACY_PATHS
+    if legacy_paths:
+        runs = [load_rf1_substance_mood(filepath, study_subjects,
+                                        verbose=False, legacy_paths=[])]
+        for extra in legacy_paths:
+            if Path(extra).exists():
+                runs.append(load_rf1_substance_mood(extra, study_subjects,
+                                                    verbose=False, legacy_paths=[]))
+        merged = {}
+        for key in {k for run in runs for k in run}:
+            merged[key] = _coalesce_by_subject([run[key] for run in runs
+                                                if key in run])
+        if verbose:
+            for key, frame in merged.items():
+                cols = [c for c in frame.columns if c != 'subject_id']
+                filled = {c: int(frame[c].notna().sum()) for c in cols[:4]}
+                print(f'  {key}: {len(frame)} subjects, {filled}')
+        return merged
 
     rf1_raw = pd.read_csv(filepath, low_memory=False)
     rf1_raw['subject_id'] = rf1_raw['Subject ID'].astype(str)
@@ -1051,6 +1132,30 @@ def build_subject_df(
     demo = extract_demographics(tacs_redcap)
     subj_df = subj_df.merge(demo, on='subject_id', how='left')
 
+    # Backfill race/ethnicity/gender from the RF1 wave-1 demographics report,
+    # which is complete for all subjects where the tACS REDCap has gaps. Its
+    # age column is empty, so age is not backfilled from here.
+    if Path(REDCAP_RF1_DEMO_PATH).exists():
+        rf1_demo = pd.read_csv(REDCAP_RF1_DEMO_PATH, low_memory=False)
+        rf1_demo['subject_id'] = rf1_demo['Subject ID'].astype(str)
+        rename = {'Race': 'race', 'Ethnicity': 'ethnicity', 'Gender': 'gender'}
+        available = {k: v for k, v in rename.items() if k in rf1_demo.columns}
+        if available:
+            fill = (rf1_demo[['subject_id'] + list(available)]
+                    .rename(columns=available)
+                    .dropna(how='all', subset=list(available.values()))
+                    .groupby('subject_id').first())
+            for col in available.values():
+                if col not in subj_df.columns:
+                    continue
+                mapped = subj_df['subject_id'].map(fill[col])
+                n_before = subj_df[col].notna().sum()
+                subj_df[col] = subj_df[col].fillna(mapped)
+                recovered = subj_df[col].notna().sum() - n_before
+                if recovered and verbose:
+                    print(f'  {col}: recovered {recovered} from RF1 demographics '
+                          f'({subj_df[col].notna().sum()}/{len(subj_df)} total)')
+
     # Education from RF1 Raw (primary source)
     if 'education_years' in rf1_neuro.columns:
         subj_df = subj_df.merge(
@@ -1070,6 +1175,32 @@ def build_subject_df(
             print(f'  Education: recovered {n_recovered} values from TabCAT '
                   f'({subj_df["education_years"].notna().sum()}/{ len(subj_df)} total)')
         subj_df = subj_df.drop(columns=['tabcat_education_years'])
+
+    # Third source for education: the island screener asks the same question in
+    # the same units. Where both it and the sources above have a value they
+    # agree closely (45 of 51 exact, mean absolute difference 0.4 years,
+    # r = 0.89), so it is used only to fill gaps and never to overwrite.
+    if Path(ISLAND_SCREENER_PATH).exists():
+        island = pd.read_csv(ISLAND_SCREENER_PATH, low_memory=False)
+        if 'rf1_id' in island.columns:
+            island['subject_id'] = island['rf1_id'].astype(str)
+            edu_cols = [c for c in island.columns
+                        if 'How many years of education' in c]
+            if edu_cols and 'education_years' in subj_df.columns:
+                island_edu = {}
+                for col in edu_cols:
+                    rows = island.loc[island[col].notna(), ['subject_id', col]]
+                    for sid, value in rows.drop_duplicates('subject_id').values:
+                        island_edu.setdefault(str(sid), float(value))
+                mapped = subj_df['subject_id'].map(island_edu)
+                fill_mask = subj_df['education_years'].isna() & mapped.notna()
+                if fill_mask.any():
+                    subj_df.loc[fill_mask, 'education_years'] = mapped[fill_mask]
+                    if verbose:
+                        print(f'  Education: recovered {int(fill_mask.sum())} values '
+                              f'from the island screener '
+                              f'({subj_df["education_years"].notna().sum()}/'
+                              f'{len(subj_df)} total)')
 
     # --- Cognitive composites ---
     cog = compute_cognitive_composites(rf1_cog, rf1_neuro, tabcat, study_subjects)

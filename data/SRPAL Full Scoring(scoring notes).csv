@@ -1,0 +1,111 @@
+,,checked,Scoring Instructions,Summary,REDCap variable names(s),Steps left for experimenter
+,TICS,,,,.,
+,,,,,,
+Island Screener,AUDIT,MC,,A score of 8+ on the AUDIT generally indicates harmful or hazardous drinking.,audit_adult_total,
+,DUDIT,MC,,"Items 1-9- [0, 1, 2, 3, 4] Items 10-11 [0,2,4]",dudit_adult_total,
+,USI,AD,https://tuprd.sharepoint.com/sites/TU-CLA-Psych-Smith-Lab/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FTU%2DCLA%2DPsych%2DSmith%2DLab%2FShared%20Documents%2FGeneral%2FSmithLab%2FIRB%2FIRB%5F28455%5FRF1%5FSocial%20Reward%20Processing%20Across%20the%20Lifespan%2FCURRENTLY%20APPROVED%2FALL%2DMEASURES%2FUSIdep%2FNZiDep%28USIDep%29%2Epdf&parent=%2Fsites%2FTU%2DCLA%2DPsych%2DSmith%2DLab%2FShared%20Documents%2FGeneral%2FSmithLab%2FIRB%2FIRB%5F28455%5FRF1%5FSocial%20Reward%20Processing%20Across%20the%20Lifespan%2FCURRENTLY%20APPROVED%2FALL%2DMEASURES%2FUSIdep,"yes = 1, no/missing = 0   1= no deprivation characteristics, 2= one deprivation characteristic, 3= two deprivation characteristics, 4= three or four deprivation characteristics , 5= five or more deprivation characteristics",usi_ordinal,
+,FEVS,,https://www.olderadultnestegg.com/wp-content/uploads/2021/09/FEVS-Examining-the-Validity-of-FEVS-Aug-2021-PL-LH.pdf,"Sum, with higher scores being related to a higher risk of financial exploitation. Wording does not indicate any reverse scoring. Lower than the mean was classified as low risk, between the mean and one standard deviation was classified as moderate risk, and above one standard deviation was classified as high risk.",fevs_total,
+,PROMIS 29,N/A,https://labs.dgsom.ucla.edu/hays/files/view/docs/programs-utilities/prom29/PROM-29+2guide.pdf,"PROMIS requires upload to their database, and returns T-scored results for each axis (rather than total score). Dave said we can get away with just summing the categories for our analysies. ","[promis_depression_sum],[promis_anxiety_sum],[promis_physical_sum],[promis_",
+,PMAS,AD,https://atcmeetingabstracts.com/abstract/validation-of-the-promis-medication-adherence-scale-among-kidney-transplant-recipients-on-tacrolimus/,"Each item has 5 response options, and 8 of the 9 items are summed to create a score ranging from 8-40 (higher scores mean better adherence). (excluding MedAd5; “I took this medicine as recommended”) ",pmas_sum,
+,PAM,AD,,"For positively keyed items (those other than Items 5, 8, and 12), recode strongly disagree to 0, disagree to 1, neutral to 2, agree to 3, and strongly agree to 4. For the negatively keyed items (Items 5, 8, and 12), recode strongly disagree to 4, disagree to 3, neutral to 2, agree to 1, and strongly agree to 0. To create the total score, sum the recoded scores associated with all the items. To create the subscales, sum recoded Items 1, 3, and 13 to create Duration; Items 6, 15, and 17 to create Frequency of Interaction; Items 7, 9, and 18 to create Knowledge of Goals; Items 2, 11, and 16 to create Physical Intimacy; Items 5, 8, and 12 to create Self-Disclosure; and Items 4, 10, and 14 to create Social Network Familiarity.",[pam_total_sum],
+,MSPSS,AD,https://elcentro.sonhs.miami.edu/research/measures-library/mspss/index.html,"Significant Other Subscale: Sum across items 1, 2, 5, & 10, then divide by 4.
+Family Subscale: Sum across items 3, 4, 8, & 11, then divide by 4.
+Friends Subscale: Sum across items 6, 7, 9, & 12, then divide by 4.
+Total Scale: Sum across all 12 items, then divide by 12.",[mspss_adult_1],"If you want to divide your respondents into groups on the basis of MSPSS scores there are at least two ways you can approach this process:
+1. You can divide your respondents into 3 equal groups on the basis of their scores (trichotomize) and designate the lowest group as low perceived support, the middle group as medium support, and the high group as high support. This approach ensures that you have about the same number of respondents in each group. But, if the distribution of scores is skewed, your low support group, for example, may include respondents who report moderate or even relatively high levels of support.
+2. Alternatively, you can use the scale response descriptors as a guide. In this approach any mean scale score ranging from 1 to 2.9 could be considered low support; a score of 3 to 5 could be considered moderate support; a score from 5.1 to 7 could be considered high support. This approach would seem to have more validity, but if you have very few respondents in any of the groups, it could be problematic."
+,SES,,,"Questions from Dave, each is individual (unless he comes up with total score)",.,
+,Fraud,,,Sum scored to give a value on report. Radio buttons for $0 losses of fraud are accounted for at the end by subtracting the number of questions coded that way,.,
+,Dospert,,Scoring instructions for DOSPERT scale (2006),"Sums. Ethical: 6,9,10,16,29,30. Financial (Investment/Gambling): 12,4,18,3,14,8. Health/Safety: 5,15,17,20,23,26. Recreational: 2,11,13,19,24,25. Social: 1,7,21,22,27,28",.,
+,Honesty Question,N/A,,"Single question - hand convert any '1-100%' into 1 to 5 on 5 point scale (1-20, 21-40, 41-60, 61-80, 81-100)",.,
+,FAQ,,TU-CLA-Psych-Smith-Lab - FAQ.pdf - All Documents (sharepoint.com),"FAQ. As noted in the introduction, the FAQ is a 10-item, 
+collateral-report scale, with 4-point ordinal responses within 
+each item (Pfeffer et al., 1982). Response categories include 
+the following: 0, Normal; 1, Has difficulty but does by self; 
+2, Requires assistance; 3, Dependent. Item content is summarized in Table 5. Total score can range from 0 to 30, with 
+higher scores indicating more functional difficulties",.,
+,ECog,,ECog Final_Manual-2.pdf,"""Scores can be calculated individually for	each of the subscales of the ECog. Also, a total score representing all of the completed items of the ECog may be calculated. Scores on the individual items range from 1-4. However, since an ""I don’t know"" response is also included, simply summing the responses is not appropriate."" "" An ECog-12 score was calculated by averaging the scores of the 12 selected items""",ecog_score,if you read the manual there is a way to normalize the data with demographic information
+,BBGS,,BriefBiosocialGamblingScaleBBGS.png,1 = at risk for developing a gambling problem 0 = not at risk,bbgs_score,
+,UCLAL,,UCLA-Loneliness-Scale.pdf (icmha.org),"""The scores for each infividual question can be added together to give you a possible range of scores from 3 to 9. Researchers in the past have grouped people who score 3 - 5 as ""not lonely"" and people whith the score 6 - 9 as ""lonely"" (paper that classifies by 3 - 5 and 6 - 9: https://doi.org/10.1073/pnas.1219686110)"" ",uclal_score,
+,,,,,,
+,FAQ (friend),,,sum of the FAQ radio buttons (it's how Tania's lab does it),,
+,,,,,,
+Mock Scan,HVLT,,"https://link.springer.com/referenceworkentry/10.1007/978-0-387-79948-3_1127#:~:text=When%20scoring%20the%20HVLT%2DR,the%20recognition%20discrimination%20index%20is","When scoring the HVLT-R, the three learning trials are combined to calculate a totnal recall score; the delayed recall trial creates the delayed recall score; the retention (%) score is calculated by dividing the delayed recall trial by the higher of learning trial 2 or 3; and the recognition discrimination index is comprised by subtracting the total number of false positives from the total number of true positives. These scores are then converted to age-based T scores based on a norm population of 1,179 English-speaking individuals aged 16–92 years old.","[hvltimm_equation], [hvlt_delaytime_equation], [hvlt_delay_score], [hvlt_retention], [hvlt_rec_dis]",
+,HVLT Delayed Recall,,,the delayed recall trial creates the delayed recall score;,,
+,HVLT Retention %,,,the retention (%) score is calculated by dividing the delayed recall trial by the higher of learning trial 2 or 3;,,
+,HVLT recog disc,,,"and the recognition discrimination index is comprised by subtracting the total number of false positives from the total number of true positives. These scores are then converted to age-based T scores based on a norm population of 1,179 English-speaking individuals aged 16–92 years old.",,
+,HAR,,,"sum score ""Thus, each participant produced scores for the entire HART and two shortforms, HART-A and HART-B, based on the sums of correct responses."" - Development, Psychometric Properties, and Validity of the Hopkins Adult Reading Test (HART)",,
+,Math Fluency,,,sum score,,
+,Salthouse Perceptual Comparison,,,"sum score ""Performance in the speeded comparison tasks was represented by the number of pairs correctly classified in the allotted time"" - 10.1037/0012-1649.27.5.763 ",,
+,KBIT,,,"""The raw scores obtained are converted to standard scores (M = 100, SD = 15)""",,
+,Convex Time Budget,asked Rita - AD,,"Rita: i converted the stata script originally provided by mike kuhn (https://www.makuhn.net/time-preference-estimation-kit) into an R script to analyze the task, and the script and details can be found here under mctb_kit: https://osf.io/bjrw2/ . it involves some sort of fancy math to generate estimates of the different individual parameters (so, whether a person prefers overall sooner/small rewards, or if they really really like sooner/smaller if it's available immediately,, etc). there's also the consideration of missed trials, and if a participant misses more than one trial on the ctb it's not advised to analyze there data. so this R script takes care of all of that.",,
+,Planfullness,AD,,Attached file indicates which items are reverse scored,"plan_score_mf
+plan_score_to
+plan_score_cs
+plan_score_total
+",
+,BVMT,,,sum of the three trials,,
+,BVMT Delayed Recall,,,the delayed recall trial creates the delayed recall score;,,
+,BVMT Retention %,,,the retention (%) score is calculated by dividing the delayed recall trial by the higher of learning trial 2 or 3;,,
+,BVMT recog disc,,,and the recognition discrimination index is comprised by subtracting the total number of recognition false positives from the total number of recognition true positives. ,,
+,TMT,,,,,
+,WMS_R Digit Span,,,Total number of strings rememebered,,
+,CNNS Digit Span,,,Number of digits of the longest string remembered. This is the score that we use in CNNS to get the normed data,,
+,SCD-Q,changed sum to mean - AD,,0 = no problem to 6 = Major problem,.,
+,EROS,changed sum to mean bc of paper - AD,https://tuprd.sharepoint.com/:w:/r/sites/TU-CLA-Psych-Smith-Lab/_layouts/15/Doc.aspx?sourcedoc=%7BACD4116F-9958-4644-8E4E-3052C0C105EF%7D&file=EROS%20question%20battery.docx&action=default&mobileredirect=true,"Scoring instructions can be found in the main paper by ctl+f ing this: Table 1 Factor pattern coefficients and standardized item coefficients for Study 1
+
+EROS External Improving Score: 1, 3, 6, 7, 8, 9. 
+EROS External Worsening Score: 2, 4, 5
+EROS Internal Improving Score: 11, 12, 15, 16, 18, 19
+EROS Internal Worsening Score: 10, 13, 14, 17
+",.,
+,NIH socioeconomic status,AD,https://www.era.nih.gov/commons/disadvantaged_def.htm,"(1=disadvantaged, 0=not) An individual is considered to be from a disadvantaged background if he or she meets two or more of the following criteria:",.,
+,7U7D,,,"can't find the official subscale devision, but it is super obvious which  ones are mania and which ones are depression, and its obvious that there are no reverse scores",[susd_adult_mania] and [susd_adult_depression[,
+,SOGS,AD,https://tuprd.sharepoint.com/sites/TU-CLA-Psych-Smith-Lab/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FTU%2DCLA%2DPsych%2DSmith%2DLab%2FShared%20Documents%2FGeneral%2FSmithLab%2FIRB%2FIRB%5F28455%5FRF1%5FSocial%20Reward%20Processing%20Across%20the%20Lifespan%2FCURRENTLY%20APPROVED%2FALL%2DMEASURES%2FSOGS%2FSOGS%2Dpaper%2Epdf&parent=%2Fsites%2FTU%2DCLA%2DPsych%2DSmith%2DLab%2FShared%20Documents%2FGeneral%2FSmithLab%2FIRB%2FIRB%5F28455%5FRF1%5FSocial%20Reward%20Processing%20Across%20the%20Lifespan%2FCURRENTLY%20APPROVED%2FALL%2DMEASURES%2FSOGS,5 or more yeses = probably a pathological gambler ,.,
+,TEI,AD,https://www.psychometriclab.com/adminsdata/files/The%20TEIQue-SF%20v.%201.50.pdf,"2, 4, 5, 7, 8, 10, 12, 13, 14, 16, 18, 22, 25, 26 and 28 are reverse-scored. scores are averaged ""trait EI score of 5.02, while women scored an average of 5.18."" we have the subscales coded in REDCap, but in one of the papers it says that the subscales are only really reliable in the full measure (153 questions) ""The corresponding short form (TEIQue-SF) comprises 30 items and was designed to yield a global trait EI score, although it is possible to also derive from it scores on the four factors, albeit somewhat less reliable"" https://discovery.ucl.ac.uk/id/eprint/10097608/3/Petrides_Brazilian%20TEIQue-SF.pdf",tei_q1-q30,
+,SCAARED,AD,https://tuprd.sharepoint.com/sites/TU-CLA-Psych-Smith-Lab/Shared%20Documents/General/SmithLab/IRB/IRB_28455_RF1_Social%20Reward%20Processing%20Across%20the%20Lifespan/CURRENTLY%20APPROVED/ALL-MEASURES/Scaared%20Measure%20and%20Scoring.pdf,"3-point liekhart scale. Just a sum score for all of the subscales. Each subscale has its own threshold for indicators of the disorder: Panic = 5, GAD = 12, Separation = 3, Social = 7","scaared_adult_total, scaared_adult_panic, scaared_adult_gad, scaared_adult_separation, scaared_adult_socanx",
+,AQ,"reversed scored wrong (had to switch > sign in questions 1, and 5) - AD",http://psychiatryassociatespc.com/doc/Autism_Quotient_Test.pdf,"""Definitely agree"" or ""Slightly agree"" responses to questions 2, 4, 5, 6, 7, 9, 12, 13, 16, 18, 19, 20, 21, 22, 23, 26, 33, 35, 39, 41, 42, 43, 45, 46 score 1 point.
+""Definitely disagree"" or ""Slightly disagree"" responses to questions 1, 3, 8, 10, 11, 14, 15, Social skill: items 1,11,13,15,22,36,44,45, 47,48
+Attention switching: items 2,4,10,16,25,32,34, 37,43,46
+Attention to detail: items 5,6,9,12,19,23,28, 29,30,49
+Communication: items 7,17,18,26,27,31,33, 35,38,39
+Imagination items: 3,8,14,20,21,24,40,41,42,50
+17, 24, 25, 27, 28, 29, 30, 31, 32, 34, 36, 37, 38, 40, 44, 47, 48, 49, 50 score 1 point.",.,
+,Peer Rating,N/A,,just for manipulation,.,
+,,,,,,
+Pre-Scan,IOS,AD,https://sparqtools.org/mobility-measure/inclusion-of-other-in-the-self-ios-scale/,7 point liekhart scale,"[ios_stranger_score]	
+[ios_friend_score]	[ios_computer_score]	",
+,PANAS (pre-scan),AD,https://ogg.osu.edu/media/documents/MB%20Stream/PANAS.pdf,"Positive affect: Add the scores on items 1, 3, 5, 9, 10, 12, 14, 16, 17, and 19. Negative affect: Add the scores on items 2, 4, 6, 7, 8, 11, 13, 15, 18, and 20",.,
+,Baseline (prescan portion of RF1) ,,,"Questions from Dave, each is individual (unless he comes up with total score)",.,
+,NODS/NORC,the link only gives instructions for the first 17 questions - AD,,Sum score ranging 0-10,.,
+,PAM (retest),,,,,
+,MSPSS (retest),AD,https://elcentro.sonhs.miami.edu/research/measures-library/mspss/index.html,"Significant Other Subscale: Sum across items 1, 2, 5, & 10, then divide by 4.
+Family Subscale: Sum across items 3, 4, 8, & 11, then divide by 4.
+Friends Subscale: Sum across items 6, 7, 9, & 12, then divide by 4.
+Total Scale: Sum across all 12 items, then divide by 12.",[mspss_adult_1_retest],"If you want to divide your respondents into groups on the basis of MSPSS scores there are at least two ways you can approach this process:
+1. You can divide your respondents into 3 equal groups on the basis of their scores (trichotomize) and designate the lowest group as low perceived support, the middle group as medium support, and the high group as high support. This approach ensures that you have about the same number of respondents in each group. But, if the distribution of scores is skewed, your low support group, for example, may include respondents who report moderate or even relatively high levels of support.
+2. Alternatively, you can use the scale response descriptors as a guide. In this approach any mean scale score ranging from 1 to 2.9 could be considered low support; a score of 3 to 5 could be considered moderate support; a score from 5.1 to 7 could be considered high support. This approach would seem to have more validity, but if you have very few respondents in any of the groups, it could be problematic."
+,NBS,AD,proof that its the average and not just a sum: https://mysocialbrain.org/ntb_info.html,"1, 3, and 7 are reverse scored, average of all the answers",nbs_adult_sum,
+,BSMAS,,https://blocksurvey.io/calculator/bergen-social-media-addiction-scale#what-is-the-bergen-social-media-addiction-scale,5 point leikhart. sum all the 6 question (no average) scores range from 6 to 30,bsmas_total,
+,,,,,,
+Post-Scan,GU (gullibility),AD,https://tuprd.sharepoint.com/sites/TU-CLA-Psych-Smith-Lab/Shared%20Documents/General/SmithLab/IRB/IRB_28455_RF1_Social%20Reward%20Processing%20Across%20the%20Lifespan/CURRENTLY%20APPROVED/ALL-MEASURES/GU/GU.pdf,"I reverse-coded all of the reverse items as specified below, and I set the comprehension check questions 8(1), 16(7), 24(1), and 32(7) to add 9999 to the score if they answered incorrectly, then I took the mean of the scores",gs_adult_1-39,
+,OAFEM,,https://doi.org/10.1093/geront/gnq054,"set ""I don't know"" answers to 0, then reverse scored the asnwers so that yes=2, maybe=1, and no=0. then summed",oafem_total,
+,GTI,AD,https://fetzer.org/sites/default/files/images/stories/pdf/selfmeasures/Self_Measures_for_Love_and_Compassion_Research_TRUST.pdf,The score for each item is averaged together to form a continuous measure of generalized trust.,[gti_score],
+,PANAS (post-scan),AD,https://ogg.osu.edu/media/documents/MB%20Stream/PANAS.pdf,"Positive affect: Add the scores on items 1, 3, 5, 9, 10, 12, 14, 16, 17, and 19. Negative affect: Add the scores on items 2, 4, 6, 7, 8, 11, 13, 15, 18, and 20",[panas_p_postscan_total] and [panas_n_postscan_total],
+,fraud retest,,,,,
+,Post Task Surveys,N/A,,"questions about the tasks, no way to score them",.,
+,,,,,,
+Extra Time,CRT,,,Traditional sum scoring,.,
+,IAT,,https://www.iitk.ac.in/counsel/resources/IATManual.pdf,sum of the ratings given by the examinee for the 20 item responses. Each item is rated on a 5-point scale ranging from 0 to 5. The maximum score is 100 points.,.,
+,BSAS-SF,,https://www.frontiersin.org/files/Articles/156663/fpsyg-06-01374-HTML/image_m/fpsyg-06-01374-t001.jpg,"subscaled provided in instructions link, no reverse questions","[bsas_salience_score],[bsas_mood_score],[bsas_conflict_score],[bsas_tolerance_score],[bsas_relapse_score],[bsas_withdrawl_score],[bsas_problems_score],[bsas_total_score]",
+,MACH-iv,,,,.,
+,The Buss-Perry Aggression Questionnaire/BPAQ-Short Form,,,,.,
+,The Personal Norm of Reciprocity,,,,.,
+,Childhood Trauma Questionnaire- Short Form ,,,,.,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
