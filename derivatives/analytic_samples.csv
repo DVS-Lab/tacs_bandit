@@ -1,0 +1,11 @@
+Analysis,N,Basis for reduction
+Registered,66,—
+With usable task data,62,4 without behavioral files
+H1: baseline behavior (sham),59,7 without a clean sham run
+H2: paired stimulation comparisons,55,6 without clean runs in both conditions
+Cognition-dependent analyses,56,10 missing >=1 of the 5 composite measures (composite defined for 66)
+SPSRQ analyses,61,5 did not complete the questionnaire
+Education-dependent analyses,63,3 without education data
+EEG theta metrics,59,7 without usable baseline EEG
+iTF-dependent analyses,55,11 without a resolvable alpha peak or without EEG
+E-field dose analyses,35,31 awaiting SimNIBS processing
