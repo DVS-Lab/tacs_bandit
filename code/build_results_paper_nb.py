@@ -97,7 +97,7 @@ warnings.filterwarnings('ignore')
 
 from config import (
     DATA_DIR, DISSERTATION_SUBJECTS, SUBJECT_INFO,
-    NO_EARCLIP_SUBJECTS,
+    NO_EARCLIP_SUBJECTS, EFIELD_CSV_PATH,
 )
 from data_loading import load_all_subjects
 from exclusions import apply_all_exclusions
@@ -1077,7 +1077,7 @@ for dv, model in moderation_models.items():
 # its own CSV rather than the master table.
 
 EFIELD_METRIC = 'mean_magnE'
-efield_path = DATA_DIR / 'efield_roi_summary.csv'
+efield_path = EFIELD_CSV_PATH   # single config-driven path
 
 if efield_path.exists():
     efield = pd.read_csv(efield_path, dtype={'subject_id': str})

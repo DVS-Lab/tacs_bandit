@@ -89,6 +89,7 @@ warnings.filterwarnings('ignore')
 from config import (
     SUBJECT_INFO, DISSERTATION_SUBJECTS, DATA_DIR, REPO_ROOT,
     EXCLUSION_THRESHOLDS, STIM_EXCLUSIONS, NO_EARCLIP_SUBJECTS,
+    EFIELD_CSV_PATH,
     WIN_FRACTION, MIN_CLEAN_RUNS_PER_CONDITION,
 )
 from data_loading import load_all_subjects
@@ -1010,7 +1011,7 @@ than being unable to be run. The cell below lists exactly who is outstanding.
 # 6.3 E-field coverage, and who still needs SimNIBS
 # ============================================================================
 
-efield_path = REPO_ROOT / 'data' / 'efield_roi_summary.csv'
+efield_path = EFIELD_CSV_PATH   # single config-driven path
 
 if efield_path.exists():
     efield = pd.read_csv(efield_path, dtype={'subject_id': str})
