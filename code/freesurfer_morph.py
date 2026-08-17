@@ -38,7 +38,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from config import (FREESURFER_DIR, FREESURFER_MORPH_PATH,
+from config import (FREESURFER_ROOT, FREESURFER_MORPH_PATH,
                     FREESURFER_PARCELS_PATH)
 
 # Desikan-Killiany parcels making up the stimulated region. These are the same
@@ -103,8 +103,33 @@ def parse_stats_header(path: Path) -> Dict[str, float]:
     return out
 
 
-def subject_dirs(root: Path = FREESURFER_DIR) -> List[Path]:
-    return sorted(d for d in root.glob('sub-*') if (d / 'stats').is_dir())
+def subject_dirs(root: Path = FREESURFER_ROOT) -> List[Path]:
+    """
+    Every recon-all subject under `root`, across all delivery batches.
+
+    Output arrived in more than one batch, so this walks one level of delivery
+    folders as well as the root itself. Anchoring on a single batch folder
+    would mean a later delivery is silently skipped and the analysis quietly
+    keeps running on the old, smaller sample.
+    """
+    seen, out = set(), []
+    for d in sorted(root.glob('*/sub-*')) + sorted(root.glob('sub-*')):
+        if not (d / 'stats').is_dir():
+            continue
+        sid = subject_id_from_dir(d)
+        if sid in seen:
+            print(f'  WARNING: sub-{sid} appears in more than one delivery; '
+                  f'ignoring the copy in {d.parent.name}')
+            continue
+        seen.add(sid)
+        out.append(d)
+    return out
+
+
+def freesurfer_version(d: Path) -> Optional[str]:
+    """The recon-all build stamp, e.g. `...-7.3.2-20220804-6354275`."""
+    stamp = d / 'scripts' / 'build-stamp.txt'
+    return stamp.read_text().strip() if stamp.exists() else None
 
 
 def subject_id_from_dir(d: Path) -> str:
@@ -119,7 +144,11 @@ def build_subject_row(d: Path) -> Optional[Dict]:
     if not aseg.exists():
         return None
 
-    row: Dict[str, object] = {'subject_id': sid}
+    row: Dict[str, object] = {
+        'subject_id': sid,
+        'fs_delivery': d.parent.name,
+        'fs_version': freesurfer_version(d),
+    }
 
     aseg_hdr = parse_stats_header(aseg)
     for key, name in ASEG_MEASURES.items():
@@ -169,7 +198,7 @@ def build_parcels_long(dirs: List[Path]) -> pd.DataFrame:
 def run(verbose: bool = True) -> pd.DataFrame:
     dirs = subject_dirs()
     if not dirs:
-        raise SystemExit(f'No recon-all output under {FREESURFER_DIR}')
+        raise SystemExit(f'No recon-all output under {FREESURFER_ROOT}')
 
     rows, skipped = [], []
     for d in dirs:
@@ -188,8 +217,24 @@ def run(verbose: bool = True) -> pd.DataFrame:
     long = build_parcels_long(dirs)
     long.to_csv(FREESURFER_PARCELS_PATH, index=False)
 
+    # Morphometric values are not comparable across FreeSurfer major versions,
+    # so a delivery processed with a different build would introduce a batch
+    # effect perfectly confounded with whichever subjects it contains. That is
+    # invisible once the columns are merged, so it stops the run here.
+    versions = df['fs_version'].dropna().unique()
+    if len(versions) > 1:
+        by_ver = df.groupby('fs_version')['subject_id'].count().to_dict()
+        raise SystemExit(
+            'Mixed FreeSurfer versions across deliveries -- morphometry is not '
+            f'comparable between them:\n  {by_ver}\n'
+            'Re-run the odd batch to match, or analyse them separately.')
+
     if verbose:
-        print(f'Parsed {len(df)} subjects from {FREESURFER_DIR.name}')
+        deliveries = df['fs_delivery'].value_counts().to_dict()
+        print(f'Parsed {len(df)} subjects from {len(deliveries)} delivery(ies)')
+        for name, n in deliveries.items():
+            print(f'    {name}: {n}')
+        print(f'  FreeSurfer: {versions[0].split("-")[-3] if versions.size else "unknown"}')
         if skipped:
             print(f'  SKIPPED (incomplete): {skipped}')
         print(f'  wrote {FREESURFER_MORPH_PATH.name}  ({df.shape[1]} columns)')

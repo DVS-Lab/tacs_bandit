@@ -77,16 +77,18 @@ REDCAP_TACS_REPORT_PATHS = [
 # larger. Correlations are identical either way; absolute V/m are not.
 EFIELD_CSV_PATH = REPO_ROOT / 'data' / 'efield_roi_summary.csv'
 
-# FreeSurfer recon-all output, delivered by the lab (7.3.2). Lives outside the
-# repo: 9 GB, and the surfaces are identifiable. Parsed into data/ by
-# freesurfer_morph.py, which is what analyses should read.
+# FreeSurfer recon-all output, delivered by the lab. Lives outside the repo:
+# ~9 GB per 28 subjects, and the surfaces are identifiable. Parsed into data/
+# by freesurfer_morph.py, which is what analyses should read.
 #
-# As of the 2026-08-14 delivery this covers 28 of the 66 subjects, and the
-# batch is NOT a random subset — all seven T1-only head models are in it and
-# none of the pending 38 are. Anything joining morphometry to E-field is
-# therefore running on ~20 subjects until the rest arrive.
-FREESURFER_DIR = (Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' /
-                  'freesurfer' / 'tacs_bandit_freesurfer_20260814')
+# This is the PARENT directory, deliberately: recon-all output arrived in more
+# than one batch, and pointing at a single batch folder means a later delivery
+# dropped alongside it is silently ignored — the analysis just keeps running on
+# the old N without complaint. freesurfer_morph.py walks every subdirectory and
+# records which delivery and which FreeSurfer version each subject came from,
+# so a mixed-version batch fails loudly instead of quietly biasing morphometry.
+FREESURFER_ROOT = (Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' /
+                   'freesurfer')
 FREESURFER_MORPH_PATH = REPO_ROOT / 'data' / 'freesurfer_morph.csv'
 FREESURFER_PARCELS_PATH = REPO_ROOT / 'data' / 'freesurfer_parcels_long.csv'
 

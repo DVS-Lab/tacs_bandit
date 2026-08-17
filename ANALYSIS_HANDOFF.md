@@ -281,17 +281,95 @@ r = −0.338, p = .006, N = 65; they are excluded from the primary analysis
 because their fields are systematically ~28% lower (p = .013 controlling for
 age) in the same direction as the hypothesis.
 
-**Open caveat.** The ROI is a fixed 20 mm sphere on the F3 *scalp* electrode,
-~18 mm above cortex, so the gray matter it samples ranges from 20 to 4757
-elements across subjects — correlating with age at r = −.41 and with mean |E|
-at r = +.84. Controlling for coverage zeroes the age effect. That is what the
-atrophy account predicts (coverage is a mediator, not a confound), but this
-data cannot rule out the alternative that the metric partly measures how much
-cortex sits near the electrode. An anatomically defined DLPFC parcel would
-settle it — a primary motivation for the FreeSurfer work.
+**ROI coverage — checked and cleared.** The sphere is centred on the F3
+*scalp* electrode, ~18 mm above cortex, so the gray matter falling inside it
+ranges from 20 to 4757 elements across subjects, correlating with age at
+r = −.41 and with mean |E| at r = +.84. Controlling for coverage zeroes the
+age effect, which raised the worry that the metric was partly measuring how
+much cortex happens to sit near the electrode.
+
+It is not. Averaging instead over a fixed DK40 parcel (rostral + caudal middle
+frontal), where **every subject contributes the identical 10,979 vertices**,
+gives r = −0.314, p = .017 — the effect survives with sampling volume held
+constant. The two measures agree at r = .952. Sphere stays primary (defined by
+electrode position, so it cannot be circular); the parcel is the robustness
+check. Columns `parcel_*` in the E-field CSV.
+
+### Mechanism: it is geometry, and it is *not* cortical thinning
+
+Scalp-to-cortex distance, measured from the charm surfaces to each subject's
+F3 electrode, is available for all 66 subjects and is by far the strongest
+predictor of delivered dose:
+
+| | r with mean \|E\| |
+|---|---|
+| scalp-to-cortex distance | **−.897** |
+| DLPFC cortical thickness | +.206 (ns) |
+
+Distance mediates the age effect: indirect effect 95% CI [−.00078, −.00006],
+**86% mediated**, direct path falls to p = .31. This holds for every
+DLPFC-restricted distance variant (78–96% mediated) and fails only for the two
+whole-hemisphere variants, which average in cortex nowhere near the electrode.
+
+**Do not describe this as an atrophy effect.** Cortical thickness and
+scalp-to-cortex distance are essentially unrelated here (r = −.195, p = .14),
+thickness adds nothing to |E| once distance is in the model (p = .60), and
+thickness does not explain the age→distance link (p = .92). Age drives both
+independently. Whatever pushes cortex away from the skull with age — CSF
+expansion, sulcal widening, skull change — it is not the thinning of cortex
+itself.
+
+Note also that the b-path (distance → field) is close to a physical identity:
+a quasi-static field decays with distance from the source. The empirical
+content is the a-path, age → distance, which is real but modest (r = +.281,
+p = .033). The defensible claim is that the age effect on dose is *geometric*,
+not that atrophy causes it.
+
+Primary distance measure: `dist_pial_dlpfc_p1`. Robustness:
+`dist_pial_dlpfc_min` (identical to `dist_pial_min`, confirming the nearest
+cortex to F3 is DLPFC).
+
+### FreeSurfer status — complete
+
+All 66 delivered across two batches (`tacs_bandit_freesurfer_20260814`, n=28;
+`freesurfer_set2_20260814`, n=38), both FreeSurfer 7.3.2, all T1-only with no
+FLAIR/T2pial flags — so the T1-only confound affecting the E-field does *not*
+touch the morphometry. **No batch effect**: delivery does not predict DLPFC
+thickness, mean thickness, cortical volume, eTIV, or surface holes once age is
+controlled (all p > .35).
+
+`code/freesurfer_morph.py` walks the whole `FREESURFER_ROOT` parent rather than
+one batch folder, records `fs_delivery` and `fs_version` per subject, and
+**raises on mixed FreeSurfer versions** — that would otherwise be a batch
+effect perfectly confounded with batch membership and invisible after merging.
+Outputs `data/freesurfer_morph.csv` and `data/freesurfer_parcels_long.csv`.
+
+**Two independent pipelines agree.** charm's vertex-corresponded surfaces give
+thickness as ‖pial − white‖ for all 66 without recon-all, correlating with
+FreeSurfer at r = .892 whole-hemisphere and r = .820 in DLPFC. charm runs
+~0.6 mm thicker in absolute terms (pial placement), so charm values should not
+be compared to FreeSurfer norms — but every conclusion below replicates across
+both, which is a stronger result than either alone:
+
+| | charm | FreeSurfer |
+|---|---|---|
+| age × DLPFC thickness | −.659 | −.638 |
+| thickness × distance | −.195 (ns) | −.171 (ns) |
+| thickness × \|E\| | +.206 (ns) | +.200 (ns) |
+| thickness explains age→distance | p = .92 | p = .93 |
+| horse race: thickness \| distance | p = .60 | p = .43 |
+
+Atrophy is **global, not clearly DLPFC-specific**: controlling for
+whole-hemisphere thickness, the age→DLPFC-thickness effect is not significant
+(b = −0.0010, p = .095, N = 58), and DLPFC ranks 6th of 34 parcels (r = −.546
+against a median of −.414).
+
+Note `10961`, previously written off as lost, is present in set 2.
 
 Figure: `code/fig_efield_age.py` (`--compact` for the two-panel version).
-Pipeline: `DVS-Lab/tacs_bandit_simnibs`.
+Pipeline: `DVS-Lab/tacs_bandit_simnibs` — `extract_efield_parcel.py`,
+`extract_scalp_cortex_distance.py`, `extract_charm_thickness.py`, each merging
+its columns into the single `data/efield_roi_summary.csv`.
 
 ---
 
