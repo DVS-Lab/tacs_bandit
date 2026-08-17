@@ -61,14 +61,39 @@ SIMNIBS_DIR = Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' / 'simNIBS'
 OVERLAY_DIR = SIMNIBS_DIR / 'fsavg_overlays'
 FIG_DIR = REPO_ROOT / 'data' / 'figures' / 'paper'
 
-# --- Figure style, matching the paper notebook ---
+# --- Figure style, matching the paper notebook -------------------------------
+# These mirror the constants in build_results_paper_nb.py. They are duplicated
+# rather than imported because the notebook defines them inside a generated
+# cell, so any change there has to be mirrored here by hand.
+#
+# J Neurosci allows a maximum width of 17.6 cm for a two-column figure; 17.5 is
+# used to match the rest of the paper's figures.
 CM_TO_IN = 1 / 2.54
 WIDTH_2COL = 17.5 * CM_TO_IN
+FONT_FAMILY = 'Arial'   # sans-serif, per journal requirement
 FONT_AXIS = 7
 FONT_TICK = 6.5
-FONT_PANEL = 9
+FONT_PANEL = 10         # FONT_PANEL_LABEL in the notebook
 AGE_YOUNG, AGE_OLD = '#1565C0', '#FFB300'
 REGRESSION_COLOR = '#404040'
+
+# Set explicitly: without this matplotlib falls back to DejaVu Sans, which is
+# what these figures were rendering in while every other figure used Arial.
+plt.rcParams.update({
+    'font.family': FONT_FAMILY,
+    'axes.labelsize': FONT_AXIS,
+    'xtick.labelsize': FONT_TICK,
+    'ytick.labelsize': FONT_TICK,
+    'pdf.fonttype': 42,   # embed as TrueType so text stays editable
+    'ps.fonttype': 42,
+    # mathtext ignores font.family and defaults to DejaVu, so every $r$, $p$,
+    # $N$, $\\Delta$ and $\\leq$ would be set in a different typeface from the
+    # text beside it. Point it at the same family.
+    'mathtext.fontset': 'custom',
+    'mathtext.rm': FONT_FAMILY,
+    'mathtext.it': f'{FONT_FAMILY}:italic',
+    'mathtext.bf': f'{FONT_FAMILY}:bold',
+})
 
 
 def load_subject_data() -> pd.DataFrame:
@@ -369,10 +394,10 @@ def build(out_name: str = 'fig_efield_age', hemi: str = 'lh') -> Path:
     # Panel labels go on the figure, not the axes, so C and D share an exact
     # y — which axes-relative placement cannot guarantee when one panel is a
     # 3D surface and the other a 2D scatter.
-    fig.text(0.008, title1_y, 'A', **LABEL_KW)
-    fig.text(0.388, title1_y, 'B', **LABEL_KW)
-    fig.text(0.008, title2_y, 'C', **LABEL_KW)
-    fig.text(0.505, title2_y, 'D', **LABEL_KW)
+    fig.text(0.004, title1_y, 'a', **LABEL_KW)
+    fig.text(0.384, title1_y, 'b', **LABEL_KW)
+    fig.text(0.004, title2_y, 'c', **LABEL_KW)
+    fig.text(0.501, title2_y, 'd', **LABEL_KW)
 
     png = _save(fig, out_name)
     print(f"\nage x |E|: r = {r:.3f}, p = {p:.4f}, N = {len(c['d'])}")
@@ -402,7 +427,7 @@ def build_compact(out_name: str = 'fig_efield_age_compact',
     draw = make_surface_drawer(fig, plotting, c['surf'], c['bg'], c['roi'],
                                c['side'])
 
-    BW, A_X = 0.375, 0.015
+    BW, A_X = 0.375, 0.010
     top = 0.845
 
     diff = c['young_map'] - c['old_map']
@@ -428,12 +453,14 @@ def build_compact(out_name: str = 'fig_efield_age_compact',
     cb.set_label('$\\Delta$ |E| (V/m)', fontsize=FONT_TICK, labelpad=1)
     cax.tick_params(labelsize=FONT_TICK - 1, pad=1)
 
-    ax_b = fig.add_axes([0.590, top - bh + 0.085, 0.380, bh - 0.085])
+    # Pulled in close to the brain: the gap only needs to clear the y-axis
+    # label, and the panels read as a pair rather than two separate figures.
+    ax_b = fig.add_axes([0.470, top - bh + 0.085, 0.500, bh - 0.085])
     r, p = scatter_panel(ax_b, c['d'], c['lo'], c['hi'])
 
     LABEL_KW = dict(fontsize=FONT_PANEL, fontweight='bold', va='top')
-    fig.text(0.008, title_y, 'A', **LABEL_KW)
-    fig.text(0.505, title_y, 'B', **LABEL_KW)
+    fig.text(0.004, title_y, 'a', **LABEL_KW)
+    fig.text(0.395, title_y, 'b', **LABEL_KW)
 
     png = _save(fig, out_name)
     print(f"\nage x |E|: r = {r:.3f}, p = {p:.4f}, N = {len(c['d'])}")
