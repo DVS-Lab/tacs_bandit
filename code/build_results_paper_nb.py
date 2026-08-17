@@ -1069,32 +1069,80 @@ for dv, model in moderation_models.items():
     print(pd.DataFrame({'coef': model.params, 't': model.tvalues,
                         'p': model.pvalues}).round(4).to_string())
 """),
+        md("""
+### 5.4 Electric field as a dose proxy
+
+Modelled field strength in the DLPFC ROI, from the SimNIBS pipeline
+(`DVS-Lab/tacs_bandit_simnibs`). It lives in its own CSV rather than the
+master table.
+
+**Seven subjects are excluded from the primary analysis.** Their head models
+were built from a T1 alone, with no FLAIR, and their field estimates are
+systematically ~28% lower (p = .013 controlling for age) because skull
+segmentation degrades without one. That bias runs in the same direction as
+the hypothesis, so including them would inflate the effect. The all-subjects
+result is printed alongside as a sensitivity check, and `fig_efield_age.py`
+applies the same exclusion — the two must agree.
+
+Note that "converted" and "T1-only" are perfectly confounded in this sample,
+so the exclusion cannot be separated from whatever else differs about those
+scans.
+"""),
         code("""
 # ============================================================================
 # 5.4 Electric field as a dose proxy
 # ============================================================================
-# Modelled field strength in the DLPFC ROI, from the SimNIBS pipeline. Lives in
-# its own CSV rather than the master table.
 
 EFIELD_METRIC = 'mean_magnE'
 efield_path = EFIELD_CSV_PATH   # single config-driven path
 
-if efield_path.exists():
-    efield = pd.read_csv(efield_path, dtype={'subject_id': str})
-    efield = efield.merge(subj[['subject_id', 'age'] +
-                               [c for c in ['delta_ttc', 'delta_alpha']
-                                if c in subj.columns]],
-                          on='subject_id', how='inner')
-    print(f'E-field data: {len(efield)} subjects overlap the current sample')
+if not efield_path.exists():
+    print(f'No e-field summary at {efield_path}; skipping.')
+else:
+    efield_all = pd.read_csv(efield_path, dtype={'subject_id': str})
+    efield_all = efield_all.merge(
+        subj[['subject_id', 'age'] +
+             [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]],
+        on='subject_id', how='inner')
 
-    d = efield[['age', EFIELD_METRIC]].apply(pd.to_numeric, errors='coerce').dropna()
-    if len(d) > 4:
-        r, p = stats.pearsonr(d['age'], d[EFIELD_METRIC])
+    # Primary sample: drop the T1-only head models (see markdown above). Fail
+    # loudly rather than silently analysing the wrong sample if an older
+    # extract without the flag is ever swapped in.
+    if 't1_only' not in efield_all.columns:
+        raise KeyError(
+            f'{efield_path} has no t1_only column -- it is a stale extract. '
+            'Re-run scripts/extract_efield_roi.py from the simnibs project.')
+    efield = efield_all[~efield_all['t1_only'].astype(bool)].copy()
+    print(f'E-field data: {len(efield_all)} subjects overlap the current sample; '
+          f'{len(efield)} after dropping {int(efield_all.t1_only.sum())} T1-only')
+
+    def _age_field_r(frame, metric=EFIELD_METRIC):
+        dd = frame[['age', metric]].apply(pd.to_numeric, errors='coerce').dropna()
+        if len(dd) < 5:
+            return None
+        r, p = stats.pearsonr(dd['age'], dd[metric])
+        return r, p, len(dd), dd
+
+    primary = _age_field_r(efield)
+    if primary:
+        r, p, n, d = primary
         rho, p_s = stats.spearmanr(d['age'], d[EFIELD_METRIC])
         print(f'  field range: {d[EFIELD_METRIC].min():.4f} - '
               f'{d[EFIELD_METRIC].max():.4f} V/m')
-        print(f'  Age x field: r = {r:+.3f}, p = {p:.3f} '
-              f'(Spearman rho = {rho:+.3f}, p = {p_s:.3f}), N = {len(d)}')
+        print(f'  PRIMARY  Age x field: r = {r:+.3f}, p = {p:.3f} '
+              f'(Spearman rho = {rho:+.3f}, p = {p_s:.3f}), N = {n}')
+
+        sens = _age_field_r(efield_all)
+        print(f'  sens.    incl. T1-only : r = {sens[0]:+.3f}, p = {sens[1]:.3f}, '
+              f'N = {sens[2]}')
+
+        # The choice of summary statistic should not carry the result.
+        print('  robustness across dose metrics (primary sample):')
+        for met in ['mean_magnE', 'p95_magnE', 'peak_magnE', 'median_magnE']:
+            if met in efield.columns:
+                rr = _age_field_r(efield, met)
+                if rr:
+                    print(f'    {met:14s} r = {rr[0]:+.3f}, p = {rr[1]:.3f}, N = {rr[2]}')
 
         fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
         scatter_regression_mpl(ax, d['age'].values, d[EFIELD_METRIC].values,
@@ -1104,14 +1152,55 @@ if efield_path.exists():
         savefig(fig, 'fig_age_x_efield')
         plt.show()
 
+    # --- ROI coverage: how much gray matter the sphere actually samples -----
+    # The ROI is a 20 mm sphere on the F3 *scalp* electrode, which sits ~18 mm
+    # above cortex, so the amount of gray matter falling inside it varies with
+    # scalp-to-cortex distance -- and therefore with atrophy. Coverage is not a
+    # nuisance to be partialled out: it is the proposed mechanism. Controlling
+    # for it removes the effect by construction, which is reported here as a
+    # decomposition rather than as a competing test.
+    if 'n_gm_elements_roi' in efield.columns and primary:
+        cov = efield[['age', 'n_gm_elements_roi', EFIELD_METRIC]].apply(
+            pd.to_numeric, errors='coerce').dropna()
+        r_ac, p_ac = stats.pearsonr(cov['age'], cov['n_gm_elements_roi'])
+        r_cf, p_cf = stats.pearsonr(cov['n_gm_elements_roi'], cov[EFIELD_METRIC])
+        print(f'\\n  ROI coverage: {int(cov.n_gm_elements_roi.min())}-'
+              f'{int(cov.n_gm_elements_roi.max())} GM elements')
+        print(f'    age x coverage  : r = {r_ac:+.3f}, p = {p_ac:.3f}')
+        print(f'    coverage x field: r = {r_cf:+.3f}, p = {p_cf:.3f}')
+
+        resid = lambda y, x: sm.OLS(y, sm.add_constant(x)).fit().resid
+        r_pc, p_pc = stats.pearsonr(
+            resid(cov['age'].values, cov['n_gm_elements_roi'].values),
+            resid(cov[EFIELD_METRIC].values, cov['n_gm_elements_roi'].values))
+        print(f'    age x field | coverage: r = {r_pc:+.3f}, p = {p_pc:.3f} '
+              f'(mediator, not a confound -- see markdown)')
+
     # Does the modelled dose track the behavioural response?
     for dv in [c for c in ['delta_ttc', 'delta_alpha'] if c in efield.columns]:
         dd = efield[[EFIELD_METRIC, dv]].apply(pd.to_numeric, errors='coerce').dropna()
         if len(dd) > 4:
             r, p = stats.pearsonr(dd[EFIELD_METRIC], dd[dv])
             print(f'  field x {dv}: r = {r:+.3f}, p = {p:.3f}, N = {len(dd)}')
-else:
-    print(f'No e-field summary at {efield_path}; skipping.')
+"""),
+        md("""
+**On the ROI coverage decomposition.** The number of gray-matter elements
+falling inside the ROI ranges from 20 to 4757 across subjects, correlates with
+age at r = -.41, and correlates with mean |E| at r = +.84. Controlling for it
+drives the age effect to zero.
+
+That is expected under the atrophy account rather than evidence against it.
+The ROI is a fixed sphere anchored to the F3 *scalp* electrode, ~18 mm above
+cortex; when cortex sits further from the skull, less of it falls inside the
+sphere **and** the tissue that does falls where the field is weaker. Coverage
+is a mediator on the path from age to dose, so partialling it out removes the
+mechanism along with the effect.
+
+The competing reading is that mean |E| inside a scalp-anchored sphere partly
+measures how much cortex happens to sit near the electrode, rather than field
+strength at DLPFC. This data cannot separate the two. **An anatomically
+defined DLPFC parcel would**, because coverage stops varying — which is a
+primary motivation for the FreeSurfer work.
 """),
     ]
 

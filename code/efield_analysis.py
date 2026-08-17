@@ -38,8 +38,16 @@ from config import (
 # Constants
 # =============================================================================
 
-# Default e-field CSV path (can be overridden)
-EFIELD_CSV_DEFAULT = 'efield_roi_summary.csv'
+# Default e-field CSV path (can be overridden).
+#
+# Absolute, via config, deliberately. This was a bare relative filename, which
+# resolved against the caller's working directory -- so running from code/
+# silently picked up a stale dissertation-era extract (35 subjects, values 2x
+# too large under the old peak-to-peak convention, no t1_only flag) instead of
+# the current 66-subject file. That extract now lives in data/archive/.
+from config import EFIELD_CSV_PATH
+
+EFIELD_CSV_DEFAULT = EFIELD_CSV_PATH
 
 # Primary e-field metric
 EFIELD_METRIC = 'mean_magnE'

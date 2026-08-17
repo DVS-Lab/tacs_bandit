@@ -51,7 +51,7 @@ data/
   TACSBandit-...2026-04-21_1210.csv    superseded (only 40 subjects)
   RF1SocialRewardProce*.csv            RF1 study REDCap
   TabCATStudyData*.csv                 cognitive battery
-  efield_roi_summary.csv               modelled E-field, 35 subjects
+  efield_roi_summary.csv               modelled E-field, 66 subjects
   roi-analyses-final.csv               fMRI ROI, 231 subjects
   master_subject_data.csv              GENERATED — 66 x 145
 derivatives/
@@ -270,9 +270,28 @@ correlations at p < .05 (4.8 expected by chance), **none surviving FDR**.
 
 ### The one notable positive
 
-**Age × E-field r = −0.395, p = 0.021** (N = 34): older participants receive
+**Age × E-field r = −0.291, p = .027** (N = 58): older participants receive a
 weaker modelled field at identical current. A dose-delivery finding, not a
 rescue of the null — E-field does not predict behavioral change.
+
+Held up across the sample expansion (it was r = −0.395, N = 34 at the
+dissertation) and across the choice of dose metric (mean −.291, p95 −.279,
+peak −.291, median −.304). Including the seven T1-only head models gives
+r = −0.338, p = .006, N = 65; they are excluded from the primary analysis
+because their fields are systematically ~28% lower (p = .013 controlling for
+age) in the same direction as the hypothesis.
+
+**Open caveat.** The ROI is a fixed 20 mm sphere on the F3 *scalp* electrode,
+~18 mm above cortex, so the gray matter it samples ranges from 20 to 4757
+elements across subjects — correlating with age at r = −.41 and with mean |E|
+at r = +.84. Controlling for coverage zeroes the age effect. That is what the
+atrophy account predicts (coverage is a mediator, not a confound), but this
+data cannot rule out the alternative that the metric partly measures how much
+cortex sits near the electrode. An anatomically defined DLPFC parcel would
+settle it — a primary motivation for the FreeSurfer work.
+
+Figure: `code/fig_efield_age.py` (`--compact` for the two-panel version).
+Pipeline: `DVS-Lab/tacs_bandit_simnibs`.
 
 ---
 
