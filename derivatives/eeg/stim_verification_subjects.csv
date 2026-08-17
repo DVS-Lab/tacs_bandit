@@ -1,0 +1,67 @@
+subject_id,config_cb,redcap_cb,eeg_cb,verdict,basis,n_runs,in_dissertation
+10369,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10418,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10541,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10559,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10589,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10590,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10606,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10608,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10617,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10636,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10638,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10641,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10649,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10656,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10661,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10685,A,,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+10716,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10741,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+10804,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10809,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10810,A,B,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10862,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10866,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10886,B,,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10896,A,,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+10898,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10950,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10951,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+10961,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+10998,B,B,B,CONFIRMED,"early=['SHAM'] late=['ACTIVE', 'SHAM']",7,True
+11016,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+11030,A,A,,NO_EEG,,0,True
+11031,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+11036,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+11066,B,,,NO_EEG,,0,False
+11075,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11116,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11168,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11286,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+11316,B,B,,NO_EEG,,0,False
+11318,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+11326,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11329,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+11330,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11433,B,A,,NO_EEG,,0,False
+11439,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11440,A,,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11461,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11472,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11492,A,,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11526,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,True
+11539,B,,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11542,B,A,,NO_EEG,,0,False
+11563,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+11570,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11606,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11622,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11628,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+11631,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,True
+11681,B,B,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11773,B,B,,UNRESOLVED,early=['SHAM'] late=['SHAM'],8,True
+11854,B,,B,CONFIRMED,early=['SHAM'] late=['ACTIVE'],8,False
+11861,B,A,,NO_EEG,,0,False
+11885,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11900,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],8,False
+11920,A,A,A,CONFIRMED,early=['ACTIVE'] late=['SHAM'],7,False

@@ -1,7 +1,7 @@
 """
 exclusions.py — Pre-registered exclusion criteria for tACS Bandit analyses
 
-Implements exclusion logic per Section 6 of the pre-registration (https://osf.io/vhyz2):
+Implements exclusion logic per Section 6 of the pre-registration (https://osf.io/s9k64/overview):
 
 Run-level behavioral exclusions:
 1. >20% missed trials

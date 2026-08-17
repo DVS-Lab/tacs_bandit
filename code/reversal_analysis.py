@@ -88,7 +88,10 @@ def identify_reversals(
     """
     df = df.copy()
     df['is_reversal'] = False
-    df['reversal_id'] = np.nan
+    # Object dtype, not NaN: reversal_id holds strings like '10369_run1_rev0',
+    # and initializing with np.nan gives the column float64, which pandas 2.x
+    # refuses to hold a string in (it raises rather than silently upcasting).
+    df['reversal_id'] = pd.Series(index=df.index, dtype='object')
     df['trial_from_rev'] = np.nan
     df['in_rev_window'] = False
     
