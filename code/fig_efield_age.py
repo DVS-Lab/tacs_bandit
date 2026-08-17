@@ -61,39 +61,14 @@ SIMNIBS_DIR = Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' / 'simNIBS'
 OVERLAY_DIR = SIMNIBS_DIR / 'fsavg_overlays'
 FIG_DIR = REPO_ROOT / 'data' / 'figures' / 'paper'
 
-# --- Figure style, matching the paper notebook -------------------------------
-# These mirror the constants in build_results_paper_nb.py. They are duplicated
-# rather than imported because the notebook defines them inside a generated
-# cell, so any change there has to be mirrored here by hand.
-#
-# J Neurosci allows a maximum width of 17.6 cm for a two-column figure; 17.5 is
-# used to match the rest of the paper's figures.
-CM_TO_IN = 1 / 2.54
-WIDTH_2COL = 17.5 * CM_TO_IN
-FONT_FAMILY = 'Arial'   # sans-serif, per journal requirement
-FONT_AXIS = 7
-FONT_TICK = 6.5
-FONT_PANEL = 10         # FONT_PANEL_LABEL in the notebook
-AGE_YOUNG, AGE_OLD = '#1565C0', '#FFB300'
-REGRESSION_COLOR = '#404040'
-
-# Set explicitly: without this matplotlib falls back to DejaVu Sans, which is
-# what these figures were rendering in while every other figure used Arial.
-plt.rcParams.update({
-    'font.family': FONT_FAMILY,
-    'axes.labelsize': FONT_AXIS,
-    'xtick.labelsize': FONT_TICK,
-    'ytick.labelsize': FONT_TICK,
-    'pdf.fonttype': 42,   # embed as TrueType so text stays editable
-    'ps.fonttype': 42,
-    # mathtext ignores font.family and defaults to DejaVu, so every $r$, $p$,
-    # $N$, $\\Delta$ and $\\leq$ would be set in a different typeface from the
-    # text beside it. Point it at the same family.
-    'mathtext.fontset': 'custom',
-    'mathtext.rm': FONT_FAMILY,
-    'mathtext.it': f'{FONT_FAMILY}:italic',
-    'mathtext.bf': f'{FONT_FAMILY}:bold',
-})
+# Widths, fonts, and colours come from paper_style, which also applies the
+# matching rcParams on import. They used to be duplicated here, and the copy
+# drifted: this script never set font.family, so it rendered in DejaVu Sans
+# while every other figure used Arial — silently, for as long as it existed.
+from paper_style import (
+    WIDTH_2COL, FONT_AXIS_TITLE, FONT_TICK, FONT_PANEL_LABEL,
+    AGE_YOUNG, AGE_OLD, REGRESSION_COLOR,
+)
 
 
 def load_subject_data() -> pd.DataFrame:
@@ -240,8 +215,8 @@ def scatter_panel(ax, d: pd.DataFrame, lo: float, hi: float) -> Tuple[float, flo
     for bound in (lo, hi):
         ax.axvline(bound, color='#BDBDBD', ls=':', lw=0.7, zorder=0)
 
-    ax.set_xlabel('Age (years)', fontsize=FONT_AXIS, labelpad=2)
-    ax.set_ylabel('Mean |E| in DLPFC ROI (V/m)', fontsize=FONT_AXIS, labelpad=2)
+    ax.set_xlabel('Age (years)', fontsize=FONT_AXIS_TITLE, labelpad=2)
+    ax.set_ylabel('Mean |E| in DLPFC ROI (V/m)', fontsize=FONT_AXIS_TITLE, labelpad=2)
     ax.tick_params(labelsize=FONT_TICK, pad=1.5)
     for spine in ('top', 'right'):
         ax.spines[spine].set_visible(False)
@@ -340,8 +315,8 @@ def build(out_name: str = 'fig_efield_age', hemi: str = 'lh') -> Path:
 
     BW = 0.36                       # brain width, figure fraction
     A_X, B_X = 0.015, 0.395
-    TITLE_KW = dict(fontsize=FONT_AXIS, ha='center', va='top', linespacing=1.5)
-    LABEL_KW = dict(fontsize=FONT_PANEL, fontweight='bold', va='top')
+    TITLE_KW = dict(fontsize=FONT_AXIS_TITLE, ha='center', va='top', linespacing=1.5)
+    LABEL_KW = dict(fontsize=FONT_PANEL_LABEL, fontweight='bold', va='top')
 
     # --- A and B: group averages on a shared vertical colourbar ------------
     vmax = float(np.percentile(np.concatenate([c['young_map'], c['old_map']]), 99))
@@ -442,7 +417,7 @@ def build_compact(out_name: str = 'fig_efield_age_compact',
              f"Younger $-$ older\n"
              f"$n$ = {c['n_y']}, {y_rng[0]:.0f}$-${y_rng[1]:.0f} y   vs   "
              f"$n$ = {c['n_o']}, {o_rng[0]:.0f}$-${o_rng[1]:.0f} y",
-             fontsize=FONT_AXIS, ha='center', va='top', linespacing=1.6)
+             fontsize=FONT_AXIS_TITLE, ha='center', va='top', linespacing=1.6)
 
     cbar_w = 0.19
     cax = fig.add_axes([A_X + (BW - cbar_w) / 2, top - bh - 0.030,
@@ -458,7 +433,7 @@ def build_compact(out_name: str = 'fig_efield_age_compact',
     ax_b = fig.add_axes([0.470, top - bh + 0.085, 0.500, bh - 0.085])
     r, p = scatter_panel(ax_b, c['d'], c['lo'], c['hi'])
 
-    LABEL_KW = dict(fontsize=FONT_PANEL, fontweight='bold', va='top')
+    LABEL_KW = dict(fontsize=FONT_PANEL_LABEL, fontweight='bold', va='top')
     fig.text(0.004, title_y, 'a', **LABEL_KW)
     fig.text(0.395, title_y, 'b', **LABEL_KW)
 

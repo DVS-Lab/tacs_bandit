@@ -114,69 +114,22 @@ print(f'Figures:    {FIG_DIR}')
 # 0.3 Publication figure style (JNeurosci)
 # ============================================================================
 
-CM_TO_IN = 1 / 2.54
-WIDTH_1COL = 8.5 * CM_TO_IN       # 8.5 cm single column
-WIDTH_1_5COL = 11.5 * CM_TO_IN    # 11.5 cm
-WIDTH_2COL = 17.5 * CM_TO_IN      # 17.5 cm full width
+# Widths, fonts, colours, and the rcParams that go with them all live in
+# paper_style.py, so this notebook and the standalone figure scripts cannot
+# drift apart. Importing it applies the style — see the module docstring for
+# why that is deliberate.
+from paper_style import *          # noqa: F403
+from paper_style import (          # named again so the notebook reads clearly
+    CM_TO_IN, WIDTH_1COL, WIDTH_1_5COL, WIDTH_2COL,
+    FONT_FAMILY, FONT_AXIS_TITLE, FONT_TICK, FONT_PANEL_LABEL,
+    FONT_LEGEND, FONT_ANNOTATION, FONT_STATS_BOX,
+    AGE_MIN, AGE_MAX, AGE_YOUNG, AGE_OLD, AGE_CMAP,
+    age_to_hex, style_ax, stats_box,
+)
 
-FONT_FAMILY = 'Arial'
-FONT_AXIS_TITLE = 7
-FONT_TICK = 6.5
-FONT_PANEL_LABEL = 10
-FONT_LEGEND = 6
-FONT_ANNOTATION = 6
-FONT_STATS_BOX = 6.5
-
-SHAM_COLOR = '#1565C0'
-ACTIVE_COLOR = '#E64A19'
-ACCENT_GREEN = '#2E7D32'
-ACCENT_RED = '#C62828'
-NEUTRAL_GRAY = '#757575'
-REGRESSION_COLOR = '#404040'
-CI_COLOR = 'gray'
-CI_ALPHA = 0.18
-SESOI_COLOR = '#BDBDBD'
-
-AGE_MIN, AGE_MAX = 20, 80
-AGE_YOUNG, AGE_OLD = '#1565C0', '#FFB300'
-AGE_CMAP = mcolors.LinearSegmentedColormap.from_list('blue_gold', [AGE_YOUNG, AGE_OLD])
-
-
-def age_to_hex(age):
-    norm = np.clip((age - AGE_MIN) / (AGE_MAX - AGE_MIN), 0, 1)
-    r, g, b, _ = AGE_CMAP(norm)
-    return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
-
-
-plt.rcParams.update({
-    'font.family': FONT_FAMILY,
-    'axes.labelsize': FONT_AXIS_TITLE,
-    'xtick.labelsize': FONT_TICK,
-    'ytick.labelsize': FONT_TICK,
-    'legend.fontsize': FONT_LEGEND,
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'savefig.dpi': 300,
-    'figure.dpi': 110,
-})
-
-
-def style_ax(ax, xlabel=None, ylabel=None, title=None):
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=FONT_AXIS_TITLE)
-    if ylabel:
-        ax.set_ylabel(ylabel, fontsize=FONT_AXIS_TITLE)
-    if title:
-        ax.set_title(title, fontsize=FONT_AXIS_TITLE)
-    ax.tick_params(labelsize=FONT_TICK)
-    return ax
-
-
-def stats_box(ax, text, x=0.97, y=0.97, ha='right', va='top'):
-    ax.text(x, y, text, transform=ax.transAxes, fontsize=FONT_STATS_BOX,
-            fontfamily=FONT_FAMILY, color='#404040', ha=ha, va=va,
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
-                      alpha=0.9, edgecolor='none'))
+print(f'Figure style: {FONT_FAMILY}, '
+      f'{WIDTH_1COL / CM_TO_IN:.1f}/{WIDTH_1_5COL / CM_TO_IN:.1f}/'
+      f'{WIDTH_2COL / CM_TO_IN:.1f} cm column widths')
 
 
 def scatter_regression_mpl(ax, x, y, age, zero_line=False):
