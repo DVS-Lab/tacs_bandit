@@ -77,6 +77,19 @@ REDCAP_TACS_REPORT_PATHS = [
 # larger. Correlations are identical either way; absolute V/m are not.
 EFIELD_CSV_PATH = REPO_ROOT / 'data' / 'efield_roi_summary.csv'
 
+# FreeSurfer recon-all output, delivered by the lab (7.3.2). Lives outside the
+# repo: 9 GB, and the surfaces are identifiable. Parsed into data/ by
+# freesurfer_morph.py, which is what analyses should read.
+#
+# As of the 2026-08-14 delivery this covers 28 of the 66 subjects, and the
+# batch is NOT a random subset — all seven T1-only head models are in it and
+# none of the pending 38 are. Anything joining morphometry to E-field is
+# therefore running on ~20 subjects until the rest arrive.
+FREESURFER_DIR = (Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' /
+                  'freesurfer' / 'tacs_bandit_freesurfer_20260814')
+FREESURFER_MORPH_PATH = REPO_ROOT / 'data' / 'freesurfer_morph.csv'
+FREESURFER_PARCELS_PATH = REPO_ROOT / 'data' / 'freesurfer_parcels_long.csv'
+
 # Island screener pool. Links to this study through `rf1_id`, NOT through its
 # own `Study ID` column, which is a separate screener-pool numbering (values
 # like 552, 553) that coincidentally collides with a few of our five-digit
