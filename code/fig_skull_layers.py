@@ -92,15 +92,19 @@ def load():
     return d.reset_index(drop=True)
 
 
-def ray_aligned_section(sub_id, f3, half_w_mm=3.5, pad_mm=2.5, step=0.1):
+def ray_aligned_section(sub_id, f3, half_w_mm=21.0, half_h_mm=21.0, step=0.15):
     """
     A section resampled so the electrode-to-cortex ray runs vertically.
 
     fig_distance_anatomy orients its sections to the superior axis, which is
-    right for showing where the measurement sits in the head. Here the point
-    is the layered structure the ray passes through, so the ray itself becomes
-    the vertical axis and each tissue becomes a horizontal band that can be
-    labelled. Scalp ends up at the top, cortex at the bottom.
+    right for showing where the measurement sits in the head. Here the point is
+    the layered structure the ray passes through, so the ray becomes the
+    vertical axis and each tissue becomes a horizontal band that can be
+    labelled -- scalp at the top, cortex at the bottom.
+
+    The field of view is wide enough to read as an anatomical image rather than
+    a strip: at a few millimetres the layers are unambiguous but the panel
+    stops looking like a brain, which defeats the point of showing one.
     """
     m2m = M2M_DIR / f'm2m_sub-{sub_id}'
     t1 = nib.as_closest_canonical(nib.load(str(m2m / 'T1.nii.gz')))
@@ -118,12 +122,15 @@ def ray_aligned_section(sub_id, f3, half_w_mm=3.5, pad_mm=2.5, step=0.1):
     e1 = e1 / np.linalg.norm(e1)          # horizontal, perpendicular to the ray
     e2 = -u                                # up in the image = back toward scalp
 
-    hw = int(half_w_mm / step)
-    n_up, n_dn = int(pad_mm / step), int((path + pad_mm) / step)
+    hw, hh = int(half_w_mm / step), int(half_h_mm / step)
+    # Offset toward cortex rather than sitting on the ray midpoint: half the
+    # frame would otherwise be air above the scalp, which is what made this
+    # panel read as a strip instead of an anatomical image.
+    centre = (f3 + near) / 2.0 + u * (0.30 * half_h_mm)
     a = (np.arange(-hw, hw) + 0.5) * step
-    b = (np.arange(-n_dn, n_up) + 0.5) * step
+    b = (np.arange(-hh, hh) + 0.5) * step
     A, B = np.meshgrid(a, b, indexing='xy')
-    world = (f3[None, None, :] + A[..., None] * e1[None, None, :]
+    world = (centre[None, None, :] + A[..., None] * e1[None, None, :]
              + B[..., None] * e2[None, None, :])
 
     inv = np.linalg.inv(t1.affine)
@@ -132,123 +139,144 @@ def ray_aligned_section(sub_id, f3, half_w_mm=3.5, pad_mm=2.5, step=0.1):
     img = map_coordinates(t1.get_fdata(), coords, order=1, mode='constant')
     lab = map_coordinates(lab_vol, coords, order=0, mode='constant')
 
-    return img, lab, path, (n_dn + n_up, 2 * hw), step, n_dn
+    # Endpoint rows by projecting the actual points onto e2, rather than
+    # assuming they sit symmetrically about the centre row. They do not: the
+    # view is deliberately offset toward cortex, and hard-coding the midpoint
+    # relationship drew the ray several millimetres too deep -- putting the
+    # electrode marker inside the skull and dragging every label with it.
+    def to_row(pt):
+        return float(np.dot(pt - centre, e2)) / step + hh
+
+    f3_row, cortex_row = to_row(f3), to_row(near)
+    return img, lab, path, f3_row, cortex_row, step, (2 * hh, 2 * hw)
 
 
-def panel_section(ax, row):
-    img, lab, path, shape, step, n_dn = ray_aligned_section(
-        row.subject_id, np.array([row.f3_x, row.f3_y, row.f3_z], float))
+def panel_section(ax, row, half_w_mm, half_h_mm):
+    img, lab, path, f3_row, cortex_row, step, shape = ray_aligned_section(
+        row.subject_id, np.array([row.f3_x, row.f3_y, row.f3_z], float),
+        half_w_mm, half_h_mm)
 
     vmax = np.percentile(img[img > 0], 99.5) if (img > 0).any() else 1.0
     ax.imshow(img, cmap='gray', origin='lower', vmin=0, vmax=vmax,
-              interpolation='bilinear', aspect='auto')
+              interpolation='bilinear')
 
     codes = {SCALP: '#F2A488', COMPACT: '#FFE9A8', SPONGY: '#F58B3C',
              CSF_L: '#5B9BD5'}
     tint = np.zeros((*lab.shape, 4))
     for code, hexcol in codes.items():
         tint[lab == code] = matplotlib.colors.to_rgba(hexcol, 0.55)
-    ax.imshow(tint, origin='lower', interpolation='nearest', aspect='auto')
+    ax.imshow(tint, origin='lower', interpolation='nearest')
 
     H, W = shape
-    # The electrode sits where b = 0, which is row n_dn -- NOT the top of the
-    # image, which is pad_mm of air above it. Anchoring depths to H - 1 shifts
-    # every label by that padding.
-    top = n_dn
-
-    # Labels are placed from this subject's own median layer thicknesses --
-    # the same numbers panel b plots -- rather than from run-lengths down the
-    # single centre column. That column can contain stray extra runs of
-    # compact bone, which produced a second, spurious "Inner table" label.
+    # Labels come from this subject's own median layer thicknesses -- the same
+    # numbers panel b plots -- rather than from run-lengths down the centre
+    # column, which can hold stray extra runs of compact bone and produced a
+    # duplicated "Inner table".
     at = 0.0
     for col, label, _ in LAYERS:
         L = float(row[col])
         if L >= 0.6:
-            mid_row = top - (at + L / 2) / step
-            ax.annotate(label, xy=(W * 0.62, mid_row), xytext=(W * 1.20, mid_row),
+            r = f3_row - (at + L / 2) / step
+            ax.annotate(label, xy=(W * 0.54, r), xytext=(W * 1.04, r),
                         fontsize=FONT_TICK - 0.5, va='center', ha='left',
-                        color=REGRESSION_COLOR,
+                        color=REGRESSION_COLOR, annotation_clip=False,
                         arrowprops=dict(arrowstyle='-', lw=0.6,
                                         color='#9E9E9E', shrinkA=0, shrinkB=1))
         at += L
 
-    ax.plot([W / 2, W / 2], [top, top - path / step],
-            color='white', lw=0.9, ls=(0, (2.5, 1.5)), zorder=4)
-    ax.plot(W / 2, top, marker='v', color=ELECTRODE_COLOR, markersize=5,
-            markeredgecolor='white', markeredgewidth=0.6, zorder=5, clip_on=False)
+    ax.plot([W / 2, W / 2], [f3_row, cortex_row], color='white', lw=0.9,
+            ls=(0, (2.5, 1.5)), zorder=4)
+    ax.plot(W / 2, cortex_row, marker='o', color='white', markersize=2.2, zorder=5)
+    ax.plot(W / 2, f3_row, marker='v', color=ELECTRODE_COLOR, markersize=5,
+            markeredgecolor='white', markeredgewidth=0.6, zorder=5)
     ax.set_xlim(0, W); ax.set_ylim(0, H)
     ax.set_xticks([]); ax.set_yticks([])
-    for s in ax.spines.values():
-        s.set_visible(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
 
 
 def panel_composition(ax, d):
+    """
+    Layer thickness as vertical stacks, depth increasing downward.
+
+    Oriented to match panel a -- scalp at the top, CSF at the bottom -- so the
+    labels there apply here too and the panel needs no legend of its own.
+    """
     lo, hi = d['age'].quantile([1 / 3, 2 / 3])
-    groups = [('Older', d[d.age >= hi]), ('Younger', d[d.age <= lo])]
-    for y, (name, g) in enumerate(groups):
-        left = 0.0
+    groups = [('Younger', d[d.age <= lo]), ('Older', d[d.age >= hi])]
+
+    for x, (name, g) in enumerate(groups):
+        at = 0.0
         for col, label, colour in LAYERS:
             w = g[col].mean()
-            ax.barh(y, w, left=left, height=0.5, color=colour,
-                    edgecolor='white', linewidth=0.7,
-                    label=label if y == 0 else None)
+            ax.bar(x, w, bottom=at, width=0.66, color=colour,
+                   edgecolor='white', linewidth=0.7)
             if w > 1.4:
-                ax.text(left + w / 2, y, f'{w:.1f}', ha='center', va='center',
+                ax.text(x, at + w / 2, f'{w:.1f}', ha='center', va='center',
                         fontsize=FONT_TICK - 1.5, color='#3A3A3A')
-            left += w
-        ax.text(left + 0.3, y, f'{left:.1f}', va='center',
+            at += w
+        ax.text(x, -0.5, f'{at:.1f}', ha='center', va='bottom',
                 fontsize=FONT_TICK, color=REGRESSION_COLOR, fontweight='bold')
 
-    ax.set_yticks(range(len(groups)))
-    ax.set_yticklabels([f'{n}\n($n$ = {len(g)})' for n, g in groups],
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([f'{n}\n($n$ = {len(g)})' for n, g in groups],
                        fontsize=FONT_TICK)
-    ax.set_xlabel('Thickness along the ray (mm)', fontsize=FONT_AXIS_TITLE,
+    ax.set_ylabel('Depth from scalp surface (mm)', fontsize=FONT_AXIS_TITLE,
                   labelpad=1.5)
+    ax.set_ylim(16.9, -2.1)     # inverted: depth grows downward, as in panel a
+    ax.set_xlim(-0.7, len(groups) - 0.3)
     ax.tick_params(labelsize=FONT_TICK, pad=1.2)
-    ax.set_xlim(0, 18.5); ax.set_ylim(-0.6, 1.9)
-    for s in ('top', 'right', 'left'):
-        ax.spines[s].set_visible(False)
-    ax.legend(fontsize=FONT_TICK - 1, frameon=False, ncol=3, loc='upper center',
-              bbox_to_anchor=(0.48, 1.30), handlelength=0.9,
-              columnspacing=0.9, handletextpad=0.35)
+    ax.set_yticks([0, 5, 10, 15])
+    for sp in ('top', 'right', 'bottom'):
+        ax.spines[sp].set_visible(False)
+    ax.tick_params(axis='x', length=0)
 
 
 def panel_correlations(ax, d):
-    """Each layer's correlation with age and with the field, on one axis."""
+    """
+    Each layer at (r with age, r with field). Mediators sit off both axes.
+
+    A layer can only carry the age effect on dose if it is related to both, so
+    the plot is the mediation logic rather than two rankings. Shaded bands mark
+    p > .05 on each axis.
+    """
     n = len(d)
     crit = stats.t.ppf(0.975, n - 2)
     r_crit = crit / np.sqrt(n - 2 + crit ** 2)
 
-    items = [(lab, col) for col, lab, _ in LAYERS]
-    items.append(('Skull (total)', 'layer_skull'))
-    ys = np.arange(len(items))[::-1]
-
-    ax.axvspan(-r_crit, r_crit, color='#F2F2F2', zorder=0)
+    ax.axhspan(-r_crit, r_crit, color='#F0F0F0', zorder=0)
+    ax.axvspan(-r_crit, r_crit, color='#F0F0F0', zorder=0)
+    ax.axhline(0, color='#BDBDBD', lw=0.6, zorder=1)
     ax.axvline(0, color='#BDBDBD', lw=0.6, zorder=1)
 
-    for y, (label, col) in zip(ys, items):
+    offsets = {'Scalp': (7, -9), 'Outer table': (7, 5), 'Diploe': (8, -3),
+               'Inner table': (-17, -12), 'CSF': (6, 4),
+               'Skull (total)': (9, -2)}
+    items = [(lab, col, c) for col, lab, c in LAYERS]
+    items.append(('Skull (total)', 'layer_skull', SKULL_COLOR))
+
+    for label, col, colour in items:
         ra = stats.pearsonr(d.age, d[col])[0]
         rf = stats.pearsonr(d[col], d[FIELD])[0]
-        ax.plot([ra, rf], [y, y], color='#D0D0D0', lw=0.8, zorder=2)
-        ax.scatter(ra, y, s=30, color=AGE_OLD, edgecolors='white',
-                   linewidths=0.5, zorder=4, label='with age' if y == ys[0] else None)
-        ax.scatter(rf, y, s=30, color=AGE_YOUNG, marker='D', edgecolors='white',
-                   linewidths=0.5, zorder=4,
-                   label='with field' if y == ys[0] else None)
+        big = label == 'Skull (total)'
+        ax.scatter(ra, rf, s=54 if big else 34, color=colour, zorder=4,
+                   edgecolors=REGRESSION_COLOR if big else 'white',
+                   linewidths=1.0 if big else 0.5)
+        ax.annotate(label, (ra, rf), textcoords='offset points',
+                    xytext=offsets.get(label, (5, 5)), fontsize=FONT_TICK - 1,
+                    fontweight='bold' if big else 'normal',
+                    color=REGRESSION_COLOR)
 
-    ax.set_yticks(ys)
-    ax.set_yticklabels([lab for lab, _ in items], fontsize=FONT_TICK)
-    ax.get_yticklabels()[-1].set_fontweight('bold')
-    ax.set_xlabel('Correlation ($r$)', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
-    ax.set_xlim(-0.95, 0.72)
-    ax.set_ylim(-0.7, len(items) - 0.3)
+    ax.set_xlabel('$r$ with age', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
+    ax.set_ylabel('$r$ with delivered field', fontsize=FONT_AXIS_TITLE,
+                  labelpad=1.5)
     ax.tick_params(labelsize=FONT_TICK, pad=1.2)
-    for s in ('top', 'right', 'left'):
-        ax.spines[s].set_visible(False)
-    ax.legend(fontsize=FONT_TICK - 1, frameon=False, ncol=2, loc='upper center',
-              bbox_to_anchor=(0.5, 1.20), handletextpad=0.2, columnspacing=0.9)
-    ax.text(0.0, -0.62, 'shaded: $p$ > .05', ha='center', va='center',
-            fontsize=FONT_TICK - 1.5, color='#9E9E9E')
+    ax.set_xlim(-0.35, 0.75)
+    ax.set_ylim(-0.93, 0.20)
+    for sp in ('top', 'right'):
+        ax.spines[sp].set_visible(False)
+    ax.text(0.98, 0.03, 'shaded: $p$ > .05', transform=ax.transAxes,
+            ha='right', va='bottom', fontsize=FONT_TICK - 1.5, color='#9E9E9E')
 
 
 def build(out_name: str = 'fig_skull_layers') -> Path:
@@ -257,18 +285,22 @@ def build(out_name: str = 'fig_skull_layers') -> Path:
     exemplar = representative(d[d.age >= hi_a])
     print(f'N = {len(d)} (T1-only excluded); section from sub-{exemplar.subject_id}')
 
-    FIG_W, FIG_H = WIDTH_2COL, WIDTH_2COL * 0.36
+    FIG_W, FIG_H = WIDTH_2COL, WIDTH_2COL * 0.42
     fig = plt.figure(figsize=(FIG_W, FIG_H))
-    ax_a = fig.add_axes([0.012, 0.075, 0.105, 0.845])
-    ax_b = fig.add_axes([0.315, 0.215, 0.290, 0.560])
-    ax_c = fig.add_axes([0.760, 0.215, 0.225, 0.560])
+    A_X, A_W, Y, H = 0.012, 0.290, 0.185, 0.700
+    ax_a = fig.add_axes([A_X, Y, A_W, H])
+    ax_b = fig.add_axes([0.430, Y, 0.165, H])
+    ax_c = fig.add_axes([0.715, Y, 0.270, H])
 
-    panel_section(ax_a, exemplar)
+    # Section cropped to the panel's own aspect so imshow does not letterbox it.
+    half_h = 21.0
+    half_w = half_h * (A_W * FIG_W) / (H * FIG_H)
+    panel_section(ax_a, exemplar, half_w, half_h)
     panel_composition(ax_b, d)
     panel_correlations(ax_c, d)
 
     LABEL_KW = dict(fontsize=FONT_PANEL_LABEL, fontweight='bold', va='top')
-    for x, k in [(0.004, 'a'), (0.235, 'b'), (0.655, 'c')]:
+    for x, k in [(0.004, 'a'), (0.372, 'b'), (0.648, 'c')]:
         fig.text(x, 0.985, k, **LABEL_KW)
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
