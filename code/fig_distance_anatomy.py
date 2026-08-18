@@ -134,14 +134,17 @@ def oblique_section(sub_id: str, f3_world: np.ndarray,
         d = p - centre
         return (np.dot(d, e1) / step + hw, np.dot(d, e2) / step + hh)
 
-    return img, (lab == CSF_LABEL), to_px(f3_world), to_px(near), step
+    # Full label map, not just CSF: fig_skull_layers.py colours every
+    # tissue the ray crosses, and callers wanting only CSF can mask it.
+    return img, lab, to_px(f3_world), to_px(near), step
 
 
 def draw_panel(ax, sub_id, row, colour, title, half_w_mm=HALF_WIDTH_MM,
                half_h_mm=HALF_WIDTH_MM, title_pad=2):
-    img, csf, (ei, ek), (ni, nk), _ = oblique_section(
+    img, lab, (ei, ek), (ni, nk), _ = oblique_section(
         sub_id, np.array([row.f3_x, row.f3_y, row.f3_z], dtype=float),
         half_w_mm, half_h_mm)
+    csf = (lab == CSF_LABEL)
 
     vmax = np.percentile(img[img > 0], 99.5) if (img > 0).any() else 1.0
     ax.imshow(img, cmap='gray', origin='lower', vmin=0, vmax=vmax,
