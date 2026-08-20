@@ -329,6 +329,55 @@ Primary distance measure: `dist_pial_dlpfc_p1`. Robustness:
 `dist_pial_dlpfc_min` (identical to `dist_pial_min`, confirming the nearest
 cortex to F3 is DLPFC).
 
+### What the geometry finding does and does not support
+
+Age -> |E| is carried by the tissue between electrode and cortex, not by
+atrophy. That much is solid, and is now tested properly rather than inferred:
+
+- Every conventional atrophy measure tracks age hard (total GM -.77, ventricles
+  +.65, cortical thickness -.64) and **none reaches the field** (all p > .05
+  except whole-head CSF at -.33).
+- Commonality analysis on |E|: geometry uniquely explains **.70** (p < .001),
+  atrophy uniquely **.02** (p = .25), shared .11, full model R2 = .83.
+- Volumes are normalised by ICV counted from the segmentation, not by
+  FreeSurfer eTIV. eTIV is derived from the Talairach determinant and rises
+  with age here (r = +.47, +12.5% over 40 years), which is impossible;
+  directly measured ICV is flat (r = -.011). Conclusions unchanged either way.
+
+**Within the geometry, skull thickening with age is female-specific.** Women
+r = +.67 (p < .001), men r = -.04 (p = .83), age x sex p = .003; the age main
+effect vanishes once the interaction is included (p = .81). Older women's
+skulls are 2.63 mm thicker than younger women's, against 0.19 mm in men. This
+matches the hyperostosis frontalis interna literature, and F3 sits over frontal
+bone. Caveat: only 8 women fall in the older tertile, though the imbalance runs
+*against* the effect rather than producing it.
+
+**The causal step is weaker than the headline numbers suggest.** |E| is
+computed from charm's segmentation, so charm's skull is an input to the model
+that produced the field. Measuring the same span from raw T1 intensity, with no
+labels:
+
+| | x age | x \|E\| |
+|---|---|---|
+| charm skull (an FEM input) | +.337 | **-.778** |
+| T1 intensity span (external) | +.359 | **-.231 (p = .081)** |
+
+The two agree at only r = +.40. The *age* effect replicates independently; the
+*field* effect largely does not, and mediation falls from 89% to 18% (n.s.).
+So the anatomical claim stands on its own and the dose claim does not. Report
+this as an anatomical contributor to variation in *simulated* dose.
+
+**Do not interpret the outer/diploe/inner split.** QC images (`fig_qc_skull.py`)
+show diploe segmented as scattered islands rather than a continuous stratum, in
+FLAIR and T1-only subjects alike. Total skull is the trustworthy number.
+
+**The T1-only exclusion is not about skull.** Controlling for age and sex the
+seven differ on CSF (p = .025) and |E| (p = .018) but on no skull measure
+(total p = .58). The exclusion holds; the stated rationale needed correcting.
+
+Figures: `fig_efield_age.py --compact`, `fig_atrophy_vs_geometry.py`,
+`fig_skull_layers.py`, `fig_qc_skull.py`.
+
 ### FreeSurfer status — complete
 
 All 66 delivered across two batches (`tacs_bandit_freesurfer_20260814`, n=28;

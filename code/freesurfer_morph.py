@@ -65,6 +65,15 @@ ASEG_MEASURES = {
     'BrainSegVolNotVent': 'brainseg_not_vent',
     'CerebralWhiteMatterVol': 'white_matter_vol',
     'SurfaceHoles': 'surface_holes',
+    # Ventricular and total-CSF volume: the standard global markers of the
+    # atrophy account, and the ones the original hypothesis rested on. Absent
+    # until now, which is why that account was only ever tested via cortical
+    # thickness.
+    'VentricleChoroidVol': 'ventricle_choroid_vol',
+    'SupraTentorialVol': 'supratentorial_vol',
+    'SupraTentorialVolNotVent': 'supratentorial_notvent_vol',
+    'BrainSegVol': 'brainseg_vol',
+    'MaskVol': 'mask_vol',
 }
 
 

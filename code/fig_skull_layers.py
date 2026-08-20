@@ -1,5 +1,5 @@
 """
-fig_skull_layers.py — What the distance is made of, and which part matters
+fig_skull_layers.py — Skull thickening under the electrode is a female effect
 
 The skull vault is a sandwich rather than a solid plate, so a ray from the
 electrode to cortex crosses five layers in a fixed order:
@@ -7,33 +7,73 @@ electrode to cortex crosses five layers in a fixed order:
     scalp -> outer table -> diploe -> inner table -> CSF -> cortex
 
 Outer and inner table are the same material, compact bone; they are the outer
-and inner faces of the sandwich. The diploe between them is spongy,
-marrow-filled bone.
+and inner faces of the sandwich, separated by the marrow-filled diploe.
 
-Three panels:
+Four panels:
 
-  a   the layers themselves, on one participant's own scan, resampled so the
-      electrode-to-cortex ray runs vertically -- which turns the layers into
-      labelled horizontal bands and lets the panel be read as an anatomical
-      key for the rest of the figure
-  b   how much of each layer, younger versus older tertile
-  c   each layer's two correlations: with age, and with the delivered field
+  a   the layers themselves, on one participant's scan, resampled so the
+      electrode-to-cortex ray runs vertically and each tissue becomes a
+      labelled horizontal band -- an anatomical key for the rest of the figure
+  b   layer thickness by sex and age tertile
+  c   the interaction: skull thickness against age, fit separately by sex
+  d   who is actually in the sample, which is what limits panel c
 
-Panel c is the argument. A layer can only carry the age effect on dose if it
-is related to *both*, and only skull is. CSF has the strongest age
-relationship of any layer (r = +.50) but the weakest link to the field
-(r = -.25) and mediates nothing detectable; skull has a weaker age
-relationship (+.34), the strongest field relationship (-.78), and mediates
-89%. Cortical thinning, tested in fig_mechanism, is unrelated to either.
+**The central result is an interaction, not a main effect.** Pooled, skull
+thickness rises with age (r = +.34). Split by sex, that is carried entirely by
+women (r = +.67, p < .001) with nothing in men (r = -.04, p = .83); the
+age x sex interaction is p = .003 for total skull and p < .001 for diploe, and
+the main effect of age disappears once it is in the model (p = .81). Older
+women's skulls are 2.63 mm thicker than younger women's, against 0.19 mm in
+men. This matches the hyperostosis frontalis interna literature -- frontal
+inner-table and diploic thickening, strongly female-predominant after
+menopause -- and F3 sits over frontal bone.
 
-Skull thickness is already known to drive inter-individual variability in
-tDCS/tACS field strength. The narrower contribution here is that the *age*
-effect on delivered dose runs through skull, not through atrophy or CSF.
+CSF runs the other way: it increases with age in both sexes (women +.41, men
++.57). So CSF is the general ageing effect here and skull is the sex-specific
+one, which is the reverse of the earlier reading.
 
-CAVEAT. This rests on charm's skull segmentation, the output known to degrade
-without a FLAIR -- the reason the seven T1-only head models are excluded
-throughout. At 1 mm voxels the inner table is one to two voxels thick, so the
-outer/diploe/inner split is descriptive; total skull is the number to trust.
+**What replicates independently, and what does not.** Measuring the same span
+from raw T1 intensity, with no segmentation labels, reproduces the *age* effect
+(all r = +.36 p = .006; women +.49 p = .007) -- so skull thickening with age is
+not charm inventing a boundary. But two things do not survive the independent
+measure:
+
+  - the age x sex interaction reaches only p = .18 (men +.17 rather than -.04)
+  - the mediation of age -> |E| drops from 89% to 18%, and is not significant
+
+The reason is circularity, and it is worth stating plainly. |E| is *computed
+from* charm's segmentation, so charm's skull is an input to the model that
+produced the field:
+
+    charm skull        x |E| = -.778
+    T1 intensity span  x |E| = -.231 (p = .081)
+
+The two skull measures agree with each other at only r = +.40. So the very
+strong skull-to-field relationship is substantially a statement about which
+input the FEM is most sensitive to, not about how much current a thicker skull
+actually blocks. The anatomical claim (women's skulls thicken with age under
+the electrode) stands on its own; the causal claim about dose does not, on this
+evidence.
+
+**Do not interpret the layer split.** QC images (fig_qc_skull) show the diploe
+segmented as scattered islands inside compact bone rather than a continuous
+stratum, in FLAIR and T1-only subjects alike. Total skull has clean, anatomically
+plausible boundaries; the outer/diploe/inner decomposition does not, and its
+per-subject values are noisier than the correlations imply. Report total skull.
+
+**The T1-only exclusion is not about skull.** Controlling for age and sex, the
+seven T1-only head models do not differ on any skull measure (total p = .58,
+diploe p = .45, inner table p = .90). They differ in CSF (p = .025) and in |E|
+(p = .018). The exclusion is justified -- their fields are systematically lower,
+in the direction of the hypothesis -- but the earlier stated rationale, that
+skull segmentation degrades without a FLAIR, is not supported here.
+
+CAVEAT ON INTERPRETATION. Skull geometry is an input to the FEM that produces
+the simulated field, so a skull-to-|E| relationship partly reports which input
+the model is most sensitive to. The fitted per-millimetre coefficients
+reproduce SimNIBS's assumed conductivity ratio almost exactly (3.13 assumed,
+3.14 fitted). The defensible phrasing is "anatomical contributor to variation
+in simulated dose", not delivered current.
 
 Usage
 -----
@@ -77,6 +117,7 @@ LAYERS = [
     ('layer_csf',         'CSF',         '#5B9BD5'),
 ]
 SKULL_COLOR = '#B36A16'
+SEX_COLORS = {'Female': '#C2185B', 'Male': '#00796B'}
 SCALP, CSF_L, COMPACT, SPONGY = 5, 3, 7, 8
 
 
@@ -84,9 +125,9 @@ def load():
     e = pd.read_csv(EFIELD_CSV_PATH, dtype={'subject_id': str})
     m = pd.read_csv(REPO_ROOT / 'data' / 'master_subject_data.csv',
                     dtype={'subject_id': str})
-    d = e.merge(m[['subject_id', 'age']], on='subject_id', how='left')
+    d = e.merge(m[['subject_id', 'age', 'gender']], on='subject_id', how='left')
     d['age'] = pd.to_numeric(d['age'], errors='coerce')
-    d = d.dropna(subset=['age'] + [c for c, _, _ in LAYERS])
+    d = d.dropna(subset=['age', 'gender'] + [c for c, _, _ in LAYERS])
     if 't1_only' in d.columns:
         d = d[~d['t1_only'].astype(bool)]
     return d.reset_index(drop=True)
@@ -196,87 +237,138 @@ def panel_section(ax, row, half_w_mm, half_h_mm):
 
 
 def panel_composition(ax, d):
-    """
-    Layer thickness as vertical stacks, depth increasing downward.
-
-    Oriented to match panel a -- scalp at the top, CSF at the bottom -- so the
-    labels there apply here too and the panel needs no legend of its own.
-    """
+    """Layer thickness by sex and age tertile, oriented to match panel a."""
     lo, hi = d['age'].quantile([1 / 3, 2 / 3])
-    groups = [('Younger', d[d.age <= lo]), ('Older', d[d.age >= hi])]
+    groups = [('Younger', 'Female'), ('Older', 'Female'),
+              ('Younger', 'Male'), ('Older', 'Male')]
+    xs = [0, 1, 2.5, 3.5]
+    labels = []
 
-    for x, (name, g) in enumerate(groups):
+    for x, (band, sex) in zip(xs, groups):
+        g = d[(d.gender == sex) &
+              ((d.age <= lo) if band == 'Younger' else (d.age >= hi))]
         at = 0.0
-        for col, label, colour in LAYERS:
+        for col, _, colour in LAYERS:
             w = g[col].mean()
-            ax.bar(x, w, bottom=at, width=0.66, color=colour,
-                   edgecolor='white', linewidth=0.7)
-            if w > 1.4:
-                ax.text(x, at + w / 2, f'{w:.1f}', ha='center', va='center',
-                        fontsize=FONT_TICK - 1.5, color='#3A3A3A')
+            ax.bar(x, w, bottom=at, width=0.78, color=colour,
+                   edgecolor='white', linewidth=0.6)
             at += w
-        ax.text(x, -0.5, f'{at:.1f}', ha='center', va='bottom',
-                fontsize=FONT_TICK, color=REGRESSION_COLOR, fontweight='bold')
+        ax.text(x, -0.7, f'{at:.1f}', ha='center', va='bottom',
+                fontsize=FONT_TICK - 0.5, color=REGRESSION_COLOR,
+                fontweight='bold')
+        # n goes in the tick label rather than floating beside the bar, where
+        # it collided with the group headings.
+        labels.append(f'{band}\n($n$={len(g)})')
 
-    ax.set_xticks(range(len(groups)))
-    ax.set_xticklabels([f'{n}\n($n$ = {len(g)})' for n, g in groups],
-                       fontsize=FONT_TICK)
+    # Group headings above the totals, so nothing sits under the bars.
+    for x, sex, key in [(0.5, 'Women', 'Female'), (3.0, 'Men', 'Male')]:
+        ax.text(x, -2.6, sex, ha='center', va='bottom',
+                fontsize=FONT_AXIS_TITLE, color=SEX_COLORS[key],
+                fontweight='bold')
+
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels, fontsize=FONT_TICK - 1)
     ax.set_ylabel('Depth from scalp surface (mm)', fontsize=FONT_AXIS_TITLE,
                   labelpad=1.5)
-    ax.set_ylim(16.9, -2.1)     # inverted: depth grows downward, as in panel a
-    ax.set_xlim(-0.7, len(groups) - 0.3)
-    ax.tick_params(labelsize=FONT_TICK, pad=1.2)
+    ax.set_ylim(17.6, -4.2)
+    ax.set_xlim(-0.75, 4.25)
     ax.set_yticks([0, 5, 10, 15])
+    ax.tick_params(labelsize=FONT_TICK, pad=1.2)
+    ax.tick_params(axis='x', length=0)
     for sp in ('top', 'right', 'bottom'):
         ax.spines[sp].set_visible(False)
-    ax.tick_params(axis='x', length=0)
 
 
-def panel_correlations(ax, d):
-    """
-    Each layer at (r with age, r with field). Mediators sit off both axes.
+def panel_interaction(ax, d):
+    """Skull thickness against age, fit separately within each sex."""
+    for sex in ('Female', 'Male'):
+        g = d[d.gender == sex]
+        c = SEX_COLORS[sex]
+        ax.scatter(g.age, g.layer_skull, s=16, color=c, alpha=0.75,
+                   edgecolors='white', linewidths=0.4, zorder=3)
+        sl, ic, r, p, _ = stats.linregress(g.age, g.layer_skull)
+        xs = np.linspace(g.age.min(), g.age.max(), 100)
+        ax.plot(xs, ic + sl * xs, color=c, lw=1.4, zorder=4,
+                ls='-' if p < .05 else (0, (3, 2)))
+        lbl = 'Women' if sex == 'Female' else 'Men'
+        txt = (f'{lbl}  $r$ = {r:.2f}, $p$ < .001' if p < .001
+               else f'{lbl}  $r$ = {r:.2f}, $p$ = {p:.2f}')
+        pos = dict(x=0.03, y=0.97, ha='left', va='top') if sex == 'Female' \
+            else dict(x=0.97, y=0.04, ha='right', va='bottom')
+        ax.text(pos['x'], pos['y'], txt, transform=ax.transAxes,
+                ha=pos['ha'], va=pos['va'], fontsize=FONT_TICK - 0.5, color=c,
+                fontweight='bold' if p < .05 else 'normal')
 
-    A layer can only carry the age effect on dose if it is related to both, so
-    the plot is the mediation logic rather than two rankings. Shaded bands mark
-    p > .05 on each axis.
-    """
-    n = len(d)
-    crit = stats.t.ppf(0.975, n - 2)
-    r_crit = crit / np.sqrt(n - 2 + crit ** 2)
-
-    ax.axhspan(-r_crit, r_crit, color='#F0F0F0', zorder=0)
-    ax.axvspan(-r_crit, r_crit, color='#F0F0F0', zorder=0)
-    ax.axhline(0, color='#BDBDBD', lw=0.6, zorder=1)
-    ax.axvline(0, color='#BDBDBD', lw=0.6, zorder=1)
-
-    offsets = {'Scalp': (7, -9), 'Outer table': (7, 5), 'Diploe': (8, -3),
-               'Inner table': (-17, -12), 'CSF': (6, 4),
-               'Skull (total)': (9, -2)}
-    items = [(lab, col, c) for col, lab, c in LAYERS]
-    items.append(('Skull (total)', 'layer_skull', SKULL_COLOR))
-
-    for label, col, colour in items:
-        ra = stats.pearsonr(d.age, d[col])[0]
-        rf = stats.pearsonr(d[col], d[FIELD])[0]
-        big = label == 'Skull (total)'
-        ax.scatter(ra, rf, s=54 if big else 34, color=colour, zorder=4,
-                   edgecolors=REGRESSION_COLOR if big else 'white',
-                   linewidths=1.0 if big else 0.5)
-        ax.annotate(label, (ra, rf), textcoords='offset points',
-                    xytext=offsets.get(label, (5, 5)), fontsize=FONT_TICK - 1,
-                    fontweight='bold' if big else 'normal',
-                    color=REGRESSION_COLOR)
-
-    ax.set_xlabel('$r$ with age', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
-    ax.set_ylabel('$r$ with delivered field', fontsize=FONT_AXIS_TITLE,
-                  labelpad=1.5)
+    ax.set_xlabel('Age (years)', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
+    ax.set_ylabel('Skull thickness (mm)', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
     ax.tick_params(labelsize=FONT_TICK, pad=1.2)
-    ax.set_xlim(-0.35, 0.75)
-    ax.set_ylim(-0.93, 0.20)
     for sp in ('top', 'right'):
         ax.spines[sp].set_visible(False)
-    ax.text(0.98, 0.03, 'shaded: $p$ > .05', transform=ax.transAxes,
-            ha='right', va='bottom', fontsize=FONT_TICK - 1.5, color='#9E9E9E')
+
+
+def panel_sample(ax, d):
+    """
+    Who is actually in the sample, as densities over a strip of individuals.
+
+    Panel c rests on this: the female slope is estimated from few older women,
+    because women here skew young and men old. The density curves make the
+    shapes comparable at a glance -- both sexes are n = 29, and both curves are
+    scaled by the same constant, so the areas under them are equal and the
+    difference is entirely in where each sex sits along the axis.
+
+    The imbalance runs *against* the effect rather than creating it: the sex
+    whose skull changes with age is the one thinnest on the ground at older
+    ages, which dilutes the pooled estimate relative to the within-women one.
+    """
+    lo, hi = d['age'].quantile([1 / 3, 2 / 3])
+    grid = np.linspace(d.age.min() - 4, d.age.max() + 4, 300)
+
+    # One scale for both curves so the areas stay comparable.
+    # Narrower bandwidth than Scott's default, which at n = 29 over a 56-year
+    # span smooths both distributions almost flat and hides the very skew this
+    # panel exists to show.
+    kdes = {sex: stats.gaussian_kde(d[d.gender == sex].age.values,
+                                    bw_method=0.30)(grid)
+            for sex in ('Female', 'Male')}
+    scale = 0.78 / max(k.max() for k in kdes.values())
+
+    for base, sex, sign in [(1.0, 'Female', +1), (0.0, 'Male', -1)]:
+        c = SEX_COLORS[sex]
+        g = d[d.gender == sex]
+        ax.fill_between(grid, base, base + sign * kdes[sex] * scale,
+                        color=c, alpha=0.17, linewidth=0, zorder=1)
+        ax.plot(grid, base + sign * kdes[sex] * scale, color=c, lw=1.0,
+                alpha=0.75, zorder=2)
+        ax.plot(grid, np.full_like(grid, base), color='#D8D8D8', lw=0.6, zorder=1)
+
+        rng = np.random.default_rng(0)
+        ax.scatter(g.age, base + sign * rng.uniform(0.05, 0.20, len(g)),
+                   s=13, color=c, alpha=0.85, edgecolors='white',
+                   linewidths=0.35, zorder=4)
+        ax.text(d.age.max() + 3.2, base + sign * 0.30,
+                'Women' if sex == 'Female' else 'Men', fontsize=FONT_TICK,
+                color=c, fontweight='bold', va='center', ha='right')
+
+        for band, side in [(g.age <= lo, 'Y'), (g.age >= hi, 'O')]:
+            xpos = (d.age.min() + lo) / 2 if side == 'Y' else (hi + d.age.max()) / 2
+            ax.text(xpos, base + sign * 0.42, f'$n$={int(band.sum())}',
+                    ha='center', va='center', fontsize=FONT_TICK - 0.5,
+                    color=c, fontweight='bold')
+
+    for b in (lo, hi):
+        ax.axvline(b, color='#BDBDBD', ls=':', lw=0.8, zorder=0)
+    ax.text(lo - 1.2, -0.96, 'younger', ha='right', va='bottom',
+            fontsize=FONT_TICK - 1, color='#9E9E9E')
+    ax.text(hi + 1.2, -0.96, 'older', ha='left', va='bottom',
+            fontsize=FONT_TICK - 1, color='#9E9E9E')
+
+    ax.set_xlabel('Age (years)', fontsize=FONT_AXIS_TITLE, labelpad=1.5)
+    ax.set_yticks([])
+    ax.set_ylim(-1.0, 1.95)
+    ax.set_xlim(d.age.min() - 4, d.age.max() + 4)
+    ax.tick_params(labelsize=FONT_TICK, pad=1.2)
+    for sp in ('top', 'right', 'left'):
+        ax.spines[sp].set_visible(False)
 
 
 def build(out_name: str = 'fig_skull_layers') -> Path:
@@ -285,32 +377,43 @@ def build(out_name: str = 'fig_skull_layers') -> Path:
     exemplar = representative(d[d.age >= hi_a])
     print(f'N = {len(d)} (T1-only excluded); section from sub-{exemplar.subject_id}')
 
-    FIG_W, FIG_H = WIDTH_2COL, WIDTH_2COL * 0.42
+    FIG_W, FIG_H = WIDTH_2COL, WIDTH_2COL * 0.50
     fig = plt.figure(figsize=(FIG_W, FIG_H))
-    A_X, A_W, Y, H = 0.012, 0.290, 0.185, 0.700
-    ax_a = fig.add_axes([A_X, Y, A_W, H])
-    ax_b = fig.add_axes([0.430, Y, 0.165, H])
-    ax_c = fig.add_axes([0.715, Y, 0.270, H])
+    A_X, A_W = 0.012, 0.235
+    TOP_Y, BOT_Y, H = 0.620, 0.135, 0.350
+    ax_a = fig.add_axes([A_X, TOP_Y - 0.035, A_W, H + 0.07])
+    ax_b = fig.add_axes([0.365, TOP_Y, 0.255, H])
+    ax_c = fig.add_axes([0.735, TOP_Y, 0.250, H])
+    ax_d = fig.add_axes([0.075, BOT_Y, 0.910, 0.320])
 
-    # Section cropped to the panel's own aspect so imshow does not letterbox it.
     half_h = 21.0
-    half_w = half_h * (A_W * FIG_W) / (H * FIG_H)
+    half_w = half_h * (A_W * FIG_W) / ((H + 0.07) * FIG_H)
     panel_section(ax_a, exemplar, half_w, half_h)
     panel_composition(ax_b, d)
-    panel_correlations(ax_c, d)
+    panel_interaction(ax_c, d)
+    panel_sample(ax_d, d)
 
     LABEL_KW = dict(fontsize=FONT_PANEL_LABEL, fontweight='bold', va='top')
-    for x, k in [(0.004, 'a'), (0.372, 'b'), (0.648, 'c')]:
-        fig.text(x, 0.985, k, **LABEL_KW)
+    for x, y, k in [(0.004, 0.992, 'a'), (0.300, 0.992, 'b'),
+                    (0.672, 0.992, 'c'), (0.004, 0.505, 'd')]:
+        fig.text(x, y, k, **LABEL_KW)
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     png = FIG_DIR / f'{out_name}.png'
     fig.savefig(png, dpi=400, facecolor='white')
     fig.savefig(FIG_DIR / f'{out_name}.svg', dpi=400, facecolor='white')
     plt.close(fig)
-    for col, label, _ in LAYERS + [('layer_skull', 'Skull (total)', '')]:
-        print(f'  {label:14s} age r = {stats.pearsonr(d.age, d[col])[0]:+.3f}   '
-              f'|E| r = {stats.pearsonr(d[col], d[FIELD])[0]:+.3f}')
+
+    import statsmodels.api as sm
+    x = d[['layer_skull', 'age', 'gender']].dropna().copy()
+    x['female'] = (x.gender == 'Female').astype(int)
+    x['age_c'] = x.age - x.age.mean(); x['ix'] = x.age_c * x.female
+    mo = sm.OLS(x.layer_skull, sm.add_constant(x[['age_c', 'female', 'ix']])).fit()
+    print(f"  age x sex on skull: b = {mo.params['ix']:+.4f}, p = {mo.pvalues['ix']:.4f}")
+    for sex in ('Female', 'Male'):
+        g = d[d.gender == sex]
+        r, pv = stats.pearsonr(g.age, g.layer_skull)
+        print(f'    {sex:7} n={len(g)}  skull x age r = {r:+.3f}, p = {pv:.4f}')
     print(f'wrote {png}')
     return png
 
