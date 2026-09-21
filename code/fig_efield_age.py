@@ -27,9 +27,17 @@ pick determines what the reader concludes. Averaging 20 subjects per group
 shows the effect that actually exists.
 
 **The seven T1-only subjects are excluded throughout.** Their head models were
-built without a FLAIR, and their field estimates are systematically ~28% lower
-(p = .013 controlling for age) because skull segmentation degrades without it.
-Including them would bias the maps in the same direction as the hypothesis.
+built without a FLAIR and their field estimates are systematically ~28% lower
+(p = .013 controlling for age), which is the same direction as the hypothesis,
+so including them would bias the maps.
+
+The mechanism is *not* what was originally assumed. Controlling for age and
+sex, these seven do not differ from the rest on any skull measure (total
+p = .58, diploe p = .45, inner table p = .90). They differ on CSF (p = .025)
+and on delivered field (p = .018). The a priori concern -- that skull
+segmentation degrades without a FLAIR -- is reasonable in general and is what
+SimNIBS advises, but it is not what distinguishes these particular head models.
+The exclusion stands on the field difference itself.
 
 Requires the fsaverage overlays produced by the simNIBS project:
     simnibs_python scripts/to_fsaverage.py

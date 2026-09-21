@@ -48,6 +48,7 @@ from config import (
     REDCAP_RF1_RAW_LEGACY_PATHS,
     ISLAND_SCREENER_PATH,
     DATA_DIR,
+    REPO_ROOT,
 )
 
 
@@ -1310,6 +1311,34 @@ def build_subject_df(
             if 'sham_alpha' in subj_df.columns:
                 subj_df['delta_alpha'] = subj_df['active_alpha'] - subj_df['sham_alpha']
                 subj_df['delta_beta'] = subj_df['active_beta'] - subj_df['sham_beta']
+
+    # --- R-W parameters, hierarchical Bayesian ---
+    # Added *alongside* the MLE columns rather than replacing them. Two reasons:
+    # the defended analyses used MLE and must stay reproducible, and keeping
+    # both makes the difference between them auditable instead of invisible.
+    #
+    # The fit writes columns with the SAME names as the MLE block above
+    # (sham_alpha, active_alpha, ...), so merging it without renaming would
+    # silently overwrite them. Everything from the posterior is suffixed `_hb`.
+    #
+    # Why this matters more than a methodological preference: under MLE, 16/55
+    # subjects have sham_alpha and 19/55 have active_alpha pinned to a 0/1
+    # boundary; under the hierarchical fit, none do. Alpha still agrees between
+    # methods (r = .88 sham, .80 active), but inverse temperature does not --
+    # active_beta correlates at r = .013, effectively a different quantity, and
+    # delta_beta changes sign. Any analysis using beta should use the `_hb`
+    # columns and say so.
+    hb_path = REPO_ROOT / 'derivatives' / 'rl_models' / 'rw_within_all_subjects.csv'
+    if hb_path.exists():
+        hb = pd.read_csv(hb_path, dtype={'subject_id': str})
+        keep = [c for c in hb.columns if c != 'subject_id']
+        hb = hb.rename(columns={c: f'{c}_hb' for c in keep})
+        subj_df = subj_df.merge(hb, on='subject_id', how='left')
+        n_hb = subj_df['sham_alpha_hb'].notna().sum() if 'sham_alpha_hb' in subj_df else 0
+        if verbose:
+            print(f'  R-W (hierarchical): {n_hb} subjects, columns suffixed _hb')
+    elif verbose:
+        print(f'  R-W (hierarchical): no fit at {hb_path}; _hb columns absent')
 
     # --- Accuracy and win rate ---
     # Takes the subject x condition frame from
