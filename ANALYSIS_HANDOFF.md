@@ -367,6 +367,9 @@ The two agree at only r = +.40. The *age* effect replicates independently; the
 So the anatomical claim stands on its own and the dose claim does not. Report
 this as an anatomical contributor to variation in *simulated* dose.
 
+Reproduce with `python code/skull_circularity.py` (N = 58; bootstrap CI on the
+indirect effect, fixed seed; writes `derivatives/skull_circularity.csv`).
+
 **Do not interpret the outer/diploe/inner split.** QC images (`fig_qc_skull.py`)
 show diploe segmented as scattered islands rather than a continuous stratum, in
 FLAIR and T1-only subjects alike. Total skull is the trustworthy number.

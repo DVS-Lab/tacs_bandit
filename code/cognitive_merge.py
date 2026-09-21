@@ -981,6 +981,34 @@ def extract_demographics(redcap_tacs: pd.DataFrame) -> pd.DataFrame:
     demo = redcap_tacs[cols].copy()
     demo = demo.rename(columns=col_renames)
 
+    # --- Age fallback from date of birth ---------------------------------
+    # REDCap's `Age in years:` is a calculated field: (Today's Date - What is
+    # your birthdate?) / 365.25, exact for all 152 records that have it. When
+    # the self-report birthdate is blank the age is blank too, even if the
+    # record carries a birthdate elsewhere. That is the case for 11542, whose
+    # `Participant Date of Birth` (1963-09-20) agrees with both RF1 exports.
+    #
+    # The fallback uses the same formula against that field, so a recovered
+    # age is computed exactly like everyone else's. It only fires when the age
+    # is missing, and it rejects a "birthdate" under 18 years before the
+    # session: `Participant Date of Birth` has twice been filled with the
+    # session date itself (11433, jimmy-pilot).
+    #
+    # `age_source` records which path each value took.
+    demo['age'] = pd.to_numeric(demo['age'], errors='coerce')
+    demo['age_source'] = np.where(demo['age'].notna(), 'redcap_age', '')
+    need = ['Participant Date of Birth', "Today's Date"]
+    if all(c in redcap_tacs.columns for c in need):
+        dob = pd.to_datetime(redcap_tacs['Participant Date of Birth'],
+                             errors='coerce', format='%Y-%m-%d')
+        today = pd.to_datetime(redcap_tacs["Today's Date"],
+                               errors='coerce', format='%Y-%m-%d')
+        calc = (today - dob).dt.days / 365.25
+        fill = demo['age'].isna() & calc.notna() & (calc >= 18)
+        demo.loc[fill, 'age'] = calc[fill].round(2)
+        demo.loc[fill, 'age_source'] = 'dob_fallback'
+    demo['age_source'] = demo['age_source'].replace('', np.nan)
+
     return demo
 
 
