@@ -277,29 +277,22 @@ else:
 # ============================================================================
 
 # --- Reduced cognitive composite -------------------------------------------
-# Digit Span, BVMT and Trails A were collected only for participants aged 40+,
-# so a composite including them is unavailable for younger subjects. The
-# primary composite uses the five measures with near-complete coverage.
-reduced_measures = {
-    'Attention': ['flanker_score', 'running_dots_score'],
-    'Memory': ['hvlt_total'],
-    'Speed': ['salthouse_letter', 'salthouse_pattern'],
-}
-
-for domain, measures in reduced_measures.items():
-    for m in measures:
-        if m in subj.columns:
-            vals = subj[m].dropna()
-            if len(vals) > 1:
-                subj[f'{m}_z_reduced'] = (subj[m] - vals.mean()) / vals.std()
-
-subj['attention_reduced'] = subj[['flanker_score_z_reduced',
-                                  'running_dots_score_z_reduced']].mean(axis=1)
-subj['memory_reduced'] = subj[['hvlt_total_z_reduced']].mean(axis=1)
-subj['speed_reduced'] = subj[['salthouse_letter_z_reduced',
-                              'salthouse_pattern_z_reduced']].mean(axis=1)
-subj['global_reduced'] = subj[['attention_reduced', 'memory_reduced',
-                               'speed_reduced']].mean(axis=1)
+# The primary composite now comes from the master CSV (`global_reduced`,
+# built in cognitive_merge.compute_cognitive_composites) rather than being
+# recomputed here, so the notebook and the standalone analysis scripts cannot
+# drift apart on the definition.
+#
+# The gate is age ~56, not 40 as this comment previously said: Digit Span,
+# BVMT and Trails reach 24-28 of the 29 subjects aged 56+, and exactly 1 of
+# the 36 below it.
+# Fail loudly rather than silently falling back to the legacy composite: a
+# missing column here would otherwise send every downstream model back to the
+# age-confounded `global_composite` with no visible change.
+if 'global_reduced' not in subj.columns:
+    raise SystemExit(
+        "global_reduced is missing from the master CSV. Rebuild it with\n"
+        "    python build_master_data.py\n"
+        "before running this notebook.")
 
 COG_COMPOSITE = 'global_reduced'
 

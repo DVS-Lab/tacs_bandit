@@ -24,6 +24,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from config import (
+    COG_COMPOSITE,
     AGE_MIN,
     AGE_MAX,
     AGE_COLORSCALE,
@@ -180,7 +181,7 @@ def test_h1_1(
     results = {}
     
     # H1.1a: p(stay|win) ~ global_composite + age + education
-    predictors = ['global_composite', 'age', 'education_years']
+    predictors = [COG_COMPOSITE, 'age', 'education_years']
     h1_1a = run_ols('sham_p_stay_win', predictors, subj_df, verbose=verbose,
                     model_label='H1.1a: p(stay|win) ~ Global Cog + Age + Education')
     results['h1_1a'] = h1_1a
@@ -195,7 +196,7 @@ def test_h1_1(
         print('\nBivariate correlations:')
         for dv in ['sham_p_stay_win', 'sham_p_shift_lose']:
             if dv in subj_df.columns:
-                compute_bivariate_correlation('global_composite', dv, subj_df)
+                compute_bivariate_correlation(COG_COMPOSITE, dv, subj_df)
     
     return results
 
@@ -241,7 +242,7 @@ def test_h1_2(
     results = {}
     
     # H1.2a: p(stay|win) ~ SR + global_composite + age + education
-    predictors_a = ['spsrq_sr', 'global_composite', 'age', 'education_years']
+    predictors_a = ['spsrq_sr', COG_COMPOSITE, 'age', 'education_years']
     h1_2a = run_ols('sham_p_stay_win', predictors_a, subj_df, verbose=verbose,
                     model_label='H1.2a: p(stay|win) ~ SPSRQ-SR + Global Cog + Age + Education')
     results['h1_2a'] = h1_2a
@@ -256,7 +257,7 @@ def test_h1_2(
             print(f'  SR unique contribution: p = {sr_p:.4f}')
     
     # H1.2b: p(shift|lose) ~ SP + global_composite + age + education
-    predictors_b = ['spsrq_sp', 'global_composite', 'age', 'education_years']
+    predictors_b = ['spsrq_sp', COG_COMPOSITE, 'age', 'education_years']
     h1_2b = run_ols('sham_p_shift_lose', predictors_b, subj_df, verbose=verbose,
                     model_label='H1.2b: p(shift|lose) ~ SPSRQ-SP + Global Cog + Age + Education')
     results['h1_2b'] = h1_2b
@@ -276,7 +277,7 @@ def test_h1_2(
         print('Complementary: Task-derived β as sensitivity measure')
         print('-'*50)
     
-    predictors_beta = ['sham_beta', 'global_composite', 'age', 'education_years']
+    predictors_beta = ['sham_beta', COG_COMPOSITE, 'age', 'education_years']
     run_ols('sham_p_stay_win', predictors_beta, subj_df, verbose=verbose,
             model_label='p(stay|win) ~ β + Global Cog + Age + Education')
     run_ols('sham_p_shift_lose', predictors_beta, subj_df, verbose=verbose,
@@ -504,13 +505,13 @@ def test_h1_age_interactions(
         print('\n--- Global Cognition × Age → Baseline WSLS ---')
 
     results['cog_x_age_stay'] = run_ols_with_interaction(
-        dv='sham_p_stay_win', predictor='global_composite', moderator='age',
+        dv='sham_p_stay_win', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         verbose=verbose,
         model_label='p(stay|win) ~ Global Cog × Age + Education')
 
     results['cog_x_age_shift'] = run_ols_with_interaction(
-        dv='sham_p_shift_lose', predictor='global_composite', moderator='age',
+        dv='sham_p_shift_lose', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         verbose=verbose,
         model_label='p(shift|lose) ~ Global Cog × Age + Education')
@@ -521,13 +522,13 @@ def test_h1_age_interactions(
 
     results['sr_x_age_stay'] = run_ols_with_interaction(
         dv='sham_p_stay_win', predictor='spsrq_sr', moderator='age',
-        data=subj_df, covariates=['global_composite', 'education_years'],
+        data=subj_df, covariates=[COG_COMPOSITE, 'education_years'],
         verbose=verbose,
         model_label='p(stay|win) ~ SPSRQ-SR × Age + Global Cog + Education')
 
     results['sp_x_age_shift'] = run_ols_with_interaction(
         dv='sham_p_shift_lose', predictor='spsrq_sp', moderator='age',
-        data=subj_df, covariates=['global_composite', 'education_years'],
+        data=subj_df, covariates=[COG_COMPOSITE, 'education_years'],
         verbose=verbose,
         model_label='p(shift|lose) ~ SPSRQ-SP × Age + Global Cog + Education')
 
@@ -536,13 +537,13 @@ def test_h1_age_interactions(
         print('\n--- Global Cognition × Age → Baseline RW Parameters ---')
 
     results['cog_x_age_alpha'] = run_ols_with_interaction(
-        dv='sham_alpha', predictor='global_composite', moderator='age',
+        dv='sham_alpha', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         verbose=verbose,
         model_label='α ~ Global Cog × Age + Education')
 
     results['cog_x_age_beta'] = run_ols_with_interaction(
-        dv='sham_beta', predictor='global_composite', moderator='age',
+        dv='sham_beta', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         verbose=verbose,
         model_label='β ~ Global Cog × Age + Education')
@@ -857,7 +858,7 @@ def test_h2_2(
         print()
     
     results = {}
-    predictors = ['age', 'global_composite']
+    predictors = ['age', COG_COMPOSITE]
     
     dvs = [
         ('delta_p_stay_win', 'Δ p(stay|win)'),
@@ -998,7 +999,7 @@ def test_theta_moderation(
     if verbose:
         print('\n--- Regression: Change Scores ~ θ_p95 + Age + Global Cog ---')
     
-    predictors = ['theta_p95', 'age', 'global_composite']
+    predictors = ['theta_p95', 'age', COG_COMPOSITE]
     
     for var, label in change_vars:
         if var not in subj_df.columns:
@@ -1050,7 +1051,7 @@ def test_theta_baseline_predictors(
         return results
     
     # Model: baseline DV ~ theta_p95 + global_composite + age
-    predictors = ['theta_p95', 'global_composite', 'age']
+    predictors = ['theta_p95', COG_COMPOSITE, 'age']
     
     dvs = [
         ('sham_p_stay_win', 'p(stay|win)'),
@@ -1085,12 +1086,12 @@ def plot_h1_1_scatter(
     ]
     
     for col, (dv, ylabel, ylim) in enumerate(plot_specs, start=1):
-        df_plot = subj_df[['subject_id', 'global_composite', dv, 'age']].dropna()
+        df_plot = subj_df[['subject_id', COG_COMPOSITE, dv, 'age']].dropna()
         
         if len(df_plot) >= 3:
             # Scatter points
             fig.add_trace(go.Scatter(
-                x=df_plot['global_composite'],
+                x=df_plot[COG_COMPOSITE],
                 y=df_plot[dv],
                 mode='markers',
                 marker=dict(size=11, opacity=0.8,
@@ -1098,14 +1099,14 @@ def plot_h1_1_scatter(
                             line=dict(width=0.5, color='white')),
                 text=[f'sub-{s}<br>Age: {a:.0f}<br>Cog: {c:.2f}<br>{ylabel}: {y:.3f}'
                       for s, a, c, y in zip(df_plot['subject_id'], df_plot['age'],
-                                            df_plot['global_composite'], df_plot[dv])],
+                                            df_plot[COG_COMPOSITE], df_plot[dv])],
                 hoverinfo='text',
                 showlegend=False,
             ), row=1, col=col)
             
             # Regression line
-            slope, intercept, r, p, se = stats.linregress(df_plot['global_composite'], df_plot[dv])
-            x_line = np.linspace(df_plot['global_composite'].min(), df_plot['global_composite'].max(), 100)
+            slope, intercept, r, p, se = stats.linregress(df_plot[COG_COMPOSITE], df_plot[dv])
+            x_line = np.linspace(df_plot[COG_COMPOSITE].min(), df_plot[COG_COMPOSITE].max(), 100)
             y_line = intercept + slope * x_line
             
             fig.add_trace(go.Scatter(
@@ -1307,12 +1308,12 @@ def run_hypothesis_tests(
             if res is not None and res['interaction_p'] < 0.10:
                 # Parse the DV and predictor from the key name
                 dv_map = {
-                    'cog_x_age_stay': ('sham_p_stay_win', 'global_composite', 'p(stay|win)', 'Global Cognition'),
-                    'cog_x_age_shift': ('sham_p_shift_lose', 'global_composite', 'p(shift|lose)', 'Global Cognition'),
+                    'cog_x_age_stay': ('sham_p_stay_win', COG_COMPOSITE, 'p(stay|win)', 'Global Cognition'),
+                    'cog_x_age_shift': ('sham_p_shift_lose', COG_COMPOSITE, 'p(shift|lose)', 'Global Cognition'),
                     'sr_x_age_stay': ('sham_p_stay_win', 'spsrq_sr', 'p(stay|win)', 'SPSRQ-SR'),
                     'sp_x_age_shift': ('sham_p_shift_lose', 'spsrq_sp', 'p(shift|lose)', 'SPSRQ-SP'),
-                    'cog_x_age_alpha': ('sham_alpha', 'global_composite', 'α (learning rate)', 'Global Cognition'),
-                    'cog_x_age_beta': ('sham_beta', 'global_composite', 'β (inv. temperature)', 'Global Cognition'),
+                    'cog_x_age_alpha': ('sham_alpha', COG_COMPOSITE, 'α (learning rate)', 'Global Cognition'),
+                    'cog_x_age_beta': ('sham_beta', COG_COMPOSITE, 'β (inv. temperature)', 'Global Cognition'),
                 }
                 if key in dv_map:
                     dv, pred, dv_label, pred_label = dv_map[key]

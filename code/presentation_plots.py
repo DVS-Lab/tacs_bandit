@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from config import AGE_MIN, AGE_MAX
+from config import COG_COMPOSITE
 
 
 # =============================================================================
@@ -605,7 +606,7 @@ def generate_all_figures(
     # Plot 1: Cognition × Age → p(shift|lose)
     print('\nPlot 1: Cognition × Age → p(shift|lose)')
     plot_jn(
-        dv='sham_p_shift_lose', predictor='global_composite', moderator='age',
+        dv='sham_p_shift_lose', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         dv_label='p(shift|lose)', predictor_label='Global Cognition',
         moderator_label='Age',
@@ -617,7 +618,7 @@ def generate_all_figures(
     # Plot 1b: Cognition × Age → α
     print('\nPlot 1b: Cognition × Age → α (learning rate)')
     plot_jn(
-        dv='sham_alpha', predictor='global_composite', moderator='age',
+        dv='sham_alpha', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         dv_label='α (Learning Rate)', predictor_label='Global Cognition',
         moderator_label='Age',
@@ -629,7 +630,7 @@ def generate_all_figures(
     # Plot 1c: Cognition × Age → β
     print('\nPlot 1c: Cognition × Age → β (inv. temperature)')
     plot_jn(
-        dv='sham_beta', predictor='global_composite', moderator='age',
+        dv='sham_beta', predictor=COG_COMPOSITE, moderator='age',
         data=subj_df, covariates=['education_years'],
         dv_label='β (Inv. Temperature)', predictor_label='Global Cognition',
         moderator_label='Age',

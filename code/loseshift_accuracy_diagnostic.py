@@ -8,6 +8,7 @@ Run after subj_df is assembled in the notebook.
 import pandas as pd
 import numpy as np
 from scipy import stats
+from config import COG_COMPOSITE
 
 def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
     """
@@ -19,7 +20,7 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
     """
     df = subj_df.copy()
     for col in ['age', 'sham_p_shift_lose', 'sham_accuracy', 'sham_win_rate',
-                'global_composite', 'sham_p_stay_win']:
+                COG_COMPOSITE, 'sham_p_stay_win']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -61,17 +62,17 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
     print(f'{"─" * 50}')
 
     for label, group in [('Young', young), ('Older', old)]:
-        valid = group.dropna(subset=['global_composite'])
+        valid = group.dropna(subset=[COG_COMPOSITE])
         if len(valid) < 4:
             print(f'\n  {label}: insufficient data')
             continue
-        r, p = stats.pearsonr(valid['global_composite'], valid['sham_accuracy'])
+        r, p = stats.pearsonr(valid[COG_COMPOSITE], valid['sham_accuracy'])
         print(f'\n  {label} (n={len(valid)}):')
         print(f'    r(cognition, accuracy) = {r:+.3f}, p = {p:.4f}')
 
         # Cognition × win rate
         if 'sham_win_rate' in valid.columns:
-            r_wr, p_wr = stats.pearsonr(valid['global_composite'], valid['sham_win_rate'])
+            r_wr, p_wr = stats.pearsonr(valid[COG_COMPOSITE], valid['sham_win_rate'])
             print(f'    r(cognition, win_rate) = {r_wr:+.3f}, p = {p_wr:.4f}')
 
     # ── Test 3: Cognition × Lose-shift within each group (replicating J-N) ──
@@ -80,11 +81,11 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
     print(f'{"─" * 50}')
 
     for label, group in [('Young', young), ('Older', old)]:
-        valid = group.dropna(subset=['global_composite'])
+        valid = group.dropna(subset=[COG_COMPOSITE])
         if len(valid) < 4:
             print(f'\n  {label}: insufficient data')
             continue
-        r, p = stats.pearsonr(valid['global_composite'], valid['sham_p_shift_lose'])
+        r, p = stats.pearsonr(valid[COG_COMPOSITE], valid['sham_p_shift_lose'])
         print(f'\n  {label} (n={len(valid)}):')
         print(f'    r(cognition, shift) = {r:+.3f}, p = {p:.4f}')
 
@@ -97,7 +98,7 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
                        ('sham_accuracy', 'Accuracy'),
                        ('sham_win_rate', 'Win Rate'),
                        ('sham_p_stay_win', 'p(stay|win)'),
-                       ('global_composite', 'Global Cognition')]:
+                       (COG_COMPOSITE, 'Global Cognition')]:
         if var not in df.columns:
             continue
         y_vals = young[var].dropna()
@@ -116,7 +117,7 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
     print(f'{"─" * 50}')
 
     for label, group in [('Young', young), ('Older', old)]:
-        valid = group.dropna(subset=['global_composite', 'sham_accuracy', 'sham_p_shift_lose'])
+        valid = group.dropna(subset=[COG_COMPOSITE, 'sham_accuracy', 'sham_p_shift_lose'])
         if len(valid) < 5:
             print(f'\n  {label}: insufficient data')
             continue
@@ -124,9 +125,9 @@ def diagnose_young_loseshift_accuracy(subj_df, age_cutoff=33.1):
         # Partial correlation: cognition × accuracy | lose-shift
         # Residualize both on lose-shift
         from scipy.stats import linregress
-        _, _, _, _, _ = linregress(valid['sham_p_shift_lose'], valid['global_composite'])
-        resid_cog = valid['global_composite'] - (linregress(valid['sham_p_shift_lose'], valid['global_composite']).intercept +
-                     linregress(valid['sham_p_shift_lose'], valid['global_composite']).slope * valid['sham_p_shift_lose'])
+        _, _, _, _, _ = linregress(valid['sham_p_shift_lose'], valid[COG_COMPOSITE])
+        resid_cog = valid[COG_COMPOSITE] - (linregress(valid['sham_p_shift_lose'], valid[COG_COMPOSITE]).intercept +
+                     linregress(valid['sham_p_shift_lose'], valid[COG_COMPOSITE]).slope * valid['sham_p_shift_lose'])
         resid_acc = valid['sham_accuracy'] - (linregress(valid['sham_p_shift_lose'], valid['sham_accuracy']).intercept +
                      linregress(valid['sham_p_shift_lose'], valid['sham_accuracy']).slope * valid['sham_p_shift_lose'])
 

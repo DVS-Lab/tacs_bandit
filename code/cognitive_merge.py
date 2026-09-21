@@ -142,12 +142,12 @@ def load_rf1_extended(
         'MSPSS Friends Sub-Scale': 'mspss_friends',
         'MSPSS Family Sub-Scale': 'mspss_family',
         'MSPSS Significant Other Sub-Scale': 'mspss_significant_other',
-        # Aggression (BPAQ)
-        'BPAQ Total Score (Sum) ': 'bpaq_total',
-        'BPAQ Physical Subscale (Sum) ': 'bpaq_physical',
-        'BPAQ Anger Subscale (Sum) ': 'bpaq_anger',
-        'BPAQ Verbal Subscale (Sum)': 'bpaq_verbal',
-        'BPAQ Hostility Subscale (Sum)': 'bpaq_hostility',
+        # BPAQ (aggression) is deliberately absent. The columns exist in both
+        # RF1 exports under these exact labels, so the mapping was correct --
+        # they are simply empty at source: 1 non-null row of 369 in the scored
+        # file, 3 of 3221 in the raw, and those carry parent-study IDs. The
+        # instrument was never administered to this sample. Mapping it back in
+        # would recreate five all-NaN columns that look mergeable.
     }
 
     cols_present = ['subject_id'] + [c for c in col_map.keys() if c in rf1.columns]
@@ -1015,13 +1015,15 @@ def compute_cognitive_composites(
         on='subject_id', how='left'
     )
     cog = cog.merge(
-        tabcat[['subject_id', 'flanker_score', 'running_dots_score']],
+        tabcat[['subject_id', 'flanker_score', 'running_dots_score',
+                'set_shifting_score']],
         on='subject_id', how='left'
     )
 
     # Z-transform
     measures_to_z = [
         'digit_span_total', 'running_dots_score', 'flanker_score',
+        'set_shifting_score',
         'hvlt_total', 'bvmt_total',
         'salthouse_letter', 'salthouse_pattern', 'trails_a_time', 'trails_b_time',
     ]
@@ -1065,6 +1067,52 @@ def compute_cognitive_composites(
     domain_cols = ['attention_composite', 'memory_composite', 'speed_composite']
     cog['global_composite'] = cog[domain_cols].mean(axis=1)
     cog['global_n_domains'] = cog[domain_cols].notna().sum(axis=1)
+
+    # --- Uniform composite ------------------------------------------------
+    # The composites above average whatever measures a subject happens to
+    # have. That is not one variable: Digit Span, BVMT and Trails were
+    # administered only from about age 56 on (24-28 of the 29 subjects aged
+    # 56+, versus 1 of the 36 below it), so an older subject's domain score is
+    # a mean of two z-scores where a younger subject's is a single z-score.
+    # A mean of two z-scores is mechanically less variable than one, and that
+    # variance difference tracks age at r = +.90 for memory, +.73 for speed.
+    # Putting that in `delta ~ age + global_composite` gives the covariate an
+    # age-dependent measurement artefact.
+    #
+    # Note the confound is *within* domains, not across them: the number of
+    # domains a subject contributes is unrelated to age (r = -.02). Only the
+    # number of measures inside each domain is.
+    #
+    # So this family uses the same measures for everyone -- the five with
+    # near-complete coverage, plus Set Shifting, which was parsed all along
+    # but dropped at the merge above and is present for 63 of 66. Six of the
+    # nine subjects missing Running Dots have it.
+    #
+    # The legacy `*_composite` columns are left exactly as they were: the
+    # defended analyses used them and must stay reproducible. Use
+    # `global_reduced` for new work and say which one a result came from.
+    REDUCED = {
+        'attention': ['flanker_score', 'running_dots_score', 'set_shifting_score'],
+        'memory':    ['hvlt_total'],
+        'speed':     ['salthouse_letter', 'salthouse_pattern'],
+    }
+    dom_cols = []
+    for domain, measures in REDUCED.items():
+        zs = [z_cols[m] for m in measures if m in z_cols and z_cols[m] in cog.columns]
+        if not zs:
+            cog[f'{domain}_reduced'] = np.nan
+            cog[f'{domain}_reduced_n'] = 0
+            continue
+        cog[f'{domain}_reduced'] = cog[zs].mean(axis=1)
+        cog[f'{domain}_reduced_n'] = cog[zs].notna().sum(axis=1)
+        dom_cols.append(f'{domain}_reduced')
+
+    cog['global_reduced'] = cog[dom_cols].mean(axis=1) if dom_cols else np.nan
+    # Total inputs behind each subject's score, so any analysis can condition
+    # on completeness instead of assuming it.
+    all_reduced_z = [z_cols[m] for ms in REDUCED.values() for m in ms
+                     if m in z_cols and z_cols[m] in cog.columns]
+    cog['global_reduced_n'] = cog[all_reduced_z].notna().sum(axis=1)
 
     # Executive Function
     if 'trails_b_time' in cog.columns and 'trails_a_time' in cog.columns:
@@ -1210,13 +1258,18 @@ def build_subject_df(
                 'memory_composite', 'memory_n_measures',
                 'speed_composite', 'speed_n_measures',
                 'global_composite', 'global_n_domains',
-                'ef_composite', 'ef_n_measures']
+                'ef_composite', 'ef_n_measures',
+                # Uniform family: same measures for every subject.
+                'attention_reduced', 'attention_reduced_n',
+                'memory_reduced', 'memory_reduced_n',
+                'speed_reduced', 'speed_reduced_n',
+                'global_reduced', 'global_reduced_n']
     subj_df = subj_df.merge(cog[cog_cols], on='subject_id', how='left')
 
     # --- Raw cognitive scores ---
     cog_raw_cols = ['subject_id', 'hvlt_total', 'salthouse_letter', 'salthouse_pattern',
                     'digit_span_total', 'bvmt_total', 'trails_a_time', 'trails_b_time',
-                    'flanker_score', 'running_dots_score']
+                    'flanker_score', 'running_dots_score', 'set_shifting_score']
     cog_raw_cols = [c for c in cog_raw_cols if c in cog.columns]
     subj_df = subj_df.merge(cog[cog_raw_cols], on='subject_id', how='left')
 
@@ -1544,11 +1597,6 @@ def run_missing_data_audit(
             ('EROS Int Worsening', 'eros_int_worsening'),
         ],
         'Aggression (BPAQ)': [
-            ('BPAQ Total', 'bpaq_total'),
-            ('BPAQ Physical', 'bpaq_physical'),
-            ('BPAQ Anger', 'bpaq_anger'),
-            ('BPAQ Verbal', 'bpaq_verbal'),
-            ('BPAQ Hostility', 'bpaq_hostility'),
         ],
         'Behavioral Parameters (Sham)': [
             ('p(stay|win)', 'sham_p_stay_win'),

@@ -12,6 +12,7 @@ from typing import Optional, Dict, List, Tuple
 import plotly.graph_objects as go
 
 from config import (
+    COG_COMPOSITE,
     PLOTLY_TEMPLATE,
     FONT_FAMILY,
 )
@@ -24,7 +25,7 @@ from config import (
 # Primary: pre-registered variables
 PRIMARY_VARS = [
     ('age', 'Age'),
-    ('global_composite', 'Global Cog.'),
+    (COG_COMPOSITE, 'Global Cog.'),
     ('attention_composite', 'Attention'),
     ('memory_composite', 'Ep. Memory'),
     ('speed_composite', 'Proc. Speed'),

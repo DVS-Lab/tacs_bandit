@@ -27,6 +27,7 @@ from plotly.subplots import make_subplots
 import warnings
 
 from config import (
+    COG_COMPOSITE,
     AGE_MIN,
     AGE_MAX,
     AGE_COLORSCALE,
@@ -116,7 +117,7 @@ SURVEY_GROUPS = {
         # itf not currently exported to master CSV
     },
     'Objective Cognition': {
-        'global_composite': 'Global Cognition',
+        COG_COMPOSITE: 'Global Cognition',
         'attention_composite': 'Attention',
         'memory_composite': 'Memory',
         'speed_composite': 'Processing Speed',
@@ -129,8 +130,9 @@ SURVEY_GROUPS = {
 # with each other (within-group correlations are trivial/redundant).
 REDUNDANCY_GROUPS = [
     # Cognitive composites share items/variance
-    {'global_composite', 'attention_composite', 'memory_composite',
-     'speed_composite', 'ef_composite'},
+    {COG_COMPOSITE, 'global_reduced', 'attention_composite',
+     'attention_reduced', 'memory_composite', 'memory_reduced',
+     'speed_composite', 'speed_reduced', 'ef_composite'},
     # Theta reactivity quantiles are the same measure at different percentiles
     {'theta_p95', 'theta_p75', 'theta_median'},
     # SCAARED subscales sum to total
@@ -199,7 +201,7 @@ BASELINE_DVS = {
     'theta_median': 'θ Reactivity (median)',
     'efield_mean_magnE': 'E-field Strength',
     # Cognitive (as DVs for survey-cognition relationships)
-    'global_composite': 'Global Cognition',
+    COG_COMPOSITE: 'Global Cognition',
     'attention_composite': 'Attention',
     'memory_composite': 'Memory',
     'speed_composite': 'Processing Speed',
@@ -587,7 +589,7 @@ def regression_followup(
     Returns dict of {(survey_var, dv_var): regression_result}
     """
     if covariates is None:
-        covariates = ['age', 'global_composite']
+        covariates = ['age', COG_COMPOSITE]
 
     sig = corr_df[corr_df['significant_uncorrected']].copy()
     if len(sig) == 0:
@@ -865,7 +867,7 @@ def test_age_moderation_of_survey_effects(
 
         result = run_ols_with_interaction(
             dv=d_var, predictor=s_var, moderator='age',
-            data=subj_df, covariates=['global_composite'],
+            data=subj_df, covariates=[COG_COMPOSITE],
             verbose=verbose,
             model_label=f'{d_label} ~ {s_label} × Age + Global Cog'
         )

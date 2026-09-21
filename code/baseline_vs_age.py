@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
+from config import COG_COMPOSITE
 warnings.filterwarnings('ignore')
 
 try:
@@ -138,7 +139,7 @@ def run_horse_race(subj_df, delta_col, label, verbose=True):
             print(f'  statsmodels not available — skipping {label}')
         return None
 
-    required = [delta_col, 'age', 'baseline_accuracy', 'global_composite']
+    required = [delta_col, 'age', 'baseline_accuracy', COG_COMPOSITE]
     df = subj_df[['subject_id'] + required].dropna()
 
     if len(df) < 8:
@@ -151,17 +152,17 @@ def run_horse_race(subj_df, delta_col, label, verbose=True):
     results = {}
 
     # Model 1: age + cognition (preregistered H2.2)
-    m1 = _ols_summary(y, df[['age', 'global_composite']].astype(float),
+    m1 = _ols_summary(y, df[['age', COG_COMPOSITE]].astype(float),
                        f'M1: {label} ~ age + cog')
     results['age_only'] = m1
 
     # Model 2: baseline + cognition
-    m2 = _ols_summary(y, df[['baseline_accuracy', 'global_composite']].astype(float),
+    m2 = _ols_summary(y, df[['baseline_accuracy', COG_COMPOSITE]].astype(float),
                        f'M2: {label} ~ baseline + cog')
     results['baseline_only'] = m2
 
     # Model 3: full horse race
-    m3 = _ols_summary(y, df[['age', 'baseline_accuracy', 'global_composite']].astype(float),
+    m3 = _ols_summary(y, df[['age', 'baseline_accuracy', COG_COMPOSITE]].astype(float),
                        f'M3: {label} ~ age + baseline + cog')
     results['horse_race'] = m3
 
@@ -505,7 +506,7 @@ def run_baseline_vs_age_analysis(
     biv_predictors = [
         ('age', 'Age'),
         ('baseline_accuracy', 'Baseline accuracy'),
-        ('global_composite', 'Global cognition'),
+        (COG_COMPOSITE, 'Global cognition'),
         ('sham_alpha', 'Sham α'),
         ('sham_beta', 'Sham β'),
     ]

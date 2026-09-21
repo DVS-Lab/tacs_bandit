@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
+from config import COG_COMPOSITE
 warnings.filterwarnings('ignore')
 
 try:
@@ -626,12 +627,12 @@ def _run_age_moderation_regression(subj_df, delta_col, label, verbose=True):
     except ImportError:
         return None
 
-    cols = ['age', 'global_composite', delta_col]
+    cols = ['age', COG_COMPOSITE, delta_col]
     df = subj_df[['subject_id'] + cols].dropna()
     if len(df) < 6:
         return None
 
-    X = sm.add_constant(df[['age', 'global_composite']])
+    X = sm.add_constant(df[['age', COG_COMPOSITE]])
     y = df[delta_col]
     model = sm.OLS(y, X).fit()
 
@@ -641,8 +642,8 @@ def _run_age_moderation_regression(subj_df, delta_col, label, verbose=True):
         'f_p': model.f_pvalue,
         'age_b': model.params['age'],
         'age_p': model.pvalues['age'],
-        'cog_b': model.params['global_composite'],
-        'cog_p': model.pvalues['global_composite'],
+        'cog_b': model.params[COG_COMPOSITE],
+        'cog_p': model.pvalues[COG_COMPOSITE],
         'n': len(df),
     }
 

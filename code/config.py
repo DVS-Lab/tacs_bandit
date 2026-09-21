@@ -405,6 +405,38 @@ def is_stim_excluded(subject_id: str, run: int) -> bool:
 
 
 # =============================================================================
+# Cognitive composite selection
+# =============================================================================
+
+# Which cognitive composite the analysis scripts use as their covariate.
+#
+#   'global_composite'  legacy. Averages whatever measures a subject has.
+#                       Digit Span, BVMT and Trails were administered only
+#                       from roughly age 56, so an older subject's domain
+#                       score is a mean of two z-scores where a younger
+#                       subject's is one. A mean of two z-scores is
+#                       mechanically less variable than a single one, and
+#                       that difference tracks age at r = +.90 for memory.
+#                       This is what the preregistered analyses were run on.
+#
+#   'global_reduced'    the same six measures for every subject. Memory input
+#                       count is now constant, speed r = +.05, attention
+#                       r = -.21 (both ns). Cronbach's alpha .79, converges
+#                       with KBIT IQ at r = +.47, and correlates with the
+#                       legacy composite at r = .96.
+#
+# Both columns are in the master CSV, so switching this re-runs any analysis
+# against either one. Leave it on the legacy value to reproduce the
+# preregistered results exactly; set it to 'global_reduced' for new work.
+# `compare_composites.py` runs the preregistered tests under both.
+COG_COMPOSITE = 'global_reduced'
+
+# The legacy name, for scripts that need to reference it explicitly (the
+# comparison runner, and any table reporting both).
+COG_COMPOSITE_LEGACY = 'global_composite'
+
+
+# =============================================================================
 # Validation (runs on import)
 # =============================================================================
 

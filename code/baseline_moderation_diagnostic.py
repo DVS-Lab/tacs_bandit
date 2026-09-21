@@ -17,6 +17,7 @@ from plotly.subplots import make_subplots
 import matplotlib.colors as mcolors
 
 from config import (
+    COG_COMPOSITE,
     AGE_MIN,
     AGE_MAX,
     AGE_COLORSCALE,
@@ -96,8 +97,8 @@ def test_convergence(subj_df, show_plots=True):
     # Global cognition as baseline
     print('\n  --- Using global cognition as baseline ---')
     cog_pairs = [
-        ('global_composite', 'delta_accuracy', 'Global Cognition', 'Δ Accuracy'),
-        ('global_composite', 'delta_win_rate', 'Global Cognition', 'Δ Win Rate'),
+        (COG_COMPOSITE, 'delta_accuracy', 'Global Cognition', 'Δ Accuracy'),
+        (COG_COMPOSITE, 'delta_win_rate', 'Global Cognition', 'Δ Win Rate'),
     ]
     for base_var, change_var, base_label, change_label in cog_pairs:
         if base_var not in df.columns or change_var not in df.columns:
@@ -116,7 +117,7 @@ def test_convergence(subj_df, show_plots=True):
             ('run1_accuracy', 'delta_accuracy', 'Run-1 Accuracy', 'Δ Accuracy'),
             ('run1_accuracy', 'delta_win_rate', 'Run-1 Accuracy', 'Δ Win Rate'),
             ('sham_accuracy', 'delta_accuracy', 'Sham Accuracy', 'Δ Accuracy'),
-            ('global_composite', 'delta_accuracy', 'Global Cognition', 'Δ Accuracy'),
+            (COG_COMPOSITE, 'delta_accuracy', 'Global Cognition', 'Δ Accuracy'),
         ]
         plot_pairs = [(b, c, bl, cl) for b, c, bl, cl in plot_pairs
                       if b in df.columns and c in df.columns]
