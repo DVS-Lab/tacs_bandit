@@ -278,6 +278,12 @@ def render_md(reg: pd.DataFrame, errors, warnings, unused) -> str:
     L.append('')
     L.append(f'Cognitive composite in use: `COG_COMPOSITE = {COG_COMPOSITE!r}` (config.py).\n')
 
+    L.append('## Analysis samples\n')
+    L.append('Defined in `code/samples.py`; `python code/samples.py` checks them. '
+             'Every analysis uses one by name.\n')
+    import samples
+    L.append(samples.table_markdown() + '\n')
+
     L.append('## How to read the missingness columns\n')
     L.append('*Declared* is the reason given in the spec. *Detected* is computed: presence is '
              'scored against age and against subject-ID order (a proxy for enrollment date) '

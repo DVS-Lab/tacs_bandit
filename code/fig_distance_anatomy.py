@@ -42,6 +42,7 @@ import pandas as pd
 from scipy.ndimage import map_coordinates
 
 from config import REPO_ROOT, EFIELD_CSV_PATH
+from samples import assert_sample
 from paper_style import (WIDTH_2COL, FONT_AXIS_TITLE, FONT_TICK,
                          FONT_PANEL_LABEL)
 
@@ -68,6 +69,9 @@ def load_subjects() -> Tuple[pd.DataFrame, float, float]:
     d = d.dropna(subset=['age', DIST])
     if 't1_only' in d.columns:
         d = d[~d['t1_only'].astype(bool)]
+    # The analysis sample is defined once, in samples.py. Stop if this
+    # filter ever selects a different set of subjects.
+    assert_sample(d['subject_id'], 'Dose')
     lo, hi = d['age'].quantile([1 / 3, 2 / 3])
     return d.reset_index(drop=True), float(lo), float(hi)
 

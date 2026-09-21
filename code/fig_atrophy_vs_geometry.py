@@ -58,6 +58,7 @@ from scipy import stats
 from scipy.ndimage import distance_transform_edt
 
 from config import REPO_ROOT, EFIELD_CSV_PATH, FREESURFER_MORPH_PATH
+from samples import assert_sample
 from paper_style import (WIDTH_2COL, FONT_AXIS_TITLE, FONT_TICK,
                          FONT_PANEL_LABEL, REGRESSION_COLOR)
 from fig_distance_anatomy import M2M_DIR
@@ -102,6 +103,9 @@ def load():
                      ('brainseg_not_vent', 'brain_n'),
                      ('ventricle_choroid_vol', 'vent_n'), ('csf_charm', 'csf_n')]:
         d[out] = d[src] / d['icv_charm']
+    # The analysis sample is defined once, in samples.py. Stop if this
+    # filter ever selects a different set of subjects.
+    assert_sample(d['subject_id'], 'Dose')
     return d.reset_index(drop=True)
 
 

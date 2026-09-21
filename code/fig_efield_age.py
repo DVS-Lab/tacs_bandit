@@ -64,6 +64,7 @@ import pandas as pd
 from scipy import stats
 
 from config import REPO_ROOT, EFIELD_CSV_PATH
+from samples import assert_sample
 
 SIMNIBS_DIR = Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' / 'simNIBS'
 OVERLAY_DIR = SIMNIBS_DIR / 'fsavg_overlays'
@@ -89,6 +90,9 @@ def load_subject_data() -> pd.DataFrame:
     d = d.dropna(subset=['age', 'mean_magnE'])
     if 't1_only' in d.columns:
         d = d[~d['t1_only'].astype(bool)]
+    # The analysis sample is defined once, in samples.py. Stop if this
+    # filter ever selects a different set of subjects.
+    assert_sample(d['subject_id'], 'Dose')
     return d.reset_index(drop=True)
 
 

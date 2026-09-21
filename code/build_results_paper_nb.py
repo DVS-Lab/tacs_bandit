@@ -213,6 +213,20 @@ print(f'  subject-level : {len(subj)} subjects x {len(subj.columns)} variables')
 print(f'  trial-level   : {len(trials)} clean trials, '
       f'{trials["subject_id"].nunique()} subjects')
 print(f'  H2-eligible   : {len(h2_eligible)} subjects')
+
+# Analysis samples are defined once, in samples.py (H1, H2, Dose, Dose_H2),
+# and every section below uses one by name. On the full sample, confirm the
+# notebook's own exclusion logic selects exactly those subjects -- and stop
+# if a sample's N has moved or a required variable has gaps.
+if SAMPLE == 'all':
+    import samples
+    samples.assert_sample(h2_eligible, 'H2')
+    samples.assert_sample(
+        subj.loc[subj['sham_p_stay_win'].notna() & subj['age'].notna(), 'subject_id'], 'H1')
+    print()
+    _problems = samples.check()
+    if _problems:
+        raise SystemExit('Sample check failed -- see above.')
 """),
         code("""
 # ============================================================================
@@ -290,8 +304,8 @@ else:
 # age-confounded `global_composite` with no visible change.
 if 'global_reduced' not in subj.columns:
     raise SystemExit(
-        "global_reduced is missing from the master CSV. Rebuild it with\n"
-        "    python build_master_data.py\n"
+        "global_reduced is missing from the master CSV. Rebuild it with\\n"
+        "    python build_master_data.py\\n"
         "before running this notebook.")
 
 COG_COMPOSITE = 'global_reduced'
@@ -1022,13 +1036,18 @@ Modelled field strength in the DLPFC ROI, from the SimNIBS pipeline
 (`DVS-Lab/tacs_bandit_simnibs`). It lives in its own CSV rather than the
 master table.
 
-**Seven subjects are excluded from the primary analysis.** Their head models
-were built from a T1 alone, with no FLAIR, and their field estimates are
-systematically ~28% lower (p = .013 controlling for age) because skull
-segmentation degrades without one. That bias runs in the same direction as
-the hypothesis, so including them would inflate the effect. The all-subjects
-result is printed alongside as a sensitivity check, and `fig_efield_age.py`
-applies the same exclusion — the two must agree.
+**Samples.** Field x age uses the **Dose** sample (FLAIR head model and age,
+N = 59) -- the question needs no behaviour, so it includes everyone with a
+usable head model. Field as a moderator of the stimulation response uses
+**Dose_H2** (N = 50). Both are defined in `samples.py`, as are the figures'.
+
+**Seven T1-only head models are excluded.** They were built without a FLAIR,
+and their field estimates are systematically lower -- 28% in raw means, 26%
+age-adjusted (p = .013) -- in the same direction as the hypothesis. The
+reason is *not* skull segmentation, as was first assumed: controlling for age
+and sex they do not differ on any skull measure (p = .63), but they do on CSF
+(p = .022) and field (p = .019). The all-head-model result is printed as a
+sensitivity check.
 
 Note that "converted" and "T1-only" are perfectly confounded in this sample,
 so the exclusion cannot be separated from whatever else differs about those
@@ -1045,22 +1064,21 @@ efield_path = EFIELD_CSV_PATH   # single config-driven path
 if not efield_path.exists():
     print(f'No e-field summary at {efield_path}; skipping.')
 else:
-    efield_all = pd.read_csv(efield_path, dtype={'subject_id': str})
-    efield_all = efield_all.merge(
-        subj[['subject_id', 'age'] +
-             [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]],
-        on='subject_id', how='inner')
-
-    # Primary sample: drop the T1-only head models (see markdown above). Fail
-    # loudly rather than silently analysing the wrong sample if an older
-    # extract without the flag is ever swapped in.
-    if 't1_only' not in efield_all.columns:
-        raise KeyError(
-            f'{efield_path} has no t1_only column -- it is a stale extract. '
-            'Re-run scripts/extract_efield_roi.py from the simnibs project.')
-    efield = efield_all[~efield_all['t1_only'].astype(bool)].copy()
-    print(f'E-field data: {len(efield_all)} subjects overlap the current sample; '
-          f'{len(efield)} after dropping {int(efield_all.t1_only.sum())} T1-only')
+    # Everyone with a head model and age -- not only people with behaviour,
+    # since field x age needs no behaviour. The T1-only models are kept here
+    # only for the sensitivity check below.
+    import samples
+    _joined = samples.load()
+    efield_all = _joined[_joined['t1_only'].notna() & _joined['age'].notna()].copy()
+    if SAMPLE == 'all':
+        efield = samples.frame('Dose', _joined)
+    else:
+        # Reproduction run: restrict to that sample's subjects, same rule.
+        efield = efield_all[efield_all['t1_only'].eq(False)
+                            & efield_all['subject_id'].isin(subj['subject_id'])].copy()
+    print(f'E-field: Dose sample N = {len(efield)} (FLAIR head model + age); '
+          f'{len(efield_all)} with any head model, '
+          f'{int(efield_all.t1_only.astype(bool).sum())} of them T1-only')
 
     def _age_field_r(frame, metric=EFIELD_METRIC):
         dd = frame[['age', metric]].apply(pd.to_numeric, errors='coerce').dropna()
@@ -1122,9 +1140,19 @@ else:
         print(f'    age x field | coverage: r = {r_pc:+.3f}, p = {p_pc:.3f} '
               f'(mediator, not a confound -- see markdown)')
 
-    # Does the modelled dose track the behavioural response?
-    for dv in [c for c in ['delta_ttc', 'delta_alpha'] if c in efield.columns]:
-        dd = efield[[EFIELD_METRIC, dv]].apply(pd.to_numeric, errors='coerce').dropna()
+    # Does the modelled dose track the behavioural response? That needs both
+    # a head model and both sessions: the Dose_H2 sample. Change scores come
+    # from `subj`, because delta_ttc is computed in this notebook (section 3)
+    # and is not in the master CSV.
+    _dvs = [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]
+    dose_h2 = efield[efield['subject_id'].isin(h2_eligible)].drop(
+        columns=[c for c in _dvs if c in efield.columns])
+    dose_h2 = dose_h2.merge(subj[['subject_id'] + _dvs], on='subject_id', how='left')
+    if SAMPLE == 'all':
+        samples.assert_sample(dose_h2['subject_id'], 'Dose_H2')
+    print(f'  field as a moderator: Dose_H2 sample N = {len(dose_h2)}')
+    for dv in _dvs:
+        dd = dose_h2[[EFIELD_METRIC, dv]].apply(pd.to_numeric, errors='coerce').dropna()
         if len(dd) > 4:
             r, p = stats.pearsonr(dd[EFIELD_METRIC], dd[dv])
             print(f'  field x {dv}: r = {r:+.3f}, p = {p:.3f}, N = {len(dd)}')
@@ -1435,7 +1463,17 @@ if subj_path.exists():
     hb_subj = pd.read_csv(subj_path, dtype={'subject_id': str})
     print(f'Subject-level posterior means: {len(hb_subj)} subjects\\n')
 
-    merged = subj.merge(hb_subj, on='subject_id', suffixes=('_mle', '_hb'))
+    # The master CSV already carries the posterior means as `*_hb` columns
+    # (merged in cognitive_merge from this same file), so only the MLE
+    # columns need a suffix. Merging the file again would collide with them.
+    params = ['sham_alpha', 'active_alpha', 'sham_beta', 'active_beta',
+              'delta_alpha', 'delta_beta']
+    if all(f'{p}_hb' in subj.columns for p in params):
+        merged = subj[subj['subject_id'].isin(hb_subj['subject_id'])].copy()
+        for p in params:
+            merged[f'{p}_mle'] = merged[p]
+    else:
+        merged = subj.merge(hb_subj, on='subject_id', suffixes=('_mle', '_hb'))
 
     # Both correlations, because Pearson is misleading for beta: the MLE fit
     # is bounded only at 50, so a couple of subjects land near that bound and

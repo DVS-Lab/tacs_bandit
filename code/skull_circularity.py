@@ -48,6 +48,7 @@ import statsmodels.api as sm
 from scipy import stats
 
 from config import REPO_ROOT, EFIELD_CSV_PATH
+from samples import assert_sample
 
 FIELD = 'mean_magnE'
 MEASURES = {
@@ -65,7 +66,11 @@ def load() -> pd.DataFrame:
     d = e.merge(m, on='subject_id', how='left')
     d['age'] = pd.to_numeric(d['age'], errors='coerce')
     d = d[~d['t1_only'].astype(bool)]
-    return d.dropna(subset=['age', FIELD, *MEASURES]).reset_index(drop=True)
+    d = d.dropna(subset=['age', FIELD, *MEASURES])
+    # The analysis sample is defined once, in samples.py. Stop if this
+    # filter ever selects a different set of subjects.
+    assert_sample(d['subject_id'], 'Dose')
+    return d.reset_index(drop=True)
 
 
 def paths(x: pd.DataFrame, m: str):

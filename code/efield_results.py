@@ -38,6 +38,7 @@ from scipy import stats
 
 from config import REPO_ROOT, FREESURFER_PARCELS_PATH
 import fig_atrophy_vs_geometry as fav
+from samples import assert_sample
 
 FIELD = 'mean_magnE'
 DIST = 'dist_pial_dlpfc_p1'
@@ -95,6 +96,9 @@ def load(exclude):
     allh = allh[~allh.subject_id.isin(exclude)].reset_index(drop=True)
     flair = f.load()
     flair = flair[~flair.subject_id.isin(exclude)].reset_index(drop=True)
+    if not exclude:
+        # The primary sample is defined in samples.py; stop if this one differs.
+        assert_sample(flair['subject_id'], 'Dose')
     return flair, allh
 
 

@@ -108,27 +108,50 @@ theta estimator covers the whole sample while the direct one does not.
 ## 3. Samples and how they are selected
 
 `config.DISSERTATION_SUBJECTS` is a frozen list of the 39 subjects in the
-defended dissertation. **Never modify it.** `config.SUBJECT_INFO` now holds 66.
+defended dissertation. **Never modify it.** `config.SUBJECT_INFO` holds 66.
 
-`load_all_subjects(sample=...)`:
+### From registration to analysis (full sample, as of 2026-09-21)
 
-| `sample` | Registered | Actually load |
+| stage | N | who drops out, and why |
 |---|---|---|
-| `'dissertation'` (default) | 39 | **38** |
-| `'all'` | 66 | **62** |
-| `'new'` | 27 | 24 |
+| registered | 66 | |
+| behavioural files load | 64 | `10961`, `11066`: no behavioural CSVs |
+| after exclusions (`data_clean`) | 63 | `11492`: side bias on every run (97–100% one location) |
+| **H1** | 61 | `11433`: no usable sham runs; `11440`: 7 of 8 runs fail stimulus bias |
+| **H2** | 57 | subjects without usable runs in both sessions |
 
-The default is `'dissertation'` for backward compatibility: old code that passes
-no argument still produces the defended sample.
+`11439` and `11472` were once listed here as lost (no behavioural files). Their
+files have since been recovered and both are in H1 and H2. `10961` still has no
+behavioural files, though its MRI is in the FreeSurfer delivery.
 
-**Why the counts differ.** Four registered subjects have no behavioral CSVs:
-`10961` (in the defended sample), `11439`, `11472` — all three have complete
-8-run EEG sessions, so the sessions happened and only the behavioral files are
-missing — and `11066`, which has nothing. Treated as lost.
+`load_all_subjects(sample=...)` loads 38 of 39 for `'dissertation'`, 64 of 66 for
+`'all'` and 26 for `'new'`. The default stays `'dissertation'`, so old code
+that passes no argument still produces the defended sample.
 
-After `apply_all_exclusions()`: **61 subjects** in `data_clean`, **55**
-H2-eligible. `11492` fails every run on side bias (97–100% same spatial
-location); `11440` fails 7 of 8 on stimulus bias.
+### Analysis samples
+
+**Every analysis uses one of these by name, from `code/samples.py`.** Each is the
+largest set with the data its question needs, rather than one "has everything"
+sample. That intersection would be 35 (below the defended 39) and would drop
+subjects from the preregistered tests for reasons unrelated to them.
+
+| sample | N | rule | used for |
+|---|---|---|---|
+| **H1** | 61 | passed the preregistered H1 exclusions (sham-session behaviour); has age | H1.1, H1.1.1, H1.2; baseline behaviour; exploratory baseline sweep |
+| **H2** | 57 | H2-eligible: passed the preregistered exclusions in both sessions | H2.1 paired tests and equivalence; H2.2 age moderation |
+| **Dose** | 59 | FLAIR head model (T1-only excluded); has age | E-field x age; geometry, skull and atrophy analyses; Figs 1-3 |
+| **Dose_H2** | 50 | H2 and Dose | E-field as a moderator of the stimulation response |
+
+Moderator analyses (theta, iTF, fMRI, surveys) run on H1 or H2 intersected with
+that measure and report their own N.
+
+`python code/samples.py` checks that each sample is at its declared N and that
+every subject in it has the variables its analyses need. It exits non-zero
+otherwise. The figure scripts, `efield_results.py`, `skull_circularity.py` and
+the paper notebook all assert that their working set *is* the named sample, so
+a filter that drifts stops the script and names the subjects. A deliberate
+change of sample means editing `expected_n` in `samples.py`, never a side
+effect.
 
 ---
 
@@ -261,9 +284,15 @@ defended values for every subject except two, both expected:
 
 ### Stimulation effects: null, with equivalence established
 
-Every paired comparison null (|dz| ≤ 0.17). At SESOI dz = 0.5, **all 7 DVs
-statistically equivalent** (p ≤ 0.009); at dz = 0.3, 3 of 7. The hierarchical
-model agrees: δ_α = +0.223 [−0.342, +0.790], prior-robust.
+*From `results_paper.ipynb` executed 2026-09-21 on the final master CSV
+(deterministic RL fit; 63 subjects with behaviour, 57 H2-eligible).*
+
+Every paired comparison null (|dz| ≤ 0.18, N = 57). At SESOI dz = 0.5, **all 7
+DVs statistically equivalent** (p ≤ 0.009); at dz = 0.3, 5 of 7 (accuracy and
+win rate inconclusive). The hierarchical
+model agrees: δ_α = +0.227 [−0.350, +0.775] (N = 57, refit 2026-09-21). The
+posterior mean moves with prior width (+0.23 to +0.48) but the interval spans
+zero under every prior, so the conclusion is prior-robust.
 
 Three methods with different assumptions converge on the same answer.
 
@@ -271,8 +300,8 @@ Three methods with different assumptions converge on the same answer.
 
 τ_α is credibly greater than zero — people differ in response. No candidate
 moderator explains it: age, cognition, theta power, iTF distance, and striatal
-reactivity are all null. The exploratory sweep found 8 of 96 baseline
-correlations at p < .05 (4.8 expected by chance), **none surviving FDR**.
+reactivity are all null. The exploratory sweep found 10 of 102 baseline
+correlations at p < .05 (5.1 expected by chance), **none surviving FDR**.
 
 ### The one notable positive
 
