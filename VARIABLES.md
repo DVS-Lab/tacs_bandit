@@ -18,14 +18,14 @@ Cognitive composite in use: `COG_COMPOSITE = 'global_reduced'` (config.py).
 
 No unexplained missingness patterns.
 
-**75 variables no analysis script references by name.** Either unused, or reached only through a runtime-built name (see the builder docstring). Worth a decision each: analyse, or stop carrying.
+**66 variables no analysis script references by name.** Either unused, or reached only through a runtime-built name (see the builder docstring). Worth a decision each: analyse, or stop carrying.
 
 - *survey_affect_social*: `loneliness_companionship`, `loneliness_left_out`, `loneliness_isolated`
 - *survey_exploratory*: `tei_wellbeing`, `tei_selfcontrol`, `tei_emotionality`, `tei_sociability`, `tei_total`, `aq_social_skill`, `aq_attention_switching`, `aq_attention_detail`, `aq_communication`, `aq_imagination`, `aq_total`, `panas_pre_positive`, `panas_pre_negative`, `panas_post_positive`, `panas_post_negative`, `ios_friend`, `ios_computer`, `ios_stranger`, `mach_iv_total`, `planfulness_mf`, `planfulness_to`, `planfulness_cs`, `planfulness_total`, `present_bias_5wk`, `present_bias_9wk`, `present_bias_10wk`, `present_bias_14wk`, `gullibility_total`, `gullibility_insensitivity`, `gti_score`, `ios_investment_stranger`, `ios_shared_reward_stranger`, `pnr_positive`, `pnr_negative`, `rf1_crt_total`
 - *behaviour_rl_hb*: `sham_beta_hb`, `active_alpha_hb`, `active_beta_hb`
-- *efield*: `std_magnE`, `parcel_mean_magnE`, `parcel_p95_magnE`, `parcel_median_magnE`
-- *geometry*: `dist_pial_min`, `dist_pial_p1`, `dist_pial_dlpfc_min`, `dist_central_min`, `dist_central_p1`, `dist_central_dlpfc_min`, `dist_central_dlpfc_p1`
-- *morphometry*: `charm_mean_thickness`, `charm_dlpfc_thickness`, `brain_charm`, `etiv`, `lh_cortex_vol`, `rh_cortex_vol`, `subcort_gray_vol`, `white_matter_vol`, `supratentorial_vol`, `supratentorial_notvent_vol`, `brainseg_vol`, `mask_vol`, `lh_white_surf_area`, `lh_dlpfc_gray_vol`, `lh_dlpfc_surf_area`, `rh_mean_thickness`, `rh_white_surf_area`, `rh_dlpfc_thickness`, `rh_dlpfc_gray_vol`, `rh_dlpfc_surf_area`, `dlpfc_thickness`, `dlpfc_gray_vol`, `dlpfc_surf_area`
+- *efield*: `std_magnE`, `parcel_p95_magnE`, `parcel_median_magnE`
+- *geometry*: `dist_pial_min`, `dist_central_min`
+- *morphometry*: `brain_charm`, `lh_cortex_vol`, `rh_cortex_vol`, `subcort_gray_vol`, `white_matter_vol`, `supratentorial_vol`, `supratentorial_notvent_vol`, `brainseg_vol`, `mask_vol`, `lh_white_surf_area`, `lh_dlpfc_gray_vol`, `lh_dlpfc_surf_area`, `rh_mean_thickness`, `rh_white_surf_area`, `rh_dlpfc_thickness`, `rh_dlpfc_gray_vol`, `rh_dlpfc_surf_area`, `dlpfc_thickness`, `dlpfc_gray_vol`, `dlpfc_surf_area`
 
 ## Regenerating the tables
 
@@ -62,15 +62,15 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `t1_only` | 66/66 | Head model built without FLAIR<br><sub>7 subjects; excluded everywhere. Differ on CSF (p=.025) and |E| (p=.018), not skull (p=.58).</sub> | 0 – 1 | <sub>simNIBS repo: scripts/run_pipeline.py -> extract_efield_roi.py</sub> | exclusion |  | 7 |
+| `t1_only` | 66/66 | Head model built without FLAIR<br><sub>7 subjects; excluded everywhere. Differ on CSF (p=.025) and |E| (p=.018), not skull (p=.58).</sub> | 0 – 1 | <sub>simNIBS repo: scripts/run_pipeline.py -> extract_efield_roi.py</sub> | exclusion |  | 8 |
 
 ## demographics  ·  `master`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `age` | 66/66 | Age in years (self-report)<br><sub>Self-report calculated field: (Today's Date - birthdate)/365.25, exact for all 152 REDCap records. 11542 recovered from Participant Date of Birth by the same formula (age_source = dob_fallback). TabCAT DOB is wrong for 10606 and 10741; never use it for age.</sub> | 22.5 – 79.2 | <sub>cognitive_merge.extract_demographics</sub> | predictor<br><sub>H1.1, H1.2, H2.2, all age models</sub> |  | 29 |
+| `age` | 66/66 | Age in years (self-report)<br><sub>Self-report calculated field: (Today's Date - birthdate)/365.25, exact for all 152 REDCap records. 11542 recovered from Participant Date of Birth by the same formula (age_source = dob_fallback). TabCAT DOB is wrong for 10606 and 10741; never use it for age.</sub> | 22.5 – 79.2 | <sub>cognitive_merge.extract_demographics</sub> | predictor<br><sub>H1.1, H1.2, H2.2, all age models</sub> |  | 30 |
 | `age_source` | 66/66 | Where age came from: redcap_age (REDCap calculated field) or dob_fallback (same formula from Participant Date of Birth)<br><sub>Missing only where age itself is missing.</sub> | 2 values | <sub>cognitive_merge.extract_demographics</sub> | qc |  | **0** |
-| `gender` | 66/66 | Gender | 2 values | <sub>cognitive_merge.extract_demographics</sub> | covariate |  | 8 |
+| `gender` | 66/66 | Gender | 2 values | <sub>cognitive_merge.extract_demographics</sub> | covariate |  | 9 |
 | `race` | 66/66 | Race | 5 values | <sub>cognitive_merge.extract_demographics</sub> | descriptive |  | 2 |
 | `ethnicity` | 66/66 | Ethnicity | 3 values | <sub>cognitive_merge.extract_demographics</sub> | descriptive |  | 2 |
 | `education_years` | 63/66 | Years of education<br><sub>Coalesced from three sources in priority order. Unrelated to cognition (r=+.07 with global_reduced); check source agreement before use.</sub> | 2 – 26 | <sub>cognitive_merge.build_subject_df</sub> | covariate<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10608 10641 10886</sub> | 8 |
@@ -137,7 +137,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `active_beta` | 57/66 | Active session: RW inverse temperature (MLE)<br><sub>Requires both sessions (H2-eligible subjects only).</sub><br><sub>MLE and hierarchical beta disagree (active r=.013); see _hb.</sub> | 0.01 – 50 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 7 |
 | `sham_beta` | 61/66 | Sham session: RW inverse temperature (MLE)<br><sub>MLE and hierarchical beta disagree (active r=.013); see _hb.</sub> | 0.01 – 50 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H1.1.1</sub> | — / scattered<br><sub>10961 11066 11433 11440 11492</sub> | 12 |
 | `delta_alpha` | 57/66 | Active minus sham: RW learning rate (MLE)<br><sub>Requires both sessions (H2-eligible subjects only).</sub><br><sub>MLE alpha pinned at 0/1 for ~1/3 of subjects; see _hb.</sub> | -0.998 – 0.977 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H2.2</sub> | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 11 |
-| `delta_beta` | 57/66 | Active minus sham: RW inverse temperature (MLE)<br><sub>Requires both sessions (H2-eligible subjects only).</sub><br><sub>MLE and hierarchical beta disagree (active r=.013); see _hb.</sub> | -11.6 – 33.8 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H2.2</sub> | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 10 |
+| `delta_beta` | 57/66 | Active minus sham: RW inverse temperature (MLE)<br><sub>Requires both sessions (H2-eligible subjects only).</sub><br><sub>MLE and hierarchical beta disagree (active r=.013); see _hb.</sub> | -11.6 – 33.9 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H2.2</sub> | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 10 |
 | `sham_alpha` | 61/66 | Sham session: RW learning rate (MLE)<br><sub>MLE alpha pinned at 0/1 for ~1/3 of subjects; see _hb.</sub> | 0.001 – 0.999 | <sub>rescorla_wagner.fit_rw_by_condition(method=mle) -> cognitive_merge.build_subject_df</sub> | outcome | — / scattered<br><sub>10961 11066 11433 11440 11492</sub> | 12 |
 
 ## behaviour rl hb  ·  `master`
@@ -167,45 +167,45 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `peak_magnE` | 66/66 | Peak |E| in ROI (V/m) | 0.0588 – 0.361 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 2 |
+| `peak_magnE` | 66/66 | Peak |E| in ROI (V/m) | 0.0588 – 0.361 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 3 |
 | `parcel_n_vert` | 66/66 | Vertices in DLPFC parcel | 1.098e+04 – 1.098e+04 | <sub>simNIBS repo: scripts/extract_efield_parcel.py</sub> | qc |  | **0** |
-| `median_magnE` | 66/66 | Median |E| in ROI (V/m) | 0.0467 – 0.183 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 1 |
-| `p95_magnE` | 66/66 | 95th percentile |E| in ROI (V/m) | 0.0582 – 0.263 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 2 |
+| `median_magnE` | 66/66 | Median |E| in ROI (V/m) | 0.0467 – 0.183 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 2 |
+| `p95_magnE` | 66/66 | 95th percentile |E| in ROI (V/m) | 0.0582 – 0.263 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | 3 |
 | `std_magnE` | 66/66 | SD of |E| in ROI (V/m) | 0.00547 – 0.0475 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | secondary |  | **0** |
-| `mean_magnE` | 66/66 | Mean |E| in gray matter within 20 mm of F3 (V/m)<br><sub>Primary dose measure.</sub> | 0.0473 – 0.185 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | outcome<br><sub>E-field x age (Fig 1)</sub> |  | 7 |
+| `mean_magnE` | 66/66 | Mean |E| in gray matter within 20 mm of F3 (V/m)<br><sub>Primary dose measure.</sub> | 0.0473 – 0.185 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | outcome<br><sub>E-field x age (Fig 1)</sub> |  | 8 |
 | `parcel_median_magnE` | 66/66 | median |E| over DK40 DLPFC parcel (rostral+caudal MFG) | 0.0386 – 0.114 | <sub>simNIBS repo: scripts/extract_efield_parcel.py</sub> | secondary |  | **0** |
 | `roi_radius_mm` | 66/66 | ROI sphere radius (mm) | 20 – 20 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | **0** |
 | `f3_z` | 66/66 | F3 electrode position, subject space (z, mm) | -2.4 – 74.9 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | **0** |
 | `f3_y` | 66/66 | F3 electrode position, subject space (y, mm) | 19 – 92.4 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | **0** |
 | `f3_x` | 66/66 | F3 electrode position, subject space (x, mm) | -64.6 – -28.6 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | **0** |
 | `parcel_p95_magnE` | 66/66 | p95 |E| over DK40 DLPFC parcel (rostral+caudal MFG) | 0.0559 – 0.19 | <sub>simNIBS repo: scripts/extract_efield_parcel.py</sub> | secondary |  | **0** |
-| `n_gm_elements_roi` | 66/66 | Gray-matter elements inside ROI sphere | 20 – 4.76e+03 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | 1 |
-| `parcel_mean_magnE` | 66/66 | mean |E| over DK40 DLPFC parcel (rostral+caudal MFG) | 0.0394 – 0.117 | <sub>simNIBS repo: scripts/extract_efield_parcel.py</sub> | secondary |  | **0** |
+| `n_gm_elements_roi` | 66/66 | Gray-matter elements inside ROI sphere | 20 – 4.76e+03 | <sub>simNIBS repo: scripts/extract_efield_roi.py</sub> | qc |  | 2 |
+| `parcel_mean_magnE` | 66/66 | mean |E| over DK40 DLPFC parcel (rostral+caudal MFG) | 0.0394 – 0.117 | <sub>simNIBS repo: scripts/extract_efield_parcel.py</sub> | secondary |  | 1 |
 
 ## geometry  ·  `efield`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `dist_central_dlpfc_p1` | 66/66 | F3-to-central surface distance within DLPFC, 1st percentile (mm) | 14.1 – 22.8 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
-| `dist_central_dlpfc_min` | 66/66 | F3-to-central surface distance within DLPFC, nearest vertex (mm) | 11.9 – 21 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
-| `dist_central_p1` | 66/66 | F3-to-central surface distance, 1st percentile (mm) | 19.6 – 26.9 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
+| `dist_central_dlpfc_p1` | 66/66 | F3-to-central surface distance within DLPFC, 1st percentile (mm) | 14.1 – 22.8 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | 1 |
+| `dist_central_dlpfc_min` | 66/66 | F3-to-central surface distance within DLPFC, nearest vertex (mm) | 11.9 – 21 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | 1 |
+| `dist_central_p1` | 66/66 | F3-to-central surface distance, 1st percentile (mm) | 19.6 – 26.9 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | 1 |
 | `dist_central_min` | 66/66 | F3-to-central surface distance, nearest vertex (mm) | 11.9 – 21 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
-| `dist_pial_dlpfc_p1` | 66/66 | F3-to-pial surface distance within DLPFC, 1st percentile (mm)<br><sub>Primary geometry measure.</sub> | 12.8 – 21.7 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | mechanism |  | 2 |
-| `dist_pial_dlpfc_min` | 66/66 | F3-to-pial surface distance within DLPFC, nearest vertex (mm) | 10.8 – 19.9 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
-| `dist_pial_p1` | 66/66 | F3-to-pial surface distance, 1st percentile (mm) | 19 – 26 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
+| `dist_pial_dlpfc_p1` | 66/66 | F3-to-pial surface distance within DLPFC, 1st percentile (mm)<br><sub>Primary geometry measure.</sub> | 12.8 – 21.7 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | mechanism |  | 3 |
+| `dist_pial_dlpfc_min` | 66/66 | F3-to-pial surface distance within DLPFC, nearest vertex (mm) | 10.8 – 19.9 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | 1 |
+| `dist_pial_p1` | 66/66 | F3-to-pial surface distance, 1st percentile (mm) | 19 – 26 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | 1 |
 | `dist_pial_min` | 66/66 | F3-to-pial surface distance, nearest vertex (mm) | 10.8 – 19.9 | <sub>simNIBS repo: scripts/extract_scalp_cortex_distance.py</sub> | secondary |  | **0** |
 
 ## skull  ·  `efield`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `layer_csf` | 66/66 | CSF thickness along the F3-to-cortex ray (mm) | 0.501 – 2.36 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary |  | 2 |
+| `layer_csf` | 66/66 | CSF thickness along the F3-to-cortex ray (mm) | 0.501 – 2.36 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary |  | 3 |
 | `layer_other` | 66/66 | Other tissue thickness along the F3-to-cortex ray (mm) | -5.55e-17 – 0.702 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | qc |  | **0** |
 | `layer_scalp` | 66/66 | Scalp thickness along the F3-to-cortex ray (mm) | 3.22 – 9.13 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary |  | 1 |
 | `layer_outer_table` | 66/66 | Outer table thickness along the F3-to-cortex ray (mm)<br><sub>Diploe/table split unreliable in charm; report total skull only.</sub> | 1 – 7.96 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary **(unreliable)** |  | 1 |
-| `layer_diploe` | 66/66 | Diploe thickness along the F3-to-cortex ray (mm)<br><sub>Diploe/table split unreliable in charm; report total skull only.</sub> | 0 – 5.22 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary **(unreliable)** |  | 2 |
-| `layer_inner_table` | 66/66 | Inner table thickness along the F3-to-cortex ray (mm)<br><sub>Diploe/table split unreliable in charm; report total skull only.</sub> | 0 – 4.36 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary **(unreliable)** |  | 1 |
-| `layer_skull` | 66/66 | Total skull thickness along the F3-to-cortex ray (mm)<br><sub>Women thicken with age (r=+.67), men do not.</sub> | 4.23 – 11 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | mechanism |  | 4 |
+| `layer_diploe` | 66/66 | Diploe thickness along the F3-to-cortex ray (mm)<br><sub>Diploe/table split unreliable in charm; report total skull only.</sub> | 0 – 5.22 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary **(unreliable)** |  | 3 |
+| `layer_inner_table` | 66/66 | Inner table thickness along the F3-to-cortex ray (mm)<br><sub>Diploe/table split unreliable in charm; report total skull only.</sub> | 0 – 4.36 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | secondary **(unreliable)** |  | 2 |
+| `layer_skull` | 66/66 | Total skull thickness along the F3-to-cortex ray (mm)<br><sub>Women thicken with age (r=+.67), men do not.</sub> | 4.23 – 11 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | mechanism |  | 5 |
 | `skull_t1_n_rays` | 66/66 | Rays contributing to T1 skull estimate | 50 – 50 | <sub>simNIBS repo: scripts/extract_skull_t1.py</sub> | qc |  | **0** |
 | `layer_path` | 66/66 | Total path thickness along the F3-to-cortex ray (mm) | 11.1 – 20.2 | <sub>simNIBS repo: scripts/extract_skull_layers.py</sub> | qc |  | **0** |
 | `skull_t1_span` | 66/66 | Skull thickness from T1 intensity profile, independent of charm (mm)<br><sub>External check on layer_skull: r with |E| = -.23 vs -.78 for charm; mediation 18% vs 89%. Computed by skull_circularity.py.</sub> | 1.15 – 13.6 | <sub>simNIBS repo: scripts/extract_skull_t1.py</sub> | validation |  | 1 |
@@ -220,21 +220,21 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `supratentorial_vol` | 66/66 | Supratentorial volume (mm3) | 7.808e+05 – 1.283e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `total_gray_vol` | 66/66 | Total gray matter volume (mm3) | 4.698e+05 – 8.044e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `ventricle_choroid_vol` | 66/66 | Ventricle + choroid plexus volume (mm3)<br><sub>Atrophy marker; tested in fig_atrophy_vs_geometry.</sub> | 6.26e+03 – 9.661e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
-| `cortex_vol` | 66/66 | Cortical gray volume (mm3) | 3.227e+05 – 5.942e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
+| `cortex_vol` | 66/66 | Cortical gray volume (mm3) | 3.227e+05 – 5.942e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
 | `lh_cortex_vol` | 66/66 | Left cortical gray volume (mm3) | 1.601e+05 – 2.955e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `rh_dlpfc_surf_area` | 66/66 | Right DLPFC surface area (mm2) | 5.79e+03 – 1.149e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `dlpfc_thickness` | 66/66 | DLPFC thickness (= lh, stimulated side)<br><sub>Atrophy measure: r=-.64 with age, but unrelated to |E| once distance is modelled.</sub> | 1.86 – 2.67 | <sub>freesurfer_morph.run</sub> | mechanism |  | **0** |
-| `surface_holes` | 66/66 | Surface topological defects before fixing (count) | 2 – 45 | <sub>freesurfer_morph.run</sub> | qc |  | **0** |
+| `surface_holes` | 66/66 | Surface topological defects before fixing (count) | 2 – 45 | <sub>freesurfer_morph.run</sub> | qc |  | 1 |
 | `white_matter_vol` | 66/66 | Cerebral white matter volume (mm3) | 3.576e+05 – 6.314e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `brainseg_not_vent` | 66/66 | Brain segmentation volume excluding ventricles (mm3) | 8.432e+05 – 1.436e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `subcort_gray_vol` | 66/66 | Subcortical gray volume (mm3) | 4.668e+04 – 7.042e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
-| `etiv` | 66/66 | Estimated total intracranial volume (Talairach-derived) (mm3)<br><sub>Registration-derived, not measured; normalising by it inherits its bias.</sub> | 9.736e+05 – 1.875e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
+| `etiv` | 66/66 | Estimated total intracranial volume (Talairach-derived) (mm3)<br><sub>Registration-derived, not measured; normalising by it inherits its bias.</sub> | 9.736e+05 – 1.875e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `supratentorial_notvent_vol` | 66/66 | Supratentorial volume excluding ventricles (mm3) | 7.521e+05 – 1.267e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `lh_white_surf_area` | 66/66 | Left white surface area (mm2) | 6.754e+04 – 1.087e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `mask_vol` | 66/66 | Brain mask volume (mm3) | 1.151e+06 – 1.752e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
-| `lh_mean_thickness` | 66/66 | Left hemisphere mean cortical thickness (mm) | 1.85 – 2.6 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
+| `lh_mean_thickness` | 66/66 | Left hemisphere mean cortical thickness (mm) | 1.85 – 2.6 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
 | `rh_mean_thickness` | 66/66 | Right hemisphere mean cortical thickness (mm) | 1.83 – 2.61 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
-| `lh_dlpfc_thickness` | 66/66 | Left DLPFC thickness, vertex-weighted (mm) | 1.86 – 2.67 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
+| `lh_dlpfc_thickness` | 66/66 | Left DLPFC thickness, vertex-weighted (mm) | 1.86 – 2.67 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
 | `lh_dlpfc_gray_vol` | 66/66 | Left DLPFC gray volume (mm3) | 1.388e+04 – 2.871e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `lh_dlpfc_surf_area` | 66/66 | Left DLPFC surface area (mm2) | 6.11e+03 – 1.065e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `rh_white_surf_area` | 66/66 | Right white surface area (mm2) | 6.769e+04 – 1.101e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
@@ -247,13 +247,13 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `csf_charm` | 66/66 | Whole-head CSF volume from charm segmentation (mm3)<br><sub>CSF: strongest age relationship (r=+.50).</sub> | 1.958e+05 – 4.475e+05 | <sub>simNIBS repo: scripts/extract_intracranial.py</sub> | secondary |  | 1 |
+| `csf_charm` | 66/66 | Whole-head CSF volume from charm segmentation (mm3)<br><sub>CSF: strongest age relationship (r=+.50).</sub> | 1.958e+05 – 4.475e+05 | <sub>simNIBS repo: scripts/extract_intracranial.py</sub> | secondary |  | 2 |
 | `brain_charm` | 66/66 | Brain volume from charm segmentation (mm3) | 8.569e+05 – 1.414e+06 | <sub>simNIBS repo: scripts/extract_intracranial.py</sub> | secondary |  | **0** |
-| `icv_charm` | 66/66 | Intracranial volume from charm segmentation (mm3) | 1.118e+06 – 1.741e+06 | <sub>simNIBS repo: scripts/extract_intracranial.py</sub> | secondary |  | 1 |
+| `icv_charm` | 66/66 | Intracranial volume from charm segmentation (mm3) | 1.118e+06 – 1.741e+06 | <sub>simNIBS repo: scripts/extract_intracranial.py</sub> | secondary |  | 2 |
 | `charm_dlpfc_n_vert` | 66/66 | DLPFC vertices in charm surface | 2.282e+04 – 3.190e+04 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | qc |  | **0** |
-| `charm_dlpfc_thickness` | 66/66 | DLPFC cortical thickness from charm (mm)<br><sub>Cross-check on FreeSurfer dlpfc_thickness.</sub> | 2.67 – 3.3 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | secondary |  | **0** |
+| `charm_dlpfc_thickness` | 66/66 | DLPFC cortical thickness from charm (mm)<br><sub>Cross-check on FreeSurfer dlpfc_thickness.</sub> | 2.67 – 3.3 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | secondary |  | 1 |
 | `charm_thickness_sd` | 66/66 | SD of charm cortical thickness (mm) | 0.817 – 0.947 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | qc |  | **0** |
-| `charm_mean_thickness` | 66/66 | Whole-hemisphere cortical thickness from charm surfaces (mm) | 2.42 – 3.1 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | secondary |  | **0** |
+| `charm_mean_thickness` | 66/66 | Whole-hemisphere cortical thickness from charm surfaces (mm) | 2.42 – 3.1 | <sub>simNIBS repo: scripts/extract_charm_thickness.py</sub> | secondary |  | 1 |
 
 ## survey reward  ·  `master`
 

@@ -250,7 +250,7 @@ canonical `data/efield_roi_summary.csv`:
 **|E| is modelled, not measured.** Skull geometry is an *input* to the FEM, so a
 strong skull-to-field relationship partly reports which input the model is most
 sensitive to. Measured externally from T1 intensity with no labels, the same
-skull span relates to |E| at only r = −.23 (p = .081) against charm's −.78.
+skull span relates to |E| at only r = −.25 (p = .059) against charm's −.78.
 
 **Diploe segmentation is not trustworthy at 1 mm.** The QC grid shows it as
 scattered islands inside compact bone rather than a continuous stratum, in FLAIR
@@ -261,6 +261,6 @@ outer/diploe/inner split should not be interpreted.
 only.
 
 **eTIV is not used.** FreeSurfer derives it from the Talairach determinant
-rather than measuring it, and it rises with age here (r = +.47, +12.5% over 40
-years), which is not possible. Volumes are normalised by an ICV counted directly
-from the segmentation, which is flat with age (r = −.011).
+rather than measuring it, and it rises with age here (r = +.48; a fitted rise of
+18% of mean eTIV over 40 years), which is not possible. Volumes are normalised by an ICV counted directly
+from the segmentation, which is flat with age (r = +.001).

@@ -223,7 +223,7 @@ including it introduces an asymmetry between groups.
 
 ## 6. Bugs found, and what each cost
 
-All four had the same signature: **no error raised, data silently degraded.**
+Every one had the same signature: **no error raised, data silently degraded.**
 
 | Bug | Location | Effect |
 |---|---|---|
@@ -231,6 +231,12 @@ All four had the same signature: **no error raised, data silently degraded.**
 | Globbed one NIC filename convention | `eeg_theta.find_eeg_run` | subjects recorded under other conventions produced no theta; defended theta coverage was 34, now 59 |
 | `reversal_id` initialized from `np.nan` → float64, then assigned strings | `reversal_analysis.identify_reversals` | crashed under pandas 2.x; worked around by a 15KB inline reimplementation in the notebook |
 | No high-pass before amplitude thresholding; no re-reference for no-earclip subjects | `individual_theta.py` (mine) | 15 subjects appeared to lack an alpha rhythm; actually 96% of their samples were being rejected. Coverage 44 → 55 of 59 |
+| MLE restarts drawn from unseeded `np.random` | `rescorla_wagner.fit_rescorla_wagner` | each rebuild gave different learning rates for ~5 subjects, flipping between α bounds; the cognition × age moderation of α ranged p = .005–.125 across builds. Replaced by a 40×40 grid search over the full bounds, then L-BFGS-B from the 5 best grid points plus seeded random starts. Verified deterministic and never worse than an independent 100×100 grid (0 of 121 fits; 2026-09-21) |
+| A fixed start grid (interim fix) missed flat optima | same | reproducible but not global: 11622 sham returned the chance corner (NLL 98.427) when α 0.999, β 0.15 fits better (98.160). Superseded by the grid search above |
+| Age read only from the self-report field | `cognitive_merge.extract_demographics` | 11542 had no age and dropped from every age analysis. REDCap computes age as (Today's Date − birthdate)/365.25, exact for all 152 records; the same formula on the record's `Participant Date of Birth` recovers it (62.72, `age_source = dob_fallback`). FLAIR sample 58 → 59 |
+| Composite averaged whatever tests a subject had | `cognitive_merge.compute_cognitive_composites` | Digit Span / BVMT / Trails were given only from ~age 56, so the memory composite's input count tracked age at r = +.90. `global_reduced` uses the same six measures for everyone; `COG_COMPOSITE` in config.py switches between them |
+| Set Shifting parsed, then dropped at the merge | same | a 63/66-coverage attention measure was never used |
+| BPAQ mapped from columns that are empty at source | `cognitive_merge.load_rf1_extended` | five all-NaN columns; the instrument was never administered. Removed |
 
 Also corrected: `dz` and TOST used the population SD (`ddof=0`), making the
 equivalence test anti-conservative; H2 comparisons mixed samples across DVs;
@@ -270,27 +276,32 @@ correlations at p < .05 (4.8 expected by chance), **none surviving FDR**.
 
 ### The one notable positive
 
-**Age × E-field r = −0.291, p = .027** (N = 58): older participants receive a
+*Every number in this section through "FreeSurfer status" is produced by
+`python code/efield_results.py` (sample: FLAIR head models with age, N = 59,
+after 11542's age was recovered from their date of birth), except the
+circularity table, which comes from `code/skull_circularity.py`.*
+
+**Age × E-field r = −0.300, p = .021** (N = 59): older participants receive a
 weaker modelled field at identical current. A dose-delivery finding, not a
 rescue of the null — E-field does not predict behavioral change.
 
 Held up across the sample expansion (it was r = −0.395, N = 34 at the
-dissertation) and across the choice of dose metric (mean −.291, p95 −.279,
-peak −.291, median −.304). Including the seven T1-only head models gives
-r = −0.338, p = .006, N = 65; they are excluded from the primary analysis
-because their fields are systematically ~28% lower (p = .013 controlling for
-age) in the same direction as the hypothesis.
+dissertation) and across the choice of dose metric (mean −.300, p95 −.289,
+peak −.301, median −.312). Including the seven T1-only head models gives
+r = −0.344, p = .005, N = 66; they are excluded from the primary analysis
+because their fields are systematically lower -- 28% in raw means, 26%
+age-adjusted (p = .013) -- in the same direction as the hypothesis.
 
 **ROI coverage — checked and cleared.** The sphere is centred on the F3
 *scalp* electrode, ~18 mm above cortex, so the gray matter falling inside it
 ranges from 20 to 4757 elements across subjects, correlating with age at
-r = −.41 and with mean |E| at r = +.84. Controlling for coverage zeroes the
+r = −.42 and with mean |E| at r = +.85. Controlling for coverage zeroes the
 age effect, which raised the worry that the metric was partly measuring how
 much cortex happens to sit near the electrode.
 
 It is not. Averaging instead over a fixed DK40 parcel (rostral + caudal middle
 frontal), where **every subject contributes the identical 10,979 vertices**,
-gives r = −0.314, p = .017 — the effect survives with sampling volume held
+gives r = −0.325, p = .012 — the effect survives with sampling volume held
 constant. The two measures agree at r = .952. Sphere stays primary (defined by
 electrode position, so it cannot be circular); the parcel is the robustness
 check. Columns `parcel_*` in the E-field CSV.
@@ -303,26 +314,26 @@ predictor of delivered dose:
 
 | | r with mean \|E\| |
 |---|---|
-| scalp-to-cortex distance | **−.897** |
-| DLPFC cortical thickness | +.206 (ns) |
+| scalp-to-cortex distance | **−.899** |
+| DLPFC cortical thickness | +.221 (ns) |
 
-Distance mediates the age effect: indirect effect 95% CI [−.00078, −.00006],
-**86% mediated**, direct path falls to p = .31. This holds for every
-DLPFC-restricted distance variant (78–96% mediated) and fails only for the two
+Distance mediates the age effect: indirect effect 95% CI [−.00078, −.00009],
+**87% mediated**, direct path falls to p = .51. This holds for every
+DLPFC-restricted distance variant (79–97% mediated) and fails only for the two
 whole-hemisphere variants, which average in cortex nowhere near the electrode.
 
 **Do not describe this as an atrophy effect.** Cortical thickness and
-scalp-to-cortex distance are essentially unrelated here (r = −.195, p = .14),
-thickness adds nothing to |E| once distance is in the model (p = .60), and
-thickness does not explain the age→distance link (p = .92). Age drives both
+scalp-to-cortex distance are essentially unrelated here (r = −.215, p = .10),
+thickness adds nothing to |E| once distance is in the model (p = .62), and
+thickness does not explain the age→distance link (p = .84). Age drives both
 independently. Whatever pushes cortex away from the skull with age — CSF
 expansion, sulcal widening, skull change — it is not the thinning of cortex
 itself.
 
 Note also that the b-path (distance → field) is close to a physical identity:
 a quasi-static field decays with distance from the source. The empirical
-content is the a-path, age → distance, which is real but modest (r = +.281,
-p = .033). The defensible claim is that the age effect on dose is *geometric*,
+content is the a-path, age → distance, which is real but modest (r = +.293,
+p = .024). The defensible claim is that the age effect on dose is *geometric*,
 not that atrophy causes it.
 
 Primary distance measure: `dist_pial_dlpfc_p1`. Robustness:
@@ -334,20 +345,21 @@ cortex to F3 is DLPFC).
 Age -> |E| is carried by the tissue between electrode and cortex, not by
 atrophy. That much is solid, and is now tested properly rather than inferred:
 
-- Every conventional atrophy measure tracks age hard (total GM -.77, ventricles
-  +.65, cortical thickness -.64) and **none reaches the field** (all p > .05
-  except whole-head CSF at -.33).
+- Every conventional atrophy measure tracks age hard (total GM -.78, ventricles
+  +.67, cortical thickness -.64) and **none reaches the field** (all p > .05
+  except whole-head CSF at -.34 and its near-complement, brain/ICV, at +.36
+  -- the same signal, since brain and CSF together make up ICV).
 - Commonality analysis on |E|: geometry uniquely explains **.70** (p < .001),
-  atrophy uniquely **.02** (p = .25), shared .11, full model R2 = .83.
+  atrophy uniquely **.02** (p = .24), shared .11, full model R2 = .83.
 - Volumes are normalised by ICV counted from the segmentation, not by
   FreeSurfer eTIV. eTIV is derived from the Talairach determinant and rises
-  with age here (r = +.47, +12.5% over 40 years), which is impossible;
-  directly measured ICV is flat (r = -.011). Conclusions unchanged either way.
+  with age here (r = +.48; the fitted slope over 40 years is +18% of mean
+  eTIV), which is impossible; directly measured ICV is flat (r = +.001). Conclusions unchanged either way.
 
 **Within the geometry, skull thickening with age is female-specific.** Women
-r = +.67 (p < .001), men r = -.04 (p = .83), age x sex p = .003; the age main
-effect vanishes once the interaction is included (p = .81). Older women's
-skulls are 2.63 mm thicker than younger women's, against 0.19 mm in men. This
+r = +.67 (p < .001), men r = -.01 (p = .96), age x sex p = .005; the age main
+effect vanishes once the interaction is included (p = .96). Older women's
+skulls are 2.63 mm thicker than younger women's, against 0.36 mm in men. This
 matches the hyperostosis frontalis interna literature, and F3 sits over frontal
 bone. Caveat: only 8 women fall in the older tertile, though the imbalance runs
 *against* the effect rather than producing it.
@@ -359,15 +371,15 @@ labels:
 
 | | x age | x \|E\| |
 |---|---|---|
-| charm skull (an FEM input) | +.337 | **-.778** |
-| T1 intensity span (external) | +.359 | **-.231 (p = .081)** |
+| charm skull (an FEM input) | +.350 | **-.781** |
+| T1 intensity span (external) | +.372 | **-.247 (p = .059)** |
 
-The two agree at only r = +.40. The *age* effect replicates independently; the
-*field* effect largely does not, and mediation falls from 89% to 18% (n.s.).
+The two agree at only r = +.42. The *age* effect replicates independently; the
+*field* effect largely does not, and mediation falls from 90% to 19% (n.s.).
 So the anatomical claim stands on its own and the dose claim does not. Report
 this as an anatomical contributor to variation in *simulated* dose.
 
-Reproduce with `python code/skull_circularity.py` (N = 58; bootstrap CI on the
+Reproduce with `python code/skull_circularity.py` (N = 59; bootstrap CI on the
 indirect effect, fixed seed; writes `derivatives/skull_circularity.csv`).
 
 **Do not interpret the outer/diploe/inner split.** QC images (`fig_qc_skull.py`)
@@ -375,8 +387,8 @@ show diploe segmented as scattered islands rather than a continuous stratum, in
 FLAIR and T1-only subjects alike. Total skull is the trustworthy number.
 
 **The T1-only exclusion is not about skull.** Controlling for age and sex the
-seven differ on CSF (p = .025) and |E| (p = .018) but on no skull measure
-(total p = .58). The exclusion holds; the stated rationale needed correcting.
+seven differ on CSF (p = .022) and |E| (p = .019) but on no skull measure
+(total p = .63). The exclusion holds; the stated rationale needed correcting.
 
 Figures: `fig_efield_age.py --compact`, `fig_atrophy_vs_geometry.py`,
 `fig_skull_layers.py`, `fig_qc_skull.py`.
@@ -388,7 +400,7 @@ All 66 delivered across two batches (`tacs_bandit_freesurfer_20260814`, n=28;
 FLAIR/T2pial flags — so the T1-only confound affecting the E-field does *not*
 touch the morphometry. **No batch effect**: delivery does not predict DLPFC
 thickness, mean thickness, cortical volume, eTIV, or surface holes once age is
-controlled (all p > .35).
+controlled (all p > .28).
 
 `code/freesurfer_morph.py` walks the whole `FREESURFER_ROOT` parent rather than
 one batch folder, records `fs_delivery` and `fs_version` per subject, and
@@ -405,16 +417,20 @@ both, which is a stronger result than either alone:
 
 | | charm | FreeSurfer |
 |---|---|---|
-| age × DLPFC thickness | −.659 | −.638 |
-| thickness × distance | −.195 (ns) | −.171 (ns) |
-| thickness × \|E\| | +.206 (ns) | +.200 (ns) |
-| thickness explains age→distance | p = .92 | p = .93 |
-| horse race: thickness \| distance | p = .60 | p = .43 |
+| age × DLPFC thickness | −.664 | −.641 |
+| thickness × distance | −.215 (ns) | −.180 (ns) |
+| thickness × \|E\| | +.221 (ns) | +.207 (ns) |
+| thickness explains age→distance | p = .84 | p = .94 |
+| horse race: thickness \| distance | p = .62 | p = .44 |
 
 Atrophy is **global, not clearly DLPFC-specific**: controlling for
 whole-hemisphere thickness, the age→DLPFC-thickness effect is not significant
-(b = −0.0010, p = .095, N = 58), and DLPFC ranks 6th of 34 parcels (r = −.546
-against a median of −.414).
+(b = −0.0010, p = .099, N = 59). Parcel by parcel, caudal middle frontal ranks
+2nd of 34 left-hemisphere parcels for age-related thinning (r = −.66) and
+rostral middle frontal 9th (r = −.58), against a median of −.46: DLPFC is among
+the most affected regions, but not detectably more than the hemisphere as a
+whole. (An earlier "6th of 34, r = −.546" could not be reproduced and is
+superseded.)
 
 Note `10961`, previously written off as lost, is present in set 2.
 

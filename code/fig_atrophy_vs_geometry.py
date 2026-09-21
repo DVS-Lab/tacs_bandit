@@ -22,9 +22,10 @@ drops out entirely once geometry is in the model.
 **Volumes are normalised by a directly measured intracranial volume, not by
 eTIV.** FreeSurfer derives eTIV from the determinant of the Talairach
 registration rather than measuring it, and in this sample it rises with age at
-r = +.47 (+12.5% over 40 years), which is not anatomically possible --
+r = +.48 (a fitted rise of 18% of mean eTIV over 40 years), which is not
+anatomically possible --
 intracranial volume is fixed in adulthood. Counting labelled voxels instead
-gives an ICV that is flat with age (r = -.011). The two agree on absolute size
+gives an ICV that is flat with age (r = +.001). The two agree on absolute size
 (r = +.70), so only the age trend is spurious, and the conclusions are
 unchanged either way (total GM x age: -.772 normalised directly vs -.764 by
 eTIV). It is a correctness fix, not a result-changing one.

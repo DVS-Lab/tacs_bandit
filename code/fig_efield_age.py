@@ -33,8 +33,8 @@ so including them would bias the maps.
 
 The mechanism is *not* what was originally assumed. Controlling for age and
 sex, these seven do not differ from the rest on any skull measure (total
-p = .58, diploe p = .45, inner table p = .90). They differ on CSF (p = .025)
-and on delivered field (p = .018). The a priori concern -- that skull
+p = .63, diploe p = .41, inner table p = .89). They differ on CSF (p = .022)
+and on delivered field (p = .019). The a priori concern -- that skull
 segmentation degrades without a FLAIR -- is reasonable in general and is what
 SimNIBS advises, but it is not what distinguishes these particular head models.
 The exclusion stands on the field difference itself.

@@ -18,10 +18,10 @@ Bottom row: every T1-only participant.
 What the numbers already say, for context:
 
 - T1-only skull measures do NOT differ from the rest once age and sex are
-  controlled (skull total p = .58, diploe p = .45, inner table p = .90), so
+  controlled (skull total p = .63, diploe p = .41, inner table p = .89), so
   whatever is wrong with those head models, it does not show up as a systematic
   skull-thickness offset.
-- Their CSF is higher (p = .025) and their |E| lower (p = .018), which is the
+- Their CSF is higher (p = .022) and their |E| lower (p = .019), which is the
   difference the exclusion was actually protecting against.
 - charm's skull agrees with the label-free intensity measure at only r = +.40
   overall, and charm reads 1.28 mm thicker on average. That is moderate

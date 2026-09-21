@@ -129,17 +129,49 @@ def rescorla_wagner_nlp(
     return nlp
 
 
+# The fit starts from the best points of a dense grid over the whole bounded
+# parameter space, so that no basin can be skipped. See fit_rescorla_wagner.
+RW_GRID_ALPHA = np.linspace(0.001, 0.999, 40)
+RW_GRID_BETA = np.geomspace(0.01, 50.0, 40)
+RW_GRID_STARTS = 5
+RW_FIT_SEED = 20260921
+
+
 def fit_rescorla_wagner(
     choices: np.ndarray,
     rewards: np.ndarray,
     method: str = 'mle',
     n_starts: int = 10,
     prior_alpha: Tuple[float, float] = (2, 2),
-    prior_beta: Tuple[float, float] = (2, 5)
+    prior_beta: Tuple[float, float] = (2, 5),
+    seed: int = RW_FIT_SEED,
 ) -> Dict:
     """
-    Fit R-W model using MLE or MAP with multiple random restarts.
-    
+    Fit R-W model using MLE or MAP, deterministically and globally.
+
+    1. Evaluate the objective on a 40 x 40 grid spanning the full bounds
+       (alpha linear, beta log-spaced).
+    2. Run L-BFGS-B from the RW_GRID_STARTS best grid points, plus `n_starts`
+       random points from a generator seeded with `seed`.
+    3. Keep the lowest objective found anywhere.
+
+    The same data therefore always gives the same fit, and the fit is the
+    global optimum to within grid resolution.
+
+    History. The original fit used 10 unseeded random restarts. Most fits
+    reproduced to ~1e-7, but a few per build landed in a different basin, so
+    a subject's alpha could flip 0.999 <-> 0.001 between identical runs. A
+    fixed 21-point start grid made it reproducible but not global: for
+    subjects near chance the likelihood is almost flat and the optimum can
+    sit at beta ~ 0.15, below every start (11622 sham: best NLL 98.160 at
+    alpha 0.999, beta 0.15, against 98.427 at the chance corner the fixed
+    grid returned). Evaluating the whole surface first removes that failure.
+
+    Note the chance corner (alpha 0.001, beta 0.01; NLL = n ln 2) *is* the
+    optimum for some subjects: RW then explains their choices no better than
+    a coin, and alpha is not identified. That is a property of the data, not
+    of the fit.
+
     Parameters
     ----------
     choices : array
@@ -170,9 +202,18 @@ def fit_rescorla_wagner(
     best_result = None
     best_obj = np.inf
     
-    # Multiple random restarts
-    for _ in range(n_starts):
-        x0 = [np.random.uniform(0.05, 0.95), np.random.uniform(0.5, 15.0)]
+    # 1. The objective over the whole bounded space.
+    grid = np.array([[obj_func([a, b], choices, rewards) for b in RW_GRID_BETA]
+                     for a in RW_GRID_ALPHA])
+    order = np.argsort(grid, axis=None)[:RW_GRID_STARTS]
+    starts = [[RW_GRID_ALPHA[i], RW_GRID_BETA[j]]
+              for i, j in zip(*np.unravel_index(order, grid.shape))]
+    # 2. Seeded random starts on top. A local generator keeps this from
+    #    consuming or resetting global random state.
+    rng = np.random.default_rng(seed)
+    starts += [[rng.uniform(0.05, 0.95), rng.uniform(0.5, 15.0)]
+               for _ in range(n_starts)]
+    for x0 in starts:
         result = optimize.minimize(
             obj_func, x0, args=(choices, rewards),
             bounds=bounds, method='L-BFGS-B',

@@ -45,10 +45,10 @@ The reason is circularity, and it is worth stating plainly. |E| is *computed
 from* charm's segmentation, so charm's skull is an input to the model that
 produced the field:
 
-    charm skull        x |E| = -.778
-    T1 intensity span  x |E| = -.231 (p = .081)
+    charm skull        x |E| = -.781
+    T1 intensity span  x |E| = -.247 (p = .059)
 
-The two skull measures agree with each other at only r = +.40. So the very
+The two skull measures agree with each other at only r = +.42. So the very
 strong skull-to-field relationship is substantially a statement about which
 input the FEM is most sensitive to, not about how much current a thicker skull
 actually blocks. The anatomical claim (women's skulls thicken with age under
@@ -62,9 +62,9 @@ plausible boundaries; the outer/diploe/inner decomposition does not, and its
 per-subject values are noisier than the correlations imply. Report total skull.
 
 **The T1-only exclusion is not about skull.** Controlling for age and sex, the
-seven T1-only head models do not differ on any skull measure (total p = .58,
-diploe p = .45, inner table p = .90). They differ in CSF (p = .025) and in |E|
-(p = .018). The exclusion is justified -- their fields are systematically lower,
+seven T1-only head models do not differ on any skull measure (total p = .63,
+diploe p = .41, inner table p = .89). They differ in CSF (p = .022) and in |E|
+(p = .019). The exclusion is justified -- their fields are systematically lower,
 in the direction of the hypothesis -- but the earlier stated rationale, that
 skull segmentation degrades without a FLAIR, is not supported here.
 
