@@ -96,6 +96,7 @@ import seaborn as sns
 warnings.filterwarnings('ignore')
 
 from config import (
+    rl, RL_ESTIMATES,
     DATA_DIR, DISSERTATION_SUBJECTS, SUBJECT_INFO,
     NO_EARCLIP_SUBJECTS, EFIELD_CSV_PATH,
 )
@@ -227,6 +228,11 @@ if SAMPLE == 'all':
     _problems = samples.check()
     if _problems:
         raise SystemExit('Sample check failed -- see above.')
+
+# Which Rescorla-Wagner estimates alpha/beta come from (config.RL_ESTIMATES).
+# Every analysis asks for a parameter through rl(), so this is the only switch.
+print(f"\\nRL parameters: {'hierarchical posterior means (_hb)' if RL_ESTIMATES == 'hb' else 'MLE'}"
+      f"  -- both are compared in 7.5e")
 """),
         code("""
 # ============================================================================
@@ -390,7 +396,7 @@ else:
 # ============================================================================
 
 sham_vars = ['sham_accuracy', 'sham_win_rate', 'sham_p_stay_win',
-             'sham_p_shift_lose', 'sham_alpha', 'sham_beta']
+             'sham_p_shift_lose', rl('sham_alpha'), rl('sham_beta')]
 available = [v for v in sham_vars if v in subj.columns]
 print('Baseline (sham) performance:')
 print(subj[available].describe().round(3).to_string())
@@ -531,12 +537,12 @@ plt.show()
 # 2.4 H1.1.1 — Inverse temperature predicts lose-shifting
 # ============================================================================
 
-d_beta = subj[['sham_beta', 'sham_p_shift_lose', 'age']].dropna()
+d_beta = subj[[rl('sham_beta'), 'sham_p_shift_lose', 'age']].dropna()
 
 fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
 stats_beta = scatter_regression_mpl(
     ax,
-    d_beta['sham_beta'].astype(float).values,
+    d_beta[rl('sham_beta')].astype(float).values,
     d_beta['sham_p_shift_lose'].astype(float).values,
     d_beta['age'].astype(float).values,
 )
@@ -548,13 +554,13 @@ print(f"Bivariate: r = {stats_beta['r']:.3f}, p = {stats_beta['p']:.3f}, "
       f"N = {stats_beta['n']}")
 
 h1_beta_prereg, _ = run_h1_regression(
-    'sham_p_shift_lose', ['sham_beta', COG_COMPOSITE, 'age', 'education_years'],
+    'sham_p_shift_lose', [rl('sham_beta'), COG_COMPOSITE, 'age', 'education_years'],
     subj, 'p(shift|lose) ~ beta + Global Cog + Age + Education [preregistered]')
 h1_beta_full, _ = run_h1_regression(
-    'sham_p_shift_lose', ['sham_beta', COG_COMPOSITE, 'age'],
+    'sham_p_shift_lose', [rl('sham_beta'), COG_COMPOSITE, 'age'],
     subj, 'p(shift|lose) ~ beta + Global Cog + Age [full sample]')
 
-compare_specifications(h1_beta_prereg, h1_beta_full, 'sham_beta', 'beta term')
+compare_specifications(h1_beta_prereg, h1_beta_full, rl('sham_beta'), 'beta term')
 """),
         code("""
 # ============================================================================
@@ -565,8 +571,8 @@ compare_specifications(h1_beta_prereg, h1_beta_full, 'sham_beta', 'beta term')
 
 interaction_dvs = [
     ('sham_p_shift_lose', 'p(shift|lose)'),
-    ('sham_alpha', 'Learning rate (alpha)'),
-    ('sham_beta', 'Inverse temperature (beta)'),
+    (rl('sham_alpha'), 'Learning rate (alpha)'),
+    (rl('sham_beta'), 'Inverse temperature (beta)'),
 ]
 
 interaction_results = {}
@@ -769,8 +775,8 @@ choices:
 h2_dvs = [
     ('sham_p_stay_win', 'active_p_stay_win', 'p(stay|win)'),
     ('sham_p_shift_lose', 'active_p_shift_lose', 'p(shift|lose)'),
-    ('sham_alpha', 'active_alpha', 'Learning rate (alpha)'),
-    ('sham_beta', 'active_beta', 'Inverse temperature (beta)'),
+    (rl('sham_alpha'), rl('active_alpha'), 'Learning rate (alpha)'),
+    (rl('sham_beta'), rl('active_beta'), 'Inverse temperature (beta)'),
     ('sham_accuracy', 'active_accuracy', 'Accuracy'),
     ('sham_win_rate', 'active_win_rate', 'Win rate'),
     ('sham_ttc', 'active_ttc', 'Trials-to-criterion'),
@@ -875,8 +881,8 @@ if len(h2_df):
 delta_dvs = [
     ('delta_p_stay_win', 'Delta p(stay|win)'),
     ('delta_p_shift_lose', 'Delta p(shift|lose)'),
-    ('delta_alpha', 'Delta alpha'),
-    ('delta_beta', 'Delta beta'),
+    (rl('delta_alpha'), 'Delta alpha'),
+    (rl('delta_beta'), 'Delta beta'),
     ('delta_accuracy', 'Delta accuracy'),
     ('delta_ttc', 'Delta trials-to-criterion'),
 ]
@@ -950,7 +956,7 @@ all. That is fixed in `nic_files.py` and both consumers now share it.
 # 5.1 Theta as a moderator of the stimulation response
 # ============================================================================
 
-theta_targets = [c for c in ['delta_ttc', 'delta_alpha', 'delta_accuracy',
+theta_targets = [c for c in ['delta_ttc', rl('delta_alpha'), 'delta_accuracy',
                              'delta_p_shift_lose'] if c in subj.columns]
 
 print(f'theta_p95 available for {subj["theta_p95"].notna().sum()}/{len(subj)} subjects\\n')
@@ -998,7 +1004,7 @@ if 'delta_ttc' in subj.columns:
 
 moderation_models = {}
 
-for dv in [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]:
+for dv in [c for c in ['delta_ttc', rl('delta_alpha')] if c in subj.columns]:
     d = subj[subj['subject_id'].isin(h2_eligible)][
         ['subject_id', dv, 'theta_p95', COG_COMPOSITE, 'age']].dropna().copy()
     if len(d) < 12:
@@ -1144,7 +1150,7 @@ else:
     # a head model and both sessions: the Dose_H2 sample. Change scores come
     # from `subj`, because delta_ttc is computed in this notebook (section 3)
     # and is not in the master CSV.
-    _dvs = [c for c in ['delta_ttc', 'delta_alpha'] if c in subj.columns]
+    _dvs = [c for c in ['delta_ttc', rl('delta_alpha')] if c in subj.columns]
     dose_h2 = efield[efield['subject_id'].isin(h2_eligible)].drop(
         columns=[c for c in _dvs if c in efield.columns])
     dose_h2 = dose_h2.merge(subj[['subject_id'] + _dvs], on='subject_id', how='left')
@@ -1205,7 +1211,7 @@ secondary_moderators = [c for c in [
 ] if c in subj.columns]
 
 delta_cols = [c for c in ['delta_p_stay_win', 'delta_p_shift_lose',
-                          'delta_alpha', 'delta_beta', 'delta_accuracy',
+                          rl('delta_alpha'), rl('delta_beta'), 'delta_accuracy',
                           'delta_ttc'] if c in subj.columns]
 
 h2s = subj[subj['subject_id'].isin(h2_eligible)]
@@ -1242,7 +1248,7 @@ if len(secondary_df):
 from statsmodels.stats.multitest import multipletests
 
 baseline_dvs = [c for c in ['sham_p_stay_win', 'sham_p_shift_lose',
-                            'sham_alpha', 'sham_beta', 'sham_accuracy',
+                            rl('sham_alpha'), rl('sham_beta'), 'sham_accuracy',
                             'sham_ttc'] if c in subj.columns]
 
 predictors = [c for c in [
@@ -1590,6 +1596,28 @@ if hb_subj is not None and 'delta_alpha' in hb_subj.columns:
           f"SD {d['delta_alpha'].std():.4f}, "
           f"range {d['delta_alpha'].min():+.3f} to {d['delta_alpha'].max():+.3f}")
 """),
+        md("""
+### 7.5e Learning-parameter results under both estimators
+
+The hierarchical fit is primary (`config.RL_ESTIMATES = 'hb'`): pooling keeps
+estimates off the parameter bounds, where MLE puts alpha for about a third of
+subjects and beta at its ceiling of 50. It needs both sessions, so alpha/beta
+analyses in H1 run on 57 rather than 61 (sample `H1_RL`).
+
+MLE is reported alongside for every test. Three columns separate the two
+sources of difference: MLE on the test's own sample, MLE on the 57 the
+hierarchical fit covers (the sample change), and the hierarchical estimates
+(the estimator change). Any test flagged below is **method-dependent** and
+should be reported as such, not as a finding.
+"""),
+        code("""
+# ============================================================================
+# 7.5e Learning-parameter results under both estimators
+# ============================================================================
+
+import compare_rl_estimates
+rl_comparison = compare_rl_estimates.run()
+"""),
     ]
 
 
@@ -1735,7 +1763,7 @@ if itf is not None and itf['iaf'].notna().sum() > 5:
     axes[0].legend(frameon=False, fontsize=FONT_LEGEND)
 
     dv = 'delta_ttc' if 'delta_ttc' in itf_subj.columns else (
-        'delta_alpha' if 'delta_alpha' in itf_subj.columns else None)
+        rl('delta_alpha') if rl('delta_alpha') in itf_subj.columns else None)
     if dv:
         d = itf_subj[itf_subj['subject_id'].isin(h2_eligible)][
             ['itf_distance', dv, 'age']].apply(
@@ -1873,6 +1901,22 @@ def main(argv=None) -> int:
     nbf.write(nb, str(out))
     n_code = sum(c['cell_type'] == 'code' for c in nb.cells)
     print(f'Wrote {out}  ({len(nb.cells)} cells, {n_code} code)')
+
+    # Cell code lives inside Python strings here, so an escape written as \n
+    # instead of \\n becomes a real line break in the generated cell and a
+    # syntax error that only surfaces minutes into execution. Parse every
+    # cell first and stop immediately, naming the cell.
+    import ast
+    for i, c in enumerate(nb.cells):
+        if c['cell_type'] != 'code':
+            continue
+        try:
+            ast.parse(c['source'])
+        except SyntaxError as e:
+            first = next((l for l in c['source'].splitlines() if l.startswith('# ') and
+                          l[2:3].isdigit()), f'cell {i}')
+            raise SystemExit(f'Generated cell has a syntax error ({first.strip()}): '
+                             f'line {e.lineno}: {e.msg}')
 
     if args.execute:
         print('\nExecuting...')

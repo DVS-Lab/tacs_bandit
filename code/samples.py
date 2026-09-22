@@ -11,6 +11,7 @@ FLAIR scan says nothing about stimulation response).
 So there is a small set of named samples, each with one rule:
 
   H1       passed the preregistered H1 exclusions, and has age
+  H1_RL    H1 with a hierarchical RL fit -- alpha/beta analyses (57 of 61)
   H2       H2-eligible: passed the exclusions in both sessions
   Dose     a FLAIR head model (T1-only excluded) and age
   Dose_H2  H2 and Dose -- the field as a moderator of the stimulation response
@@ -59,6 +60,14 @@ SAMPLES: Dict[str, dict] = {
         used_for='H1.1, H1.1.1, H1.2; baseline behaviour; exploratory baseline sweep',
         requires=['age', COG_COMPOSITE, 'sham_p_stay_win', 'sham_p_shift_lose',
                   'sham_alpha', 'sham_beta', 'sham_accuracy', 'sham_win_rate'],
+    ),
+    'H1_RL': dict(
+        rule='H1 with a hierarchical RL fit (the fit needs both sessions)',
+        define=lambda d: SAMPLES['H1']['define'](d) & d['sham_alpha_hb'].notna(),
+        expected_n=57,
+        used_for='H1 analyses of alpha and beta (H1.1.1, H1.1.2) under RL_ESTIMATES = hb',
+        requires=['age', COG_COMPOSITE, 'sham_alpha_hb', 'sham_beta_hb',
+                  'sham_p_shift_lose'],
     ),
     'H2': dict(
         rule='H2-eligible: passed the preregistered exclusions in both sessions',

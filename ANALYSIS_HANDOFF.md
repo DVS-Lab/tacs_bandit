@@ -287,9 +287,10 @@ defended values for every subject except two, both expected:
 *From `results_paper.ipynb` executed 2026-09-21 on the final master CSV
 (deterministic RL fit; 63 subjects with behaviour, 57 H2-eligible).*
 
-Every paired comparison null (|dz| ≤ 0.18, N = 57). At SESOI dz = 0.5, **all 7
-DVs statistically equivalent** (p ≤ 0.009); at dz = 0.3, 5 of 7 (accuracy and
-win rate inconclusive). The hierarchical
+Every paired comparison null (|dz| ≤ 0.19, N = 57). At SESOI dz = 0.5, **all 7
+DVs statistically equivalent** (p ≤ 0.010); at dz = 0.3, 3 of 7 (α, β, accuracy
+and win rate inconclusive). α and β are hierarchical estimates (below); under
+MLE they were also equivalent at dz = 0.3. The hierarchical
 model agrees: δ_α = +0.227 [−0.350, +0.775] (N = 57, refit 2026-09-21). The
 posterior mean moves with prior width (+0.23 to +0.48) but the interval spans
 zero under every prior, so the conclusion is prior-robust.
@@ -300,7 +301,7 @@ Three methods with different assumptions converge on the same answer.
 
 τ_α is credibly greater than zero — people differ in response. No candidate
 moderator explains it: age, cognition, theta power, iTF distance, and striatal
-reactivity are all null. The exploratory sweep found 10 of 102 baseline
+reactivity are all null. The exploratory sweep found 7 of 102 baseline
 correlations at p < .05 (5.1 expected by chance), **none surviving FDR**.
 
 ### The one notable positive
@@ -505,12 +506,24 @@ InferenceData is pickled, not NetCDF (h5py/NumPy conflict in this environment).
 
 ## 9. Open items
 
-**Needs a decision.** The master CSV carries both parameter sets: MLE α/β
-(`sham_alpha` …) and hierarchical posterior means (`sham_alpha_hb` …, N = 57,
-refit 2026-09-21). The notebook's H1/H2 sections still use MLE, and §7.5 reports
-the hierarchical fit separately. Deciding which is primary (hierarchical
-recommended, since MLE α sits on a bound for about a third of subjects) is still
-open.
+**Decided 2026-09-22: hierarchical estimates are primary**
+(`config.RL_ESTIMATES = 'hb'`; every analysis reads α/β through `rl()`). Under
+MLE, α sits on a bound for 17 of 61 sham fits and 19 of 57 active fits, and β
+reaches its ceiling of 50. The hierarchical fit has no value on a bound. It
+needs both sessions, so H1 analyses of α/β run on 57 (sample `H1_RL`). MLE is
+reported alongside for every test (`compare_rl_estimates.py`, notebook §7.5e).
+
+**Three results depend on the estimator, and should be reported that way, not
+as findings:**
+
+| test | MLE | hierarchical |
+|---|---|---|
+| H1.1.1 β → lose-shifting | p = .056 (n = 58) | p = .26 (n = 54) |
+| H2.2 age × Δα | r = −.26, p = .054 | r = −.03, p = .82 |
+| H1.1.2 cognition × age → α | p = .18 | p = .045 (n = 54) |
+
+The two MLE trends are carried by fits pinned at a bound. The H1.1.2 α effect is
+one of three H1.1.2 moderation tests and would not survive correction for them.
 
 **Not started.** Posterior predictive checks; the RW_dual comparison motivated
 by the α pile-up; the moderated hierarchical model (the model already accepts a
@@ -534,11 +547,17 @@ uses 2 s Welch windows, so 0.5 Hz resolution and 26 of 55 subjects at exactly
 10.0 Hz. iTF = IAF − 5 is clipped to 4–8 Hz, which puts the 5 subjects with
 IAF < 9 Hz at exactly 4.0. Four IAFs of 12–13 Hz may not be alpha.
 
-**FreeSurfer surfaces to check visually.** `11461` (76 y): thinnest cortex in
-the sample (1.85 mm) and 41 surface defects. `10866`: ventricles 97k mm³, twice
-the median for over-70s. `11472` and `10661`: 45 and 38 defects (median 13).
-None affects a conclusion, since the atrophy correlations are |r| > .6, but
-they should be seen before publication.
+**FreeSurfer QC of the four outliers: all pass** (`code/fig_qc_freesurfer.py`,
+2026-09-22; two reference subjects chosen by rule for comparison). `11461` (76 y,
+thinnest cortex, 41 defects): surfaces sit on the tissue boundaries; the thin
+cortex is genuine atrophy (wide sulci, enlarged ventricles, widened Sylvian
+fissure). `10866`: the ventricles really are ~2× the age median, and if anything
+slightly under-segmented at the posterior horns. Surrounding cortex and sulci are
+ordinary for age. **This disproportion may be worth routing through the lab's
+incidental-findings procedure; it is not ours to interpret clinically.** `11472`
+and `10661` (45, 38 defects): defects are counted before topology correction, the
+final surfaces follow the boundaries, and thickness is typical. Caveat: three
+slices per subject, not the whole surface.
 
 **Untested assumption worth naming.** 38% of subjects have α ≈ 1, meaning they
 replace their value estimate entirely with the last outcome — win-stay/lose-shift

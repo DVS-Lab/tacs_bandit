@@ -437,6 +437,48 @@ COG_COMPOSITE_LEGACY = 'global_composite'
 
 
 # =============================================================================
+# Reinforcement-learning parameter estimates
+# =============================================================================
+
+# Which Rescorla-Wagner estimates analyses use for alpha and beta.
+#
+#   'hb'   hierarchical Bayesian posterior means (columns suffixed `_hb`),
+#          from rl_models/run_within_fit.py. PRIMARY (decided 2026-09-22).
+#          Pooling keeps estimates off the parameter bounds: under MLE, alpha
+#          sits on a bound for 17 of 61 sham fits and 19 of 57 active fits,
+#          and beta reaches its ceiling of 50. The hierarchical fit has no
+#          value on a bound. It needs both sessions, so it covers the 57 H2
+#          subjects, and H1 analyses of alpha/beta run on 57 rather than 61.
+#
+#   'mle'  per-subject maximum likelihood (unsuffixed columns: sham_alpha ...).
+#          What the defended analyses used. Reported alongside throughout.
+#
+# The two agree on every clear result. The three borderline results that
+# differ are reported as method-dependent, not as findings
+# (compare_rl_estimates.py).
+RL_ESTIMATES = 'hb'
+
+RL_PARAMS = ('sham_alpha', 'active_alpha', 'delta_alpha',
+             'sham_beta', 'active_beta', 'delta_beta')
+
+
+def rl(name: str, estimates: str = None) -> str:
+    """
+    The column holding an RL parameter under the chosen estimator.
+
+    rl('delta_alpha') -> 'delta_alpha_hb' when RL_ESTIMATES == 'hb', else
+    'delta_alpha'. Analyses ask for parameters through this, never by the
+    raw column name, so the estimator is chosen in exactly one place.
+    """
+    if name not in RL_PARAMS:
+        raise KeyError(f'{name!r} is not an RL parameter; expected one of {RL_PARAMS}')
+    est = RL_ESTIMATES if estimates is None else estimates
+    if est not in ('hb', 'mle'):
+        raise ValueError(f"RL estimates must be 'hb' or 'mle', got {est!r}")
+    return f'{name}_hb' if est == 'hb' else name
+
+
+# =============================================================================
 # Validation (runs on import)
 # =============================================================================
 
