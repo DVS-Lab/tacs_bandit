@@ -12,6 +12,8 @@ Usage
 -----
     python build_results_paper_nb.py            # write results_paper.ipynb
     python build_results_paper_nb.py --execute  # write, then run it end to end
+    python build_results_paper_nb.py --sample dissertation --execute
+                                                # -> results_paper_dissertation.ipynb
 """
 
 from __future__ import annotations
@@ -104,7 +106,13 @@ from data_loading import load_all_subjects
 from exclusions import apply_all_exclusions
 
 MASTER_CSV = DATA_DIR.parent / 'master_subject_data.csv'
-FIG_DIR = DATA_DIR.parent / 'figures' / 'paper'
+# Each sample writes its own figures. They shared `figures/paper/` until
+# 2026-09-22, so the reproduction run (`--sample dissertation`) overwrote the
+# manuscript figures with N = 39 versions -- and, because it is the last step
+# in the documented order, that is what was committed. Check the marker count
+# if a figure ever looks sparse.
+FIG_DIR = (DATA_DIR.parent / 'figures' / 'paper' if SAMPLE == 'all'
+           else DATA_DIR.parent / 'figures' / f'paper_{SAMPLE}')
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 print(f'Master CSV: {MASTER_CSV}')
@@ -1071,6 +1079,19 @@ sensitivity check.
 Note that "converted" and "T1-only" are perfectly confounded in this sample,
 so the exclusion cannot be separated from whatever else differs about those
 scans.
+
+**Age is not sampled uniformly, so the correlation is close to a group
+contrast.** Recruitment ran in two bands: in the Dose sample 28 people are
+under 40 and 26 are 55 or over, with 5 in between. The cell below therefore
+reports the correlation *within* each band (the gradient) next to the
+standardised difference *between* them (the group effect). For the field, only
+the between-band term survives -- within the older band the correlation is
+r = +.09 -- so this should be written as **older adults receiving a weaker
+modelled field than younger adults**, with the correlation reported alongside
+rather than instead. "Field declines with age" would claim a gradient this
+design cannot show. The same split applied to cortical thickness and CSF *does*
+find within-band gradients (`efield_results.py`, block `age_bands`), so the
+result is not an artifact of cutting the sample in two.
 """),
         code("""
 # ============================================================================
@@ -1126,6 +1147,30 @@ else:
                 rr = _age_field_r(efield, met)
                 if rr:
                     print(f'    {met:14s} r = {rr[0]:+.3f}, p = {rr[1]:.3f}, N = {rr[2]}')
+
+        # --- Gradient or group difference? ---------------------------------
+        # Age was recruited in two bands, so a correlation over this
+        # distribution is close to a two-group contrast. Report both: the
+        # within-band correlation is the gradient, the between-band d is the
+        # group effect. Same 40/55 cut as efield_results.py.
+        _yb, _ob = d[d.age < 40], d[d.age >= 55]
+        print(f'\\n  age bands: {len(_yb)} under 40, '
+              f'{int(((d.age >= 40) & (d.age < 55)).sum())} in 40-54, '
+              f'{len(_ob)} at 55+')
+        if len(_yb) > 5 and len(_ob) > 5:
+            for _band, _lab in [(_yb, 'within younger band'), (_ob, 'within older band')]:
+                _r, _p = stats.pearsonr(_band['age'], _band[EFIELD_METRIC])
+                print(f'    {_lab:20s}: r = {_r:+.3f}, p = {_p:.3f}, N = {len(_band)}')
+            _t, _pt = stats.ttest_ind(_yb[EFIELD_METRIC], _ob[EFIELD_METRIC],
+                                      equal_var=False)
+            _pool = np.sqrt((_yb[EFIELD_METRIC].var(ddof=1)
+                             + _ob[EFIELD_METRIC].var(ddof=1)) / 2)
+            _d = (_ob[EFIELD_METRIC].mean() - _yb[EFIELD_METRIC].mean()) / _pool
+            print(f'    GROUP CONTRAST (old - young): d = {_d:+.3f}, '
+                  f't = {_t:+.3f}, p = {_pt:.4f}, N = {len(_yb) + len(_ob)}')
+            print('    -> the age effect is carried by the between-band contrast; '
+                  'report it as a\\n       group difference, with the correlation '
+                  'alongside (see markdown).')
 
         fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
         scatter_regression_mpl(ax, d['age'].values, d[EFIELD_METRIC].values,
@@ -1908,11 +1953,18 @@ def main(argv=None) -> int:
     parser.add_argument('--sample', default='all',
                         choices=['all', 'dissertation', 'new'],
                         help='value baked into the SAMPLE constant')
-    parser.add_argument('--output', default=str(OUTPUT))
+    parser.add_argument('--output', default=None,
+                        help='default: results_paper.ipynb, or '
+                             'results_paper_<sample>.ipynb for a subsample')
     args = parser.parse_args(argv)
 
     nb = build(args.sample)
-    out = Path(args.output)
+    # Each sample gets its own file. They shared one until 2026-09-22, so the
+    # reproduction run (`--sample dissertation`) silently overwrote the primary
+    # notebook and left the N = 39 version on disk looking like the current one.
+    out = (Path(args.output) if args.output else
+           OUTPUT if args.sample == 'all'
+           else OUTPUT.with_name(f'{OUTPUT.stem}_{args.sample}.ipynb'))
     nbf.write(nb, str(out))
     n_code = sum(c['cell_type'] == 'code' for c in nb.cells)
     print(f'Wrote {out}  ({len(nb.cells)} cells, {n_code} code)')
