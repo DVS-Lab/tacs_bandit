@@ -33,6 +33,8 @@ from exclusions import apply_all_exclusions
 from wsls import compute_wsls_h1_h2
 from rescorla_wagner import fit_rw_by_condition
 from accuracy_analysis import compute_condition_level_accuracy
+from reversal_analysis import identify_reversals, compute_trials_to_criterion
+from config import TTC_CRITERION, REVERSAL_WINDOW_PRE, REVERSAL_WINDOW_POST
 from cognitive_merge import run_cognitive_merge
 
 # Produced by run_theta_metrics.py. Theta needs the EEG recordings processed,
@@ -100,6 +102,17 @@ def build(
     accuracy = compute_condition_level_accuracy(data_clean, verbose=False)
     print(f'  Accuracy: {len(accuracy)} subject-conditions')
 
+    # Trials-to-criterion, one of the seven preregistered stimulation outcomes.
+    # Computed here rather than only in the notebook so it sits in the master
+    # CSV with the same H2 restriction as every other active-session measure.
+    reversals = identify_reversals(data_clean, window_pre=REVERSAL_WINDOW_PRE,
+                                   window_post=REVERSAL_WINDOW_POST, verbose=False)
+    ttc = (compute_trials_to_criterion(reversals, criterion=TTC_CRITERION)
+           .groupby(['subject_id', 'condition'])['trials_to_criterion'].mean()
+           .reset_index())
+    ttc['subject_id'] = ttc['subject_id'].astype(str)
+    print(f'  Trials-to-criterion: {len(ttc)} subject-conditions')
+
     theta_subject = load_theta(verbose=verbose)
 
     print('\n' + '=' * 70)
@@ -110,6 +123,7 @@ def build(
         wsls_h2=wsls_h2,
         rw_mle=rw_mle,
         accuracy=accuracy,
+        ttc=ttc,
         theta_subject=theta_subject,
         h2_subjects=h2_eligible,
         include_exploratory=include_exploratory,
@@ -124,6 +138,7 @@ def build(
         'wsls_h2': wsls_h2,
         'rw_mle': rw_mle,
         'accuracy': accuracy,
+        'ttc': ttc,
         'theta_subject': theta_subject,
     })
     return results

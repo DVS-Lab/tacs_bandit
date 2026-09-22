@@ -326,6 +326,14 @@ MIN_CLEAN_RUNS_PER_CONDITION = 1
 # Minimum trials for model fitting
 MIN_TRIALS_FOR_FITTING = 10
 
+# Trials-to-criterion: trials after a reversal until TTC_CRITERION consecutive
+# correct choices. Reversal-locked windows run REVERSAL_WINDOW_PRE trials before
+# and REVERSAL_WINDOW_POST after each reversal. Used by build_master_data.py and
+# the paper notebook (which asserts the two agree).
+TTC_CRITERION = 3
+REVERSAL_WINDOW_PRE = 5
+REVERSAL_WINDOW_POST = 15
+
 
 # =============================================================================
 # Plotting Constants

@@ -1174,6 +1174,7 @@ def build_subject_df(
     ddm_params: Optional[pd.DataFrame] = None,
     theta_subject: Optional[pd.DataFrame] = None,
     accuracy: Optional[pd.DataFrame] = None,
+    ttc: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     verbose: bool = True
@@ -1420,6 +1421,23 @@ def build_subject_df(
             print(f'  R-W (hierarchical): {n_hb} subjects, columns suffixed _hb')
     elif verbose:
         print(f'  R-W (hierarchical): no fit at {hb_path}; _hb columns absent')
+
+    # --- Trials-to-criterion ---
+    # Mean trials after a reversal until TTC_CRITERION consecutive correct,
+    # per condition. The active condition is restricted to H2-eligible
+    # subjects like every other active-session measure. Before this lived here
+    # the notebook computed it without that restriction, and 11773 -- whose
+    # "active" runs both delivered sham -- got a delta_ttc comparing sham with
+    # sham.
+    if ttc is not None and len(ttc) > 0:
+        for cond in ['sham', 'active']:
+            rows = ttc[ttc['condition'] == cond]
+            if cond == 'active' and h2_subjects is not None:
+                rows = rows[rows['subject_id'].isin(h2_subjects)]
+            col = rows.set_index('subject_id')['trials_to_criterion'].rename(f'{cond}_ttc')
+            subj_df = subj_df.merge(col, left_on='subject_id', right_index=True, how='left')
+        if {'sham_ttc', 'active_ttc'} <= set(subj_df.columns):
+            subj_df['delta_ttc'] = subj_df['active_ttc'] - subj_df['sham_ttc']
 
     # --- Accuracy and win rate ---
     # Takes the subject x condition frame from
@@ -1707,6 +1725,7 @@ def run_cognitive_merge(
     ddm_params: Optional[pd.DataFrame] = None,
     theta_subject: Optional[pd.DataFrame] = None,
     accuracy: Optional[pd.DataFrame] = None,
+    ttc: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     export_csv: bool = True,
@@ -1807,6 +1826,7 @@ def run_cognitive_merge(
         ddm_params=ddm_params,
         theta_subject=theta_subject,
         accuracy=accuracy,
+        ttc=ttc,
         h2_subjects=h2_subjects,
         include_exploratory=include_exploratory,
         verbose=verbose

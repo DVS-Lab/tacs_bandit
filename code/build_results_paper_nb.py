@@ -661,9 +661,10 @@ from reversal_analysis import (
     compute_reversal_accuracy,
 )
 
-CRITERION = 3        # consecutive correct choices
-WINDOW_PRE = 5
-WINDOW_POST = 15
+# Parameters live in config so the master build and this notebook cannot
+# disagree on them.
+from config import (TTC_CRITERION as CRITERION, REVERSAL_WINDOW_PRE as WINDOW_PRE,
+                    REVERSAL_WINDOW_POST as WINDOW_POST)
 
 trials = identify_reversals(trials, window_pre=WINDOW_PRE,
                             window_post=WINDOW_POST, verbose=True)
@@ -679,15 +680,27 @@ print(ttc.groupby('condition')['trials_to_criterion']
 # 3.2 Subject-level TTC and the active-vs-sham contrast
 # ============================================================================
 
+# sham_ttc / active_ttc / delta_ttc come from the master CSV, where the
+# active condition is restricted to H2-eligible subjects like every other
+# active-session measure. The notebook used to compute them here without that
+# restriction, which gave 11773 (whose "active" runs were sham) a delta_ttc.
+# Recompute from the trials above and require agreement, so the two can
+# never silently diverge.
 ttc_subj = (ttc.groupby(['subject_id', 'condition'])['trials_to_criterion']
               .mean().unstack())
-
 for cond in ['sham', 'active']:
-    if cond in ttc_subj.columns:
-        subj[f'{cond}_ttc'] = subj['subject_id'].map(ttc_subj[cond])
-
-if {'sham', 'active'}.issubset(ttc_subj.columns):
-    subj['delta_ttc'] = subj['active_ttc'] - subj['sham_ttc']
+    if cond not in ttc_subj.columns:
+        continue
+    here = subj['subject_id'].map(ttc_subj[cond])
+    if cond == 'active':
+        here = here.where(subj['subject_id'].isin(h2_eligible))
+    master = pd.to_numeric(subj[f'{cond}_ttc'], errors='coerce')
+    mismatch = ~(((here - master).abs() < 1e-9) | (here.isna() & master.isna()))
+    if mismatch.any():
+        raise AssertionError(
+            f'{cond}_ttc in the master CSV disagrees with the notebook for '
+            f'{sorted(subj.loc[mismatch, "subject_id"])}. Rebuild the master CSV.')
+print('TTC recomputed here matches the master CSV for every subject.')
 
 paired = subj[subj['subject_id'].isin(h2_eligible)][['sham_ttc', 'active_ttc']].dropna()
 if len(paired) > 2:
