@@ -126,7 +126,10 @@ def load_rf1_extended(
         'SCAARED - Separation Anxiety Disorder Score (Sum)': 'scaared_separation',
         'SCAARED - Social Anxiety Disorder Score (Sum)': 'scaared_social',
         # Gambling
-        'SOGS total score': 'sogs_total',
+        # 'SOGS total score' is not mapped: the REDCap calculation returns 0 for
+        # all 347 records in the project, although our subjects' item responses
+        # are not all zero. sogs_total is set to NaN below until it is scored
+        # from the items.
         'NORC(NODS) lifetime total score': 'norc_lifetime',
         'NORC(NODS) past year total score': 'norc_past_year',
         # Social media / internet
@@ -154,6 +157,10 @@ def load_rf1_extended(
     rf1_ext = rf1[cols_present].copy()
     rf1_ext = rf1_ext.rename(columns=col_map)
     rf1_ext = rf1_ext[rf1_ext['subject_id'].isin(study_subjects)].copy()
+
+    # SOGS pending: see the note in col_map above. The column is kept, empty,
+    # so it reappears in place once scored from the item responses.
+    rf1_ext['sogs_total'] = np.nan
 
     return rf1_ext
 
@@ -226,6 +233,15 @@ def load_rf1_exploratory(
     rf1_exp = rf1[cols_present].copy()
     rf1_exp = rf1_exp.rename(columns=col_map)
     rf1_exp = rf1_exp[rf1_exp['subject_id'].isin(study_subjects)].copy()
+
+    # Mach-IV: REDCap's calculated total returns 20 -- the minimum possible,
+    # 20 items x 1 -- for an unanswered questionnaire. A genuine 20 would mean
+    # strongly disagreeing with every item, reverse-keyed ones included, which
+    # is self-contradictory. 55 of our 66 read 20; the 11 who answered Mach-IV
+    # items are exactly the 11 with other totals (56-95). (Stage 4 audit.)
+    if 'mach_iv_total' in rf1_exp.columns:
+        mach = pd.to_numeric(rf1_exp['mach_iv_total'], errors='coerce')
+        rf1_exp['mach_iv_total'] = mach.where(mach != 20)
 
     return rf1_exp
 
@@ -381,9 +397,11 @@ def load_rf1_substance_mood(
     audit_dudit_cols = {
         'AUDIT (Sum)': 'audit_total',
         'DUDIT (Sum)': 'dudit_total',
-        'CTQ-SF Total Score (Sum) - CUTOFF': 'ctq_total',
-        # Note: CTQ subscale columns (Emotional Abuse, Physical Abuse, etc.)
-        # have only 2 non-null values in the entire RF1 Raw CSV and are not extracted.
+        # CTQ-SF is deliberately absent. 'CTQ-SF Total Score (Sum) - CUTOFF' is a
+        # REDCap calculated field that returns 999 -- a missing-data code -- for
+        # 456 of 458 rows, including all 66 of ours; only 8 of our subjects
+        # answered any CTQ item (at most 6 of 28). Mapping it produced a column
+        # that read 66/66 complete and held nothing but 999. (Stage 4 audit.)
     }
 
     cols_present = ['subject_id'] + [c for c in audit_dudit_cols.keys() if c in si_event.columns]
@@ -839,6 +857,23 @@ def score_bbs(redcap_tacs: pd.DataFrame) -> pd.DataFrame:
         df['bbs_avg'] = df[bbs_scores].mean(axis=1, skipna=True)
         df['bbs_n_items'] = df[bbs_scores].notna().sum(axis=1)
 
+    # Refuse to score a labels export. In REDCap's *labels* export only the
+    # two endpoints of these 1-7 items have text ('Not much at all', 'Very
+    # much'); a response of 2-6 comes out blank. Scoring that export uses
+    # endpoint answers alone -- which is where the old bbs_avg values of
+    # -6 / -1 / 0 came from. A raw (numeric) export keeps every response.
+    # If no response between 2 and 6 appears anywhere, the file is a labels
+    # export and the scale cannot be scored from it. (Stage 4 audit.)
+    num_cols = [c + '_num' for c in bbs_self_cols + bbs_other_cols
+                if c is not None and c + '_num' in df.columns]
+    if num_cols:
+        mid = df[num_cols].isin([2, 3, 4, 5, 6]).any().any()
+        if not mid:
+            print('  BBS: labels-only export (no responses between 2 and 6); '
+                  'not scored. Supply a raw REDCap export to score it.')
+            df['bbs_avg'] = np.nan
+            df['bbs_n_items'] = np.nan
+
     return df
 
 
@@ -1234,51 +1269,47 @@ def build_subject_df(
                     print(f'  {col}: recovered {recovered} from RF1 demographics '
                           f'({subj_df[col].notna().sum()}/{len(subj_df)} total)')
 
-    # Education from RF1 Raw (primary source)
+    # --- Education, from three sources in order of reliability ---------------
+    # Checked against each other on 2026-09-22 (Stage 4 audit):
+    #   RF1 raw vs island screener : r = .88, 36 of 40 exact
+    #   RF1 raw vs TabCAT          : r = .35, 6 of 36 differ by more than 2 y
+    #   TabCAT vs island           : r = .57
+    # TabCAT is the least reliable -- its demographic fields are typed at the
+    # tablet (its birthdates are wrong for 10606 and 10741 too) -- so it is the
+    # last resort, not the second. It used to outrank the island screener,
+    # which changed 10810 (13 -> 15) and 11116 (15 -> 14). No source ever
+    # overwrites a higher-priority one. `education_source` records which one
+    # each value came from.
+    #
+    # Education is unrelated to cognition here (r = .07). That is the sample,
+    # not the merge: 63% have 16+ years (IQR 15-18), and education rises with
+    # age (r = +.28) while cognition falls, which masks what relationship
+    # there is (controlling age: b = +.038, p = .17).
+    sources = []
     if 'education_years' in rf1_neuro.columns:
-        subj_df = subj_df.merge(
-            rf1_neuro[['subject_id', 'education_years']],
-            on='subject_id', how='left'
-        )
-
-    # Backfill education from TabCAT where RF1 Raw is missing
-    if 'tabcat_education_years' in tabcat.columns:
-        tc_edu = tabcat[['subject_id', 'tabcat_education_years']].copy()
-        tc_edu['tabcat_education_years'] = pd.to_numeric(tc_edu['tabcat_education_years'], errors='coerce')
-        subj_df = subj_df.merge(tc_edu, on='subject_id', how='left')
-        missing_mask = subj_df['education_years'].isna() & subj_df['tabcat_education_years'].notna()
-        n_recovered = missing_mask.sum()
-        if n_recovered > 0:
-            subj_df.loc[missing_mask, 'education_years'] = subj_df.loc[missing_mask, 'tabcat_education_years']
-            print(f'  Education: recovered {n_recovered} values from TabCAT '
-                  f'({subj_df["education_years"].notna().sum()}/{ len(subj_df)} total)')
-        subj_df = subj_df.drop(columns=['tabcat_education_years'])
-
-    # Third source for education: the island screener asks the same question in
-    # the same units. Where both it and the sources above have a value they
-    # agree closely (45 of 51 exact, mean absolute difference 0.4 years,
-    # r = 0.89), so it is used only to fill gaps and never to overwrite.
+        sources.append(('rf1_raw', rf1_neuro.set_index('subject_id')['education_years']))
     if Path(ISLAND_SCREENER_PATH).exists():
         island = pd.read_csv(ISLAND_SCREENER_PATH, low_memory=False)
         if 'rf1_id' in island.columns:
             island['subject_id'] = island['rf1_id'].astype(str)
-            edu_cols = [c for c in island.columns
-                        if 'How many years of education' in c]
-            if edu_cols and 'education_years' in subj_df.columns:
-                island_edu = {}
-                for col in edu_cols:
-                    rows = island.loc[island[col].notna(), ['subject_id', col]]
-                    for sid, value in rows.drop_duplicates('subject_id').values:
-                        island_edu.setdefault(str(sid), float(value))
-                mapped = subj_df['subject_id'].map(island_edu)
-                fill_mask = subj_df['education_years'].isna() & mapped.notna()
-                if fill_mask.any():
-                    subj_df.loc[fill_mask, 'education_years'] = mapped[fill_mask]
-                    if verbose:
-                        print(f'  Education: recovered {int(fill_mask.sum())} values '
-                              f'from the island screener '
-                              f'({subj_df["education_years"].notna().sum()}/'
-                              f'{len(subj_df)} total)')
+            island_edu = {}
+            for col in [c for c in island.columns if 'How many years of education' in c]:
+                for sid, value in island.loc[island[col].notna(), ['subject_id', col]].values:
+                    island_edu.setdefault(str(sid), float(value))
+            sources.append(('island_screener', pd.Series(island_edu, dtype=float)))
+    if 'tabcat_education_years' in tabcat.columns:
+        sources.append(('tabcat', pd.to_numeric(
+            tabcat.set_index('subject_id')['tabcat_education_years'], errors='coerce')))
+
+    subj_df['education_years'] = np.nan
+    subj_df['education_source'] = pd.Series(pd.NA, index=subj_df.index, dtype='object')
+    for name, series in sources:
+        vals = pd.to_numeric(subj_df['subject_id'].map(series), errors='coerce')
+        fill = subj_df['education_years'].isna() & vals.notna()
+        subj_df.loc[fill, 'education_years'] = vals[fill]
+        subj_df.loc[fill, 'education_source'] = name
+        if verbose and fill.any():
+            print(f'  Education: {int(fill.sum())} from {name}')
 
     # --- Cognitive composites ---
     cog = compute_cognitive_composites(rf1_cog, rf1_neuro, tabcat, study_subjects)

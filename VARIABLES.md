@@ -91,7 +91,8 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 |---|---|---|---|---|---|---|---|
 | `race` | 66/66 | Race | 5 values | <sub>cognitive_merge.extract_demographics</sub> | descriptive |  | 2 |
 | `ethnicity` | 66/66 | Ethnicity | 3 values | <sub>cognitive_merge.extract_demographics</sub> | descriptive |  | 2 |
-| `education_years` | 63/66 | Years of education<br><sub>Coalesced from three sources in priority order. Unrelated to cognition (r=+.07 with global_reduced); check source agreement before use.</sub> | 2 – 26 | <sub>cognitive_merge.build_subject_df</sub> | covariate<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10608 10641 10886</sub> | 9 |
+| `education_years` | 63/66 | Years of education<br><sub>Sources ranked by agreement: RF1 vs island r=.88; RF1 vs TabCAT r=.35. Unrelated to cognition (r=.07) because of range restriction (63% 16+ y) and an age confound (edu x age r=+.28). VERIFY IN REDCAP: 11885 = 2 y (RF1 and island agree; TabCAT says 18); 10590 = 19 y from RF1 while TabCAT and island both say 7.</sub> | 2 – 26 | <sub>cognitive_merge.build_subject_df</sub> | covariate<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10608 10641 10886</sub> | 9 |
+| `education_source` | 63/66 | Which source education_years came from: rf1_raw, island_screener or tabcat<br><sub>Missing only where education itself is missing.</sub> | 3 values | <sub>cognitive_merge.build_subject_df</sub> | qc | individual / scattered<br><sub>10608 10641 10886</sub> | **0** |
 | `age_source` | 66/66 | Where age came from: redcap_age (REDCap calculated field) or dob_fallback (same formula from Participant Date of Birth)<br><sub>Missing only where age itself is missing.</sub> | 2 values | <sub>cognitive_merge.extract_demographics</sub> | qc |  | **0** |
 | `age` | 66/66 | Age in years (self-report)<br><sub>Self-report calculated field: (Today's Date - birthdate)/365.25, exact for all 152 REDCap records. 11542 recovered from Participant Date of Birth by the same formula (age_source = dob_fallback). TabCAT DOB is wrong for 10606 and 10741; never use it for age.</sub> | 22.5 – 79.2 | <sub>cognitive_merge.extract_demographics</sub> | predictor<br><sub>H1.1, H1.2, H2.2, all age models</sub> |  | 33 |
 | `gender` | 66/66 | Gender | 2 values | <sub>cognitive_merge.extract_demographics</sub> | covariate |  | 9 |
@@ -118,14 +119,14 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `attention_composite` | 64/66 | Legacy attention domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -1.82 – 1.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy | — / scattered<br><sub>10641 11472</sub> | 3 |
-| `attention_reduced` | 63/66 | Uniform attention domain (same inputs for every subject) | -1.89 – 1.35 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component | — / scattered<br><sub>10641 11461 11472</sub> | 2 |
-| `speed_composite` | 65/66 | Legacy speed domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -1.82 – 1.98 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy | — / scattered<br><sub>10741</sub> | 3 |
-| `speed_reduced` | 65/66 | Uniform speed domain (same inputs for every subject) | -1.85 – 1.98 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component | — / scattered<br><sub>10741</sub> | 2 |
-| `memory_composite` | 66/66 | Legacy memory domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -2.42 – 2.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy |  | 3 |
+| `attention_composite` | 64/66 | Legacy attention domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -1.82 – 1.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy | — / scattered<br><sub>10641 11472</sub> | 2 |
+| `attention_reduced` | 63/66 | Uniform attention domain (same inputs for every subject) | -1.89 – 1.35 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component | — / scattered<br><sub>10641 11461 11472</sub> | 3 |
+| `speed_composite` | 65/66 | Legacy speed domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -1.82 – 1.98 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy | — / scattered<br><sub>10741</sub> | 2 |
+| `speed_reduced` | 65/66 | Uniform speed domain (same inputs for every subject) | -1.85 – 1.98 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component | — / scattered<br><sub>10741</sub> | 3 |
+| `memory_composite` | 66/66 | Legacy memory domain (mean of available z-scores)<br><sub>Input count varies with age; do not use for new work.</sub> | -2.42 – 2.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy |  | 2 |
 | `ef_composite` | 65/66 | Legacy executive function (Running Dots, Flanker, Trails B-A) | -2.51 – 1.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy | — / scattered<br><sub>10641</sub> | 4 |
 | `global_reduced` | 66/66 | Global cognition: mean of attention/memory/speed _reduced<br><sub>alpha=.79; KBIT r=+.47; r=.96 with global_composite. 1 of 19 models changes vs legacy (see compare_composites.py).</sub> | -1.69 – 1.52 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate<br><sub>H1.1, H1.2, H2.2 (COG_COMPOSITE)</sub> |  | 15 |
-| `memory_reduced` | 66/66 | Uniform memory domain (same inputs for every subject) | -2.42 – 2.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component |  | 2 |
+| `memory_reduced` | 66/66 | Uniform memory domain (same inputs for every subject) | -2.42 – 2.41 | <sub>cognitive_merge.compute_cognitive_composites</sub> | covariate_component |  | 3 |
 | `global_composite` | 66/66 | Legacy global cognition (mean of 3 legacy domains)<br><sub>Memory input count tracks age r=+.90. Set COG_COMPOSITE to use it; compare_composites.py runs both.</sub> | -1.69 – 1.56 | <sub>cognitive_merge.compute_cognitive_composites</sub> | legacy<br><sub>H1.1, H1.2, H2.2 as preregistered</sub> |  | 3 |
 
 ## behaviour wsls  ·  `master`
@@ -136,8 +137,8 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `delta_p_stay_win` | 57/66 | Active minus sham: P(stay | win)<br><sub>Requires both sessions (H2-eligible subjects only).</sub> | -0.466 – 0.361 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H2.2</sub> | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 7 |
 | `active_p_stay_win` | 57/66 | Active session: P(stay | win)<br><sub>Requires both sessions (H2-eligible subjects only).</sub> | 0.453 – 1 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 6 |
 | `active_p_shift_lose` | 57/66 | Active session: P(shift | lose)<br><sub>Requires both sessions (H2-eligible subjects only).</sub> | 0.0769 – 0.982 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome | by-design / scattered<br><sub>10716 10898 10961 11066 11433 11440 11492 11606 11773</sub> | 6 |
-| `sham_p_shift_lose` | 61/66 | Sham session: P(shift | lose) | 0.2 – 1 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10961 11066 11433 11440 11492</sub> | 14 |
 | `sham_p_stay_win` | 61/66 | Sham session: P(stay | win) | 0.423 – 1 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10961 11066 11433 11440 11492</sub> | 12 |
+| `sham_p_shift_lose` | 61/66 | Sham session: P(shift | lose) | 0.2 – 1 | <sub>wsls.compute_wsls_h1_h2 -> cognitive_merge.build_subject_df</sub> | outcome<br><sub>H1.1, H1.2</sub> | — / scattered<br><sub>10961 11066 11433 11440 11492</sub> | 14 |
 
 ## behaviour accuracy  ·  `master`
 
@@ -262,9 +263,9 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 |---|---|---|---|---|---|---|---|
 | `lh_cortex_vol` | 66/66 | Left cortical gray volume (mm3) | 1.601e+05 – 2.955e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `etiv` | 66/66 | Estimated total intracranial volume (Talairach-derived) (mm3)<br><sub>Registration-derived, not measured; normalising by it inherits its bias.</sub> | 9.736e+05 – 1.875e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
-| `total_gray_vol` | 66/66 | Total gray matter volume (mm3) | 4.698e+05 – 8.044e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
-| `rh_cortex_vol` | 66/66 | Right cortical gray volume (mm3) | 1.625e+05 – 2.986e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `cortex_vol` | 66/66 | Cortical gray volume (mm3) | 3.227e+05 – 5.942e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
+| `rh_cortex_vol` | 66/66 | Right cortical gray volume (mm3) | 1.625e+05 – 2.986e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
+| `total_gray_vol` | 66/66 | Total gray matter volume (mm3) | 4.698e+05 – 8.044e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `brainseg_not_vent` | 66/66 | Brain segmentation volume excluding ventricles (mm3) | 8.432e+05 – 1.436e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `dlpfc_surf_area` | 66/66 | DLPFC surface area (= lh) | 6.11e+03 – 1.065e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `subcort_gray_vol` | 66/66 | Subcortical gray volume (mm3) | 4.668e+04 – 7.042e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
@@ -279,13 +280,13 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `lh_dlpfc_gray_vol` | 66/66 | Left DLPFC gray volume (mm3) | 1.388e+04 – 2.871e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `mask_vol` | 66/66 | Brain mask volume (mm3) | 1.151e+06 – 1.752e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `lh_dlpfc_thickness` | 66/66 | Left DLPFC thickness, vertex-weighted (mm) | 1.86 – 2.67 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
-| `surface_holes` | 66/66 | Surface topological defects before fixing (count) | 2 – 45 | <sub>freesurfer_morph.run</sub> | qc |  | 1 |
 | `lh_white_surf_area` | 66/66 | Left white surface area (mm2) | 6.754e+04 – 1.087e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
-| `lh_mean_thickness` | 66/66 | Left hemisphere mean cortical thickness (mm) | 1.85 – 2.6 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
 | `white_matter_vol` | 66/66 | Cerebral white matter volume (mm3) | 3.576e+05 – 6.314e+05 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
+| `surface_holes` | 66/66 | Surface topological defects before fixing (count) | 2 – 45 | <sub>freesurfer_morph.run</sub> | qc |  | 1 |
 | `ventricle_choroid_vol` | 66/66 | Ventricle + choroid plexus volume (mm3)<br><sub>Atrophy marker; tested in fig_atrophy_vs_geometry.</sub> | 6.26e+03 – 9.661e+04 | <sub>freesurfer_morph.run</sub> | secondary |  | 1 |
 | `supratentorial_vol` | 66/66 | Supratentorial volume (mm3) | 7.808e+05 – 1.283e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 | `supratentorial_notvent_vol` | 66/66 | Supratentorial volume excluding ventricles (mm3) | 7.521e+05 – 1.267e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
+| `lh_mean_thickness` | 66/66 | Left hemisphere mean cortical thickness (mm) | 1.85 – 2.6 | <sub>freesurfer_morph.run</sub> | secondary |  | 2 |
 | `brainseg_vol` | 66/66 | Brain segmentation volume (mm3) | 8.720e+05 – 1.452e+06 | <sub>freesurfer_morph.run</sub> | secondary |  | **0** |
 
 ## survey reward  ·  `master`
@@ -305,22 +306,22 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `bpsqi_duration` | 65/66 | Brief PSQI component: duration | 0 – 2 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `bpsqi_latency` | 65/66 | Brief PSQI component: latency | 0 – 3 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `bpsqi_global` | 65/66 | Brief PSQI global score | 0 – 9 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 5 |
 | `bpsqi_disturbance` | 65/66 | Brief PSQI component: disturbance | 0 – 3 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `bpsqi_quality` | 65/66 | Brief PSQI component: quality | 0 – 3 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
+| `bpsqi_duration` | 65/66 | Brief PSQI component: duration | 0 – 2 | <sub>cognitive_merge.score_bpsqi</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 
 ## survey mindfulness  ·  `master`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
 | `ffmq_describe` | 65/66 | FFMQ facet: describe | 2 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
-| `ffmq_observe` | 65/66 | FFMQ facet: observe | 2 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
+| `ffmq_total_no_obs` | 65/66 | FFMQ total excluding Observe facet | 2.08 – 4.67 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `ffmq_nonreact` | 65/66 | FFMQ facet: nonreact | 1 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `ffmq_nonjudge` | 65/66 | FFMQ facet: nonjudge | 2 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
+| `ffmq_observe` | 65/66 | FFMQ facet: observe | 2 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `ffmq_total` | 65/66 | FFMQ total | 2.33 – 4.6 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 5 |
-| `ffmq_total_no_obs` | 65/66 | FFMQ total excluding Observe facet | 2.08 – 4.67 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 | `ffmq_actaware` | 65/66 | FFMQ facet: actaware | 1.67 – 5 | <sub>cognitive_merge.score_ffmq</sub> | exploratory | — / scattered<br><sub>11066</sub> | 2 |
 
 ## survey affect social  ·  `master`
@@ -332,7 +333,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `scaared_gad` | 64/66 | SCAARED generalized anxiety | 0 – 22 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | — / scattered<br><sub>10559 10649</sub> | 1 |
 | `scaared_separation` | 64/66 | SCAARED separation | 0 – 10 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | — / scattered<br><sub>10559 10649</sub> | 1 |
 | `scaared_social` | 64/66 | SCAARED social | 0 – 14 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | — / scattered<br><sub>10559 10649</sub> | 1 |
-| `sogs_total` | 60/66 | South Oaks Gambling Screen<br><sub>Missing for enrollment ranks 1-3, 5, 7, 8: added to the RF1 protocol after the first eight subjects. Not recoverable.</sub> | 0 – 0 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | enrollment-gated / enrollment-gated (later present)<br><sub>10369 10418 10541 10589 10606 10608</sub> | 1 |
+| `sogs_total` | 0/66 | South Oaks Gambling Screen<br><sub>PENDING: score from item responses. The REDCap total is 0 for all 347 records in the RF1 project (broken calculated field); item answers exist for 64 of ours and are not all zero.</sub> | 0 values | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory **(unavailable)** | — / <br><sub>nan</sub> | 1 |
 | `norc_lifetime` | 66/66 | NODS/NORC gambling, lifetime | 0 – 5 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory |  | 1 |
 | `norc_past_year` | 66/66 | NODS/NORC gambling, past year | 0 – 2 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory |  | 1 |
 | `bsmas_total` | 66/66 | Bergen Social Media Addiction Scale | 6 – 22 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory |  | 1 |
@@ -345,7 +346,6 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `mspss_family` | 61/66 | MSPSS family<br><sub>Missing for enrollment ranks 1, 2, 5, 7, 8: added to the RF1 protocol after the first eight subjects. Not recoverable.</sub> | 1 – 7 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | enrollment-gated / enrollment-gated (later present)<br><sub>10369 10418 10589 10606 10608</sub> | 1 |
 | `mspss_significant_other` | 61/66 | MSPSS significant other<br><sub>Missing for enrollment ranks 1, 2, 5, 7, 8: added to the RF1 protocol after the first eight subjects. Not recoverable.</sub> | 1.75 – 7 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory | enrollment-gated / enrollment-gated (later present)<br><sub>10369 10418 10589 10606 10608</sub> | 1 |
 | `susd_depression` | 66/66 | SUSD depression | 0 – 17 | <sub>cognitive_merge.load_rf1_extended</sub> | exploratory |  | 1 |
-| `ctq_total` | 66/66 | Childhood Trauma Questionnaire total | 999 – 999 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory |  | 3 |
 | `loneliness_companionship` | 13/66 | UCLA-3 loneliness: companionship<br><sub>Present only for ages 57-76 AND enrollment ranks <= 26: part of the older-adult battery, then dropped. Not recoverable.</sub> | 1 – 3 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | age-gated; enrollment-gated / age-gated (older present); leans enrollment (earlier present)<br><sub>nan</sub> | **0** |
 | `loneliness_left_out` | 13/66 | UCLA-3 loneliness: left_out<br><sub>Present only for ages 57-76 AND enrollment ranks <= 26: part of the older-adult battery, then dropped. Not recoverable.</sub> | 1 – 3 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | age-gated; enrollment-gated / age-gated (older present); leans enrollment (earlier present)<br><sub>nan</sub> | **0** |
 | `loneliness_isolated` | 13/66 | UCLA-3 loneliness: isolated<br><sub>Present only for ages 57-76 AND enrollment ranks <= 26: part of the older-adult battery, then dropped. Not recoverable.</sub> | 1 – 3 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | age-gated; enrollment-gated / age-gated (older present); leans enrollment (earlier present)<br><sub>nan</sub> | **0** |
@@ -357,26 +357,26 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `dudit_total` | 15/66 | DUDIT drug use<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 0 – 13 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 | `audit_total` | 15/66 | AUDIT alcohol<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 0 – 13 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 4 |
+| `dudit_total` | 15/66 | DUDIT drug use<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 0 – 13 | <sub>cognitive_merge.load_rf1_substance_mood</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 
 ## survey health  ·  `master`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `promis_depression` | 15/66 | PROMIS: depression<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 4 – 13 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 2 |
+| `promis_anxiety` | 15/66 | PROMIS: anxiety<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 4 – 12 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 4 |
 | `promis_fatigue` | 15/66 | PROMIS: fatigue<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 3 – 12 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 | `promis_sleep` | 15/66 | PROMIS: sleep<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 2 – 5 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 | `promis_social` | 14/66 | PROMIS: social<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 4 – 10 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 | `promis_pain` | 15/66 | PROMIS: pain<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 1 – 5 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
 | `promis_physical` | 15/66 | PROMIS: physical<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 17 – 20 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 1 |
-| `promis_anxiety` | 15/66 | PROMIS: anxiety<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 4 – 12 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 4 |
+| `promis_depression` | 15/66 | PROMIS: depression<br><sub>Collected for early enrollees only (protocol changed). Not recoverable.</sub> | 4 – 13 | <sub>cognitive_merge._score_promis</sub> | exploratory | enrollment-gated / enrollment-gated (earlier present)<br><sub>nan</sub> | 2 |
 
 ## survey other  ·  `master`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `bbs_avg` | 25/66 | BBS mean item score<br><sub>25/66. Missingness pattern not yet explained (Stage 4).</sub> | -6 – 0 | <sub>cognitive_merge.score_bbs</sub> | exploratory | — / scattered<br><sub>nan</sub> | 4 |
+| `bbs_avg` | 0/66 | BBS mean item score<br><sub>PENDING: needs a raw (numeric) REDCap export of the tACS BBS fields. The labels export drops every 2-6 response, so old scores (-6/-1/0) used endpoint answers only. score_bbs refuses a labels export. Also: 7 of 14 bias labels match no column.</sub> | 0 values | <sub>cognitive_merge.score_bbs</sub> | exploratory **(unavailable)** | — / <br><sub>nan</sub> | 4 |
 
 ## survey exploratory  ·  `master`
 
@@ -387,7 +387,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `planfulness_cs` | 66/66 | Planfulness: cognitive strategies | 2.5 – 4.6 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
 | `planfulness_to` | 66/66 | Planfulness: temporal orientation | 2.5 – 4.7 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
 | `planfulness_mf` | 66/66 | Planfulness: mental focus | 2 – 4.7 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
-| `mach_iv_total` | 66/66 | Mach-IV total | 20 – 101 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
+| `mach_iv_total` | 11/66 | Mach-IV total<br><sub>Answered by 11 subjects, mostly older and early-enrolled -- the same early older-adult battery as PNR and loneliness. Not recoverable.</sub><br><sub>REDCap returns 20 (the minimum) for an unanswered questionnaire; 20 is treated as missing. 11 real scores (56-95).</sub> | 56 – 101 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory | age-gated; enrollment-gated / leans age (older present); leans enrollment (earlier present)<br><sub>nan</sub> | **0** |
 | `ios_stranger` | 66/66 | Inclusion of Other in Self: stranger | 1 – 6 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
 | `ios_computer` | 66/66 | Inclusion of Other in Self: computer | 1 – 7 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
 | `ios_friend` | 66/66 | Inclusion of Other in Self: friend | 2 – 7 | <sub>cognitive_merge.load_rf1_exploratory</sub> | exploratory |  | **0** |
@@ -433,7 +433,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 | `attention_reduced_n` | 66/66 | Inputs behind attention_reduced | 0 – 3 | <sub>cognitive_merge.compute_cognitive_composites</sub> | qc |  | **0** |
 | `memory_n_measures` | 66/66 | Inputs behind memory_composite | 1 – 2 | <sub>cognitive_merge.compute_cognitive_composites</sub> | qc **(legacy)** |  | 1 |
 | `spsrq_sr_n_items` | 66/66 | Items answered for SPSRQ_SR | 0 – 10 | <sub>cognitive_merge.score_spsrq</sub> | qc |  | **0** |
-| `bbs_n_items` | 66/66 | Items answered for BBS | 0 – 7 | <sub>cognitive_merge.score_bbs</sub> | qc |  | **0** |
+| `bbs_n_items` | 0/66 | Items answered for BBS<br><sub>See bbs_avg.</sub> | 0 values | <sub>cognitive_merge.score_bbs</sub> | qc **(unavailable)** | — / <br><sub>nan</sub> | **0** |
 | `spsrq_sp_n_items` | 66/66 | Items answered for SPSRQ_SP | 0 – 10 | <sub>cognitive_merge.score_spsrq</sub> | qc |  | **0** |
 | `crt_n_items` | 66/66 | Items answered for CRT | 6 – 6 | <sub>cognitive_merge.score_crt</sub> | qc |  | **0** |
 | `ffmq_n_items` | 66/66 | Items answered for FFMQ | 0 – 15 | <sub>cognitive_merge.score_ffmq</sub> | qc |  | **0** |

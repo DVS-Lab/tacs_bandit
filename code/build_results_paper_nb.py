@@ -1265,8 +1265,10 @@ baseline_dvs = [c for c in ['sham_p_stay_win', 'sham_p_shift_lose',
                             'sham_ttc'] if c in subj.columns]
 
 predictors = [c for c in [
+    # Domain scores use the uniform family: the legacy *_composite columns
+    # average whatever tests a subject had, and that number tracks age.
     'age', 'education_years', COG_COMPOSITE, 'ef_composite',
-    'attention_composite', 'memory_composite', 'speed_composite',
+    'attention_reduced', 'memory_reduced', 'speed_reduced',
     'spsrq_sr', 'spsrq_sp', 'theta_p95', 'bpsqi_global', 'crt_total',
     'ffmq_total', 'audit_total', 'promis_anxiety', 'promis_depression',
     'loneliness_total',

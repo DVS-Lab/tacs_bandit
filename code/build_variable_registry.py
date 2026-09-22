@@ -191,8 +191,11 @@ def build(write: bool = True) -> int:
                  n_unique=int(col.nunique()))
         if is_num and n:
             r.update(min=float(num.min()), median=float(num.median()), max=float(num.max()))
-        if n == 0:
+        if n == 0 and s.status != 'unavailable':
             errors.append(f'{s.table}: `{s.variable}` is entirely empty')
+        if n > 0 and s.status == 'unavailable':
+            warnings.append(f'`{s.variable}` is marked unavailable in the spec but now has '
+                            f'{n} values -- review and set its status back to current')
 
         # Missingness pattern
         ids = df['subject_id']

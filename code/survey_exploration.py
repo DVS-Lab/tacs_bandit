@@ -118,9 +118,9 @@ SURVEY_GROUPS = {
     },
     'Objective Cognition': {
         COG_COMPOSITE: 'Global Cognition',
-        'attention_composite': 'Attention',
-        'memory_composite': 'Memory',
-        'speed_composite': 'Processing Speed',
+        'attention_reduced': 'Attention',
+        'memory_reduced': 'Memory',
+        'speed_reduced': 'Processing Speed',
         'ef_composite': 'Executive Function',
         'kbit_iq': 'KBIT IQ',
     },
@@ -205,6 +205,9 @@ BASELINE_DVS = {
     'attention_composite': 'Attention',
     'memory_composite': 'Memory',
     'speed_composite': 'Processing Speed',
+    'attention_reduced': 'Attention',
+    'memory_reduced': 'Memory',
+    'speed_reduced': 'Processing Speed',
     'ef_composite': 'Executive Function',
     'kbit_iq': 'KBIT IQ',
 }

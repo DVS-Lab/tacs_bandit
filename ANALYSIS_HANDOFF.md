@@ -260,6 +260,12 @@ Every one had the same signature: **no error raised, data silently degraded.**
 | Composite averaged whatever tests a subject had | `cognitive_merge.compute_cognitive_composites` | Digit Span / BVMT / Trails were given only from ~age 56, so the memory composite's input count tracked age at r = +.90. `global_reduced` uses the same six measures for everyone; `COG_COMPOSITE` in config.py switches between them |
 | Set Shifting parsed, then dropped at the merge | same | a 63/66-coverage attention measure was never used |
 | BPAQ mapped from columns that are empty at source | `cognitive_merge.load_rf1_extended` | five all-NaN columns; the instrument was never administered. Removed |
+| CTQ total is a REDCap calculated field returning 999 | `cognitive_merge.load_rf1_substance_mood` | read 66/66 complete while every value was the missing code 999; only 8 of ours answered any item. Removed |
+| SOGS total is a broken REDCap calculation | `cognitive_merge.load_rf1_extended` | 0 for all 347 records in the RF1 project, although item answers are not all zero. Blanked, pending scoring from items |
+| Mach-IV total returns 20 for an empty questionnaire | `cognitive_merge.load_rf1_exploratory` | 55 of 66 "scores" were the empty-form floor. 20 treated as missing; 11 real scores remain |
+| BBS scored from a *labels* export | `cognitive_merge.score_bbs` | the labels export blanks every 2–6 response, so scores (-6/-1/0) used endpoint answers only. Scorer now refuses a labels export; needs a raw export |
+| Education ranked TabCAT above the island screener | `cognitive_merge.build_subject_df` | TabCAT agrees with RF1 at r = .35, the island screener at .88. Reordered; 2 values changed; `education_source` added |
+| Notebook sweep used legacy domain composites | `build_results_paper_nb.py` §6.2, `survey_exploration.py` | the age-confounded `attention/memory/speed_composite`. Swapped for `*_reduced` |
 
 Also corrected: `dz` and TOST used the population SD (`ddof=0`), making the
 equivalence test anti-conservative; H2 comparisons mixed samples across DVs;
@@ -520,7 +526,7 @@ as findings:**
 |---|---|---|
 | H1.1.1 β → lose-shifting | p = .056 (n = 58) | p = .26 (n = 54) |
 | H2.2 age × Δα | r = −.26, p = .054 | r = −.03, p = .82 |
-| H1.1.2 cognition × age → α | p = .18 | p = .045 (n = 54) |
+| H1.1.2 cognition × age → α | p = .18 | p = .044 (n = 54) |
 
 The two MLE trends are carried by fits pinned at a bound. The H1.1.2 α effect is
 one of three H1.1.2 moderation tests and would not survive correction for them.
@@ -546,6 +552,28 @@ undocumented until the Stage 2 audit.
 uses 2 s Welch windows, so 0.5 Hz resolution and 26 of 55 subjects at exactly
 10.0 Hz. iTF = IAF − 5 is clipped to 4–8 Hz, which puts the 5 subjects with
 IAF < 9 Hz at exactly 4.0. Four IAFs of 12–13 Hz may not be alpha.
+
+**Recoverable, needs a REDCap export (Stage 4).** BBS needs a *raw* (numeric)
+export of the tACS BBS fields; the labels export in use has lost every 2–6
+response. Separately, 7 of its 14 bias items match no column label. SOGS can be
+scored from item responses already on disk (64 of ours) once a scoring key is
+agreed on. Both are kept as empty columns marked `unavailable` in the spec, so
+they come back in place once scored.
+
+**Verify in REDCap.** Education for `11885` is 2 years (RF1 and island agree;
+TabCAT says 18), and for `10590` it's 19 (RF1) against 7 (TabCAT and island).
+
+**Construct decision: EF vs attention.** Legacy `ef_composite` (Running Dots,
+Flanker, Trails B−A) has the age confound (input count × age r = +.46; Trails
+only from ~56), and correlates .91 with `attention_reduced`. The uniform
+"attention" composite's three tasks — Flanker (inhibition), Set Shifting
+(shifting), Running Dots (updating) — are the textbook components of executive
+function (Miyake et al., 2000), so it may be better *named* EF. `ef_composite`
+is still the preregistered secondary moderator in notebook §6.1.
+
+**35 survey variables no analysis uses** (TEIQue, AQ, PANAS, IOS, Mach-IV,
+Planfulness, present bias, gullibility, GTI, PNR, RF1 CRT). Coverage 61–66 for
+most, so they could join the exploratory FDR sweep, or stay unanalysed by design.
 
 **FreeSurfer QC of the four outliers: all pass** (`code/fig_qc_freesurfer.py`,
 2026-09-22; two reference subjects chosen by rule for comparison). `11461` (76 y,
