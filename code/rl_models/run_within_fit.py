@@ -52,7 +52,14 @@ def subject_table(idata: az.InferenceData, subject_ids: List[str]) -> pd.DataFra
     post = idata.posterior
     rows = {'subject_id': subject_ids}
 
+    # The dual model names its rates alpha_pos_/alpha_neg_; the single-rate
+    # model uses alpha_. Whichever is present is exported.
     for var, col in [('alpha_sham', 'sham_alpha'), ('alpha_active', 'active_alpha'),
+                     ('beta_sham', 'sham_beta'), ('beta_active', 'active_beta'),
+                     ('alpha_pos_sham', 'sham_alpha_pos'),
+                     ('alpha_pos_active', 'active_alpha_pos'),
+                     ('alpha_neg_sham', 'sham_alpha_neg'),
+                     ('alpha_neg_active', 'active_alpha_neg'),
                      ('beta_sham', 'sham_beta'), ('beta_active', 'active_beta')]:
         if var in post:
             draws = post[var].values.reshape(-1, len(subject_ids))
@@ -70,6 +77,9 @@ def subject_table(idata: az.InferenceData, subject_ids: List[str]) -> pd.DataFra
 def group_table(idata: az.InferenceData) -> pd.DataFrame:
     """Group-level parameters with HDIs — the paper's headline numbers."""
     names = ['mu_alpha', 'delta_alpha', 'eta_alpha', 'sigma_alpha', 'tau_alpha',
+             'mu_alpha_pos', 'delta_alpha_pos', 'sigma_alpha_pos', 'tau_alpha_pos',
+             'mu_alpha_neg', 'delta_alpha_neg', 'sigma_alpha_neg', 'tau_alpha_neg',
+             'asymmetry',
              'mu_beta', 'delta_beta', 'eta_beta', 'sigma_beta', 'tau_beta']
     available = [n for n in names if n in idata.posterior]
     summary = az.summary(idata, var_names=available, hdi_prob=0.94)
@@ -86,6 +96,9 @@ def group_table(idata: az.InferenceData) -> pd.DataFrame:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[1])
+    parser.add_argument('--model', default='rw', choices=['rw', 'rw_dual'],
+                        help="'rw_dual' fits separate learning rates for "
+                             'better- and worse-than-expected outcomes')
     parser.add_argument('--sample', default='all',
                         choices=['all', 'dissertation', 'new'])
     parser.add_argument('--draws', type=int, default=2000)
@@ -98,7 +111,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     print('=' * 70)
-    print(f'Within-subject hierarchical RW — sample={args.sample!r}')
+    print(f'Within-subject hierarchical {args.model} — sample={args.sample!r}')
     print('=' * 70)
 
     dataset = build_run_dataset(sample=args.sample, verbose=True)
@@ -110,6 +123,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         num_samples=args.draws,
         num_chains=args.chains,
         seed=args.seed,
+        model=args.model,
         progress_bar=False,
     )
 
@@ -127,7 +141,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    tag = f'rw_within_{args.sample}'
+    tag = f'{args.model}_within_{args.sample}'
 
     fit.save(out_dir / f'{tag}_idata.pkl')
     group.to_csv(out_dir / f'{tag}_group.csv')

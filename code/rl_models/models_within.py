@@ -49,7 +49,7 @@ import jax.numpy as jnp
 import numpyro
 import numpyro.distributions as dist
 
-from .models import rw_loglik_sequence
+from .models import rw_loglik_sequence, rw_dual_loglik_sequence
 
 
 # Default prior scales. Kept here rather than inline so a sensitivity analysis
@@ -200,4 +200,93 @@ def model_rw_within_subject(
         )
 
     total_ll = jax.vmap(seq_loglik)(jnp.arange(choices.shape[0]))
+    numpyro.factor('obs', jnp.sum(total_ll))
+
+
+def model_rw_dual_within_subject(
+    choices: jnp.ndarray,
+    rewards: jnp.ndarray,
+    masks: jnp.ndarray,
+    seq_subject: jnp.ndarray,
+    cond_x: jnp.ndarray,
+    block_x: jnp.ndarray,
+    n_subjects: int,
+    moderators: Optional[jnp.ndarray] = None,
+    include_block: bool = True,
+    include_random_slope: bool = True,
+    priors: Optional[Dict[str, float]] = None,
+):
+    """
+    The same within-subject structure with separate learning rates for
+    better- and worse-than-expected outcomes.
+
+    Motivated by the posterior predictive check on the single-rate model
+    (`ppc_within.py`): it reproduces accuracy, post-reversal recovery and
+    win-stay closely, but predicts lose-shift near 0.5 for everyone while
+    participants range from 0.1 to 1.0 (r = .49, 61% inside the 95% interval).
+    One learning rate cannot respond differently to wins and losses, which is
+    exactly what that gap looks like.
+
+    Every term mirrors `model_rw_within_subject`: each of alpha_pos, alpha_neg
+    and beta gets a group mean, a condition effect (with a random slope), a
+    block-order term and between-subject spread. Only the update rule differs,
+    so a comparison between the two is about asymmetry alone.
+    """
+    p = dict(DEFAULT_PRIORS)
+    if priors:
+        p.update(priors)
+
+    names = ('alpha_pos', 'alpha_neg', 'beta')
+    mu, delta, sigma, z, slope, eta = {}, {}, {}, {}, {}, {}
+    for nm in names:
+        prior_mu = p['mu_beta'] if nm == 'beta' else p['mu_alpha']
+        loc = 1.0 if nm == 'beta' else 0.0
+        mu[nm] = numpyro.sample(f'mu_{nm}', dist.Normal(loc, prior_mu))
+        delta[nm] = numpyro.sample(f'delta_{nm}', dist.Normal(0.0, p['delta']))
+        sigma[nm] = numpyro.sample(f'sigma_{nm}', dist.HalfNormal(p['sigma']))
+        z[nm] = numpyro.sample(f'z_{nm}', dist.Normal(jnp.zeros(n_subjects), 1.0))
+
+        delta_subj = delta[nm]
+        if moderators is not None:
+            gamma = numpyro.sample(f'gamma_{nm}',
+                                   dist.Normal(jnp.zeros(moderators.shape[1]), p['gamma']))
+            delta_subj = delta[nm] + moderators @ gamma
+        if include_random_slope:
+            tau = numpyro.sample(f'tau_{nm}', dist.HalfNormal(p['tau']))
+            w = numpyro.sample(f'w_{nm}', dist.Normal(jnp.zeros(n_subjects), 1.0))
+            slope[nm] = delta_subj + tau * w
+        else:
+            slope[nm] = delta_subj * jnp.ones(n_subjects)
+        eta[nm] = (numpyro.sample(f'eta_{nm}', dist.Normal(0.0, p['eta']))
+                   if include_block else 0.0)
+
+    subj = seq_subject
+    lin = {nm: (mu[nm] + slope[nm][subj] * cond_x + eta[nm] * block_x
+                + sigma[nm] * z[nm][subj]) for nm in names}
+    alpha_pos_seq = jax.nn.sigmoid(lin['alpha_pos'])
+    alpha_neg_seq = jax.nn.sigmoid(lin['alpha_neg'])
+    beta_seq = jax.nn.softplus(lin['beta'])
+    numpyro.deterministic('alpha_pos_seq', alpha_pos_seq)
+    numpyro.deterministic('alpha_neg_seq', alpha_neg_seq)
+    numpyro.deterministic('beta_seq', beta_seq)
+
+    # Per subject and condition on the natural scale, as for the single-rate
+    # model, plus the asymmetry itself.
+    for nm, link in (('alpha_pos', jax.nn.sigmoid), ('alpha_neg', jax.nn.sigmoid),
+                     ('beta', jax.nn.softplus)):
+        for cond, sign in (('sham', -0.5), ('active', +0.5)):
+            numpyro.deterministic(
+                f'{nm}_{cond}',
+                link(mu[nm] + sign * slope[nm] + sigma[nm] * z[nm]))
+    numpyro.deterministic('asymmetry', jax.nn.sigmoid(mu['alpha_pos'])
+                          - jax.nn.sigmoid(mu['alpha_neg']))
+
+    def seq_loglik(i):
+        return rw_dual_loglik_sequence(
+            choices[i], rewards[i], alpha_pos_seq[i], alpha_neg_seq[i],
+            beta_seq[i], mask=masks[i]
+        )
+
+    total_ll = jax.vmap(seq_loglik)(jnp.arange(choices.shape[0]))
+    numpyro.deterministic('loglik_seq', total_ll)
     numpyro.factor('obs', jnp.sum(total_ll))

@@ -23,7 +23,7 @@ import numpy as np
 from numpyro.infer import MCMC, NUTS
 
 from .data_prep import RunDataset, block_contrast, condition_contrast
-from .models_within import model_rw_within_subject
+from .models_within import model_rw_within_subject, model_rw_dual_within_subject
 
 
 @dataclass
@@ -87,6 +87,7 @@ def fit_within_model(
     num_chains: int = 4,
     seed: int = 42,
     target_accept_prob: float = 0.95,
+    model: str = 'rw',
     progress_bar: bool = True,
     verbose: bool = True,
 ) -> WithinFitResult:
@@ -114,7 +115,9 @@ def fit_within_model(
     if moderators is not None:
         model_kwargs['moderators'] = jnp.array(np.asarray(moderators, dtype=np.float32))
 
-    kernel = NUTS(model_rw_within_subject, target_accept_prob=target_accept_prob)
+    model_fn = {'rw': model_rw_within_subject,
+                'rw_dual': model_rw_dual_within_subject}[model]
+    kernel = NUTS(model_fn, target_accept_prob=target_accept_prob)
     mcmc = MCMC(
         kernel,
         num_warmup=num_warmup,
@@ -124,7 +127,7 @@ def fit_within_model(
     )
 
     if verbose:
-        print(f'Fitting within-subject RW: {dataset.n_sequences} runs, '
+        print(f'Fitting within-subject {model}: {dataset.n_sequences} runs, '
               f'{dataset.n_subjects} subjects')
         print(f'  {num_chains} chains x {num_samples} samples (+{num_warmup} warmup)')
 
