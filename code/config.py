@@ -163,7 +163,7 @@ SUBJECT_INFO = {
     '10589': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
     '11563': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
     '10649': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
-    '11030': {'counterbalance': 'A', 'earclip': True, 'notes': ''},
+    '11030': {'counterbalance': 'A', 'earclip': True, 'notes': 'No EEG; counterbalance unverified (config and REDCap agree on A)'},
     '10809': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10961': {'counterbalance': 'B', 'earclip': True, 'notes': ''},
     '10541': {'counterbalance': 'B', 'earclip': True, 'notes': ''},

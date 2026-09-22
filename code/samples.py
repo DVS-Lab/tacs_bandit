@@ -46,7 +46,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 import pandas as pd
 
-from config import REPO_ROOT, EFIELD_CSV_PATH, COG_COMPOSITE
+from config import REPO_ROOT, EFIELD_CSV_PATH, FREESURFER_MORPH_PATH, COG_COMPOSITE
 
 MASTER_PATH = REPO_ROOT / 'data' / 'master_subject_data.csv'
 
@@ -88,11 +88,19 @@ SAMPLES: Dict[str, dict] = {
 
 
 def load() -> pd.DataFrame:
-    """Master CSV joined to the E-field table, one row per subject."""
+    """
+    Master CSV joined to the E-field and FreeSurfer tables, one row per subject.
+
+    The one place these three are joined. Scripts that need anatomy should
+    start from here (or `frame(name)`) rather than merging the files
+    themselves, which is how their samples used to drift apart.
+    """
     m = pd.read_csv(MASTER_PATH, dtype={'subject_id': str}, low_memory=False)
-    e = pd.read_csv(EFIELD_CSV_PATH, dtype={'subject_id': str})
-    keep = [c for c in e.columns if c not in m.columns or c == 'subject_id']
-    d = m.merge(e[keep], on='subject_id', how='left')
+    d = m
+    for path in (EFIELD_CSV_PATH, FREESURFER_MORPH_PATH):
+        t = pd.read_csv(path, dtype={'subject_id': str})
+        keep = [c for c in t.columns if c not in d.columns or c == 'subject_id']
+        d = d.merge(t[keep], on='subject_id', how='left')
     d['age'] = pd.to_numeric(d['age'], errors='coerce')
     # Subjects with no head model at all are not in any Dose sample.
     d['t1_only'] = d['t1_only'].map({True: True, False: False, 'True': True,

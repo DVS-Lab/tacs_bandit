@@ -505,19 +505,40 @@ InferenceData is pickled, not NetCDF (h5py/NumPy conflict in this environment).
 
 ## 9. Open items
 
-**Half-finished.** `master_subject_data.csv` still holds MLE α/β, not
-hierarchical posterior means. Column names were kept stable specifically so the
-swap would be transparent, but it has not been done — so the notebook's H1/H2
-sections use MLE estimates while §7.5 reports the hierarchical fit separately.
-Needs a decision (hierarchical primary, MLE robustness) and a rerun.
+**Needs a decision.** The master CSV carries both parameter sets: MLE α/β
+(`sham_alpha` …) and hierarchical posterior means (`sham_alpha_hb` …, N = 57,
+refit 2026-09-21). The notebook's H1/H2 sections still use MLE, and §7.5 reports
+the hierarchical fit separately. Deciding which is primary (hierarchical
+recommended, since MLE α sits on a bound for about a third of subjects) is still
+open.
 
 **Not started.** Posterior predictive checks; the RW_dual comparison motivated
 by the α pile-up; the moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW
 columns (17 columns, but only 3/39 populated at defense).
 
-**Data that will not be recovered.** Behavioral CSVs for `10961`, `11439`,
-`11472`. Counterbalance for `11066`, `11316`.
+**Data that will not be recovered.** Behavioral CSVs for `10961` and `11066`
+(`11439` and `11472` were once listed here and have since been recovered). EEG
+for `11030`, `11066`, `11316`, `11433`, `11542`, `11861`.
+
+**Counterbalance rests on REDCap for six subjects**, because they have no EEG to
+verify it: `11030`, `11066`, `11316`, `11433`, `11542`, `11861`. REDCap agreed
+with EEG for 51 of 52 subjects where both exist (the miss was `10810`), so it is
+a sound fallback. Four of the six are in H2 (`11030`, `11316`, `11542`,
+`11861`). Removing them changes no H2 conclusion: every change score stays null,
+and age × Δα is p = .054 with or without them (2026-09-22). `11030` was
+undocumented until the Stage 2 audit.
+
+**iTF (exploratory, §7.6) has method limits worth stating or fixing.** The IAF
+uses 2 s Welch windows, so 0.5 Hz resolution and 26 of 55 subjects at exactly
+10.0 Hz. iTF = IAF − 5 is clipped to 4–8 Hz, which puts the 5 subjects with
+IAF < 9 Hz at exactly 4.0. Four IAFs of 12–13 Hz may not be alpha.
+
+**FreeSurfer surfaces to check visually.** `11461` (76 y): thinnest cortex in
+the sample (1.85 mm) and 41 surface defects. `10866`: ventricles 97k mm³, twice
+the median for over-70s. `11472` and `10661`: 45 and 38 defects (median 13).
+None affects a conclusion, since the atrophy correlations are |r| > .6, but
+they should be seen before publication.
 
 **Untested assumption worth naming.** 38% of subjects have α ≈ 1, meaning they
 replace their value estimate entirely with the last outcome — win-stay/lose-shift

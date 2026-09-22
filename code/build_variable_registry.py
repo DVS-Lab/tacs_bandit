@@ -60,6 +60,7 @@ TABLES = {
     'master': REPO_ROOT / 'data' / 'master_subject_data.csv',
     'efield': EFIELD_CSV_PATH,
     'freesurfer': FREESURFER_MORPH_PATH,
+    'itf': REPO_ROOT / 'derivatives' / 'eeg' / 'individual_theta_frequency.csv',
 }
 
 # Scripts that *produce* the tables. Their references are definitions, not use.
@@ -327,6 +328,9 @@ def render_md(reg: pd.DataFrame, errors, warnings, unused) -> str:
     L.append('The SimNIBS-side file therefore holds only the step-1 columns; the repo copy '
              'is canonical. Its 12 shared columns match the upstream exactly (checked '
              '2026-09-21).\n')
+    L.append('**itf** — `python code/individual_theta.py --runs 1`, from the run-1 resting '
+             'baseline. Exploratory (notebook 7.6); see the resolution and clipping notes on '
+             '`iaf` and `itf_klimesch`.\n')
     L.append('**freesurfer** — `python code/freesurfer_morph.py`, over every delivery under '
              '`FREESURFER_ROOT`. Aborts on mixed FreeSurfer versions.\n')
 
