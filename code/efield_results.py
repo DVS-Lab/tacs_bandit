@@ -11,6 +11,11 @@ subsection and prints its numbers with N.
 Sample, unless a block says otherwise: FLAIR head models (T1-only excluded)
 with age. The T1-only blocks use all head models with age.
 
+The `age_bands` block exists because age was recruited in two bands rather
+than sampled uniformly, so a linear age correlation is close to a two-group
+contrast. It reports, for each anatomy measure, the gradient within each band
+and the standardised difference between them.
+
 Mediation is product-of-coefficients (a*b / c) with a percentile bootstrap CI
 on the indirect effect, fixed seed. Commonality partition and the ICV-
 normalised atrophy measures reuse fig_atrophy_vs_geometry so the figure and
@@ -127,6 +132,46 @@ def main(argv=None) -> int:
     rec(B, 'T1-only |E| vs FLAIR, raw means, %', 100 * (t1_mean / flair_mean - 1), n)
     rec(B, 'T1-only |E| difference, age-adjusted, %', 100 * fit.params['t1'] / flair_mean, n,
         f'p = {fit.pvalues["t1"]:.4f} controlling for age')
+
+    # ---- Gradient or group difference? ---------------------------------
+    # Age was recruited in two bands, not sampled uniformly: almost everyone is
+    # under 40 or over 55, and only a handful fall in between (the band n are
+    # printed below; they differ by sample). A Pearson r over that distribution
+    # is arithmetically close to a two-group contrast, so "|E| declines with
+    # age" claims a gradient the design cannot
+    # show. This block separates the two: the correlation *within* each band is
+    # the gradient, the standardised difference *between* bands is the group
+    # effect. An effect carried entirely by the between-band term should be
+    # reported as a group difference (Welch t, Cohen's d) with the correlation
+    # alongside it, not instead of it.
+    print('\nAge bands: gradient within vs difference between')
+    B = 'age_bands'
+    YOUNG, OLD = 40, 55
+    yb_all, ob_all = d[d.age < YOUNG], d[d.age >= OLD]
+    rec(B, 'band n, younger than 40', len(yb_all), len(d))
+    rec(B, 'band n, 55 and over', len(ob_all), len(d))
+    rec(B, 'band n, 40-54 (excluded from the contrast)',
+        int(((d.age >= YOUNG) & (d.age < OLD)).sum()), len(d))
+    for col, lab in [(FIELD, '|E| DLPFC'), (DIST, 'scalp-cortex dist'),
+                     ('layer_skull', 'skull thickness'),
+                     ('lh_dlpfc_thickness', 'DLPFC thickness'),
+                     ('csf_charm', 'whole-head CSF')]:
+        if col not in d.columns:
+            continue
+        r_o, p_o, n_o = r_p(d.age, d[col])
+        rec(B, f'{lab}: r x age, whole sample', r_o, n_o, f'p = {p_o:.4f}')
+        for band, blab in [(yb_all, 'younger band'), (ob_all, 'older band')]:
+            m = band[['age', col]].dropna()
+            if len(m) > 5:
+                r_b, p_b = stats.pearsonr(m.age, m[col])
+                rec(B, f'{lab}: r x age within {blab}', r_b, len(m), f'p = {p_b:.3f}')
+        y, o = yb_all[col].dropna(), ob_all[col].dropna()
+        if len(y) > 2 and len(o) > 2:
+            t, p_t = stats.ttest_ind(y, o, equal_var=False)
+            pooled = np.sqrt((y.var(ddof=1) + o.var(ddof=1)) / 2)
+            rec(B, f'{lab}: between-band d (old - young)',
+                (o.mean() - y.mean()) / pooled, len(y) + len(o),
+                f't({stats.ttest_ind(y, o, equal_var=False).df:.0f}) = {t:+.2f}, p = {p_t:.4f}')
 
     print('\nROI coverage')
     B = 'roi_coverage'

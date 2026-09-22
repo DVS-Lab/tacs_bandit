@@ -212,6 +212,10 @@ effect.
 | `compare_composites.py` | preregistered tests under both cognitive composites |
 | `compare_rl_estimates.py` | learning-parameter tests under both RL estimators |
 | `qc_cognitive_composite.py` | two-page validation report for `global_reduced` |
+| `qc_paper_variables.py` | distributions, baseline correlations, VIF, split-half reliability and the age-band check, for every variable the paper reports |
+| `table1.py` | Table 1 (sample characteristics, split at the median age) → `derivatives/table1.{csv,md}` |
+| `ppc_within.py` | posterior predictive checks for the hierarchical RL fit (`--model rw|rw_dual`) |
+| `compare_rl_models.py` | single vs dual learning rate, leave-one-run-out PSIS-LOO |
 | `fig_qc_freesurfer.py` | surfaces on the T1 for the flagged reconstructions |
 | `fig_qc_skull.py` | skull segmentation QC, FLAIR vs T1-only |
 
@@ -391,6 +395,32 @@ peak −.301, median −.312). Including the seven T1-only head models gives
 r = −0.344, p = .005, N = 66; they are excluded from the primary analysis
 because their fields are systematically lower -- 28% in raw means, 26%
 age-adjusted (p = .013) -- in the same direction as the hypothesis.
+
+**Gradient or group difference? It is a group difference.** Age was recruited
+in two bands, not sampled uniformly: in the Dose sample 28 people are under 40,
+26 are 55 or over, and 5 fall in between (H1: 27 / 30 / 4). A Pearson r over
+that distribution is arithmetically close to a two-group contrast, so the
+`age_bands` block in `efield_results.py` splits the two — the correlation
+*within* each band is the gradient, the standardised difference *between* them
+is the group effect.
+
+| measure | r, whole sample | r within young | r within old | between-band *d* |
+|---|---|---|---|---|
+| \|E\| DLPFC | −.300 | −.179 | **+.089** | −0.77, t(49) = 2.84, p = .007 |
+| Scalp-cortex distance | +.293 | +.150 | −.017 | +0.68, t(51) = 2.51, p = .015 |
+| Skull thickness at F3 | +.350 | +.118 | −.037 | +0.91, t(51) = 3.33, p = .002 |
+| DLPFC thickness | −.641 | −.240 | **−.499, p = .009** | −1.38, p < .001 |
+| Whole-head CSF | +.651 | −.080 | **+.550, p = .004** | +1.51, p < .001 |
+
+The dose and skull-geometry effects exist **only between bands** — within the
+older group, |E| does not decline with age at all (r = +.09). The atrophy
+measures (DLPFC thickness, CSF) do show within-band gradients, so those are
+genuine continuous ageing effects. **So write the dose finding as a group
+difference**: "older adults receive a weaker modelled field than younger
+adults (d = −0.77)" is what the design supports; "|E| declines with age"
+implies a gradient it cannot show. Report the correlation alongside it, not
+instead of it, and state the age distribution in the Methods. The age
+bimodality was found by `code/qc_paper_variables.py`.
 
 **ROI coverage — checked and cleared.** The sphere is centred on the F3
 *scalp* electrode, ~18 mm above cortex, so the gray matter falling inside it
@@ -582,6 +612,16 @@ python compare_rl_estimates.py    # both RL estimators
 python fig_efield_age.py --compact; python fig_atrophy_vs_geometry.py
 python fig_skull_layers.py; python fig_qc_skull.py; python fig_qc_freesurfer.py
 python qc_cognitive_composite.py
+
+# 8. table 1 and the QC sweep
+python table1.py                  # derivatives/table1.{csv,md}
+python qc_paper_variables.py      # distributions, correlations, VIF, reliability, age bands
+
+# 9. model checking. Step 3 fits the single-rate model only, so fit the dual
+#    one first; the comparison loads both posteriors.
+python -m rl_models.run_within_fit --sample all --model rw_dual
+python ppc_within.py --model rw; python ppc_within.py --model rw_dual
+python compare_rl_models.py
 ```
 
 Environment: `/opt/anaconda3/bin/python`. numpyro 0.20, jax 0.9, arviz 0.23,
@@ -619,10 +659,12 @@ are carried by fits pinned at a bound. H1.1.2 on α read p = .044 until the Stag
 4 education audit dropped two impossible values (10606, 11885); it is now .058.
 Nothing here should be reported as a finding.
 
-**Not started.** Posterior predictive checks; the RW_dual comparison motivated
-by the α pile-up; the moderated hierarchical model (the model already accepts a
+**Not started.** The moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW
 columns (17 columns, but only 3/39 populated at defense).
+
+**Done 2026-09-22.** Posterior predictive checks (`ppc_within.py`) and the
+RW-dual comparison (`compare_rl_models.py`), both motivated by the α pile-up.
 
 **Data that will not be recovered.** Behavioral CSVs for `10961` and `11066`
 (`11439` and `11472` were once listed here and have since been recovered). EEG

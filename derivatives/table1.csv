@@ -1,0 +1,37 @@
+section,measure,n,overall,younger,older,test,p
+,Age (years),61,47.69 (19.05),29.85 (6.68),64.95 (7.53),t(59) = -19.27,0.000
+,Sex: Male,61,31 (51%),13,18,chi2(1) = 0.80,0.371
+,Sex: Female,61,30 (49%),17,13,,
+,Race: White,61,38 (62%),16,22,chi2(3) = 6.10,0.107
+,Race: Black or African American,61,12 (20%),5,7,,
+,Race: Asian,61,8 (13%),7,1,,
+,"Race: Two or more races, or race not described (other)",61,3 (5%),2,1,,
+,Ethnicity: Not Hispanic or Latino,61,53 (87%),25,28,chi2(2) = 0.69,0.709
+,Ethnicity: Hispanic or Latino,61,5 (8%),3,2,,
+,Ethnicity: Ethnicity not described (Other),61,3 (5%),2,1,,
+,Education (years),56,16.54 (2.68),16.15 (2.09),16.90 (3.13),t(49) = -1.06,0.295
+,Counterbalance (A / B): A,61,32 (52%),17,15,chi2(1) = 0.15,0.696
+,Counterbalance (A / B): B,61,29 (48%),13,16,,
+Cognition,,,,,,,
+,Global cognition (z),61,0.01 (0.72),0.41 (0.58),-0.38 (0.63),t(59) = +5.08,0.000
+,Executive function (z),58,0.01 (0.81),0.48 (0.52),-0.47 (0.77),t(49) = +5.49,0.000
+,Memory (z),61,0.01 (0.99),0.19 (0.98),-0.17 (0.99),t(59) = +1.41,0.164
+,Processing speed (z),60,0.03 (0.93),0.56 (0.75),-0.46 (0.81),t(58) = +5.07,0.000
+,KBIT IQ,59,110.00 (11.89),112.55 (12.10),107.53 (11.33),t(56) = +1.64,0.106
+,Subjective cognitive decline,61,1.28 (0.94),1.51 (0.92),1.05 (0.91),t(59) = +1.94,0.058
+Baseline behaviour (sham),,,,,,,
+,Accuracy,61,0.65 (0.10),0.65 (0.10),0.64 (0.10),t(59) = +0.45,0.654
+,Win rate,61,0.57 (0.06),0.58 (0.06),0.56 (0.05),t(58) = +1.54,0.128
+,p(stay | win),61,0.83 (0.17),0.82 (0.17),0.84 (0.17),t(59) = -0.35,0.725
+,p(shift | lose),61,0.56 (0.18),0.56 (0.19),0.56 (0.18),t(59) = -0.03,0.972
+,Trials to criterion,61,3.91 (2.51),4.68 (3.10),3.17 (1.46),t(41) = +2.43,0.020
+,Learning rate alpha,57,0.65 (0.33),0.65 (0.30),0.65 (0.36),t(51) = -0.10,0.924
+,Inverse temperature beta,57,2.95 (1.39),2.92 (1.66),2.98 (1.03),t(49) = -0.15,0.878
+Reward sensitivity,,,,,,,
+,SPSRQ reward sensitivity,57,25.23 (5.99),26.07 (5.52),24.41 (6.39),t(54) = +1.05,0.299
+,SPSRQ punishment sensitivity,57,27.09 (8.50),30.29 (8.18),24.00 (7.73),t(55) = +2.98,0.004
+Physiology and anatomy,,,,,,,
+,Frontal theta reactivity (p95),56,259.69 (62.27),263.73 (62.36),255.94 (63.05),t(54) = +0.46,0.644
+,Modelled |E| in DLPFC (V/m) [FLAIR head models],54,0.11 (0.03),0.12 (0.03),0.10 (0.02),t(47) = +2.19,0.033
+,Scalp-to-cortex distance (mm) [FLAIR head models],54,16.94 (1.97),16.38 (2.13),17.54 (1.62),t(50) = -2.26,0.028
+,Skull thickness at F3 (mm) [FLAIR head models],54,7.90 (1.70),7.38 (1.58),8.47 (1.68),t(51) = -2.47,0.017
