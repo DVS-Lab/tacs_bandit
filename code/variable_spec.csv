@@ -44,8 +44,8 @@ har_score,master,cognition,HAR score,REDCap RF1 FullScoring export (REDCAP_RF1_P
 kbit_iq,master,cognition,KBIT IQ composite,REDCap RF1 FullScoring export (REDCAP_RF1_PATH),cognitive_merge.load_rf1_fullscoring,validation,current,,,,Independent of global_reduced; convergent validity r=+.47.
 attention_composite,master,cognitive_composite,Legacy attention domain (mean of available z-scores),z-scored cognition columns,cognitive_merge.compute_cognitive_composites,legacy,legacy,,,,Input count varies with age; do not use for new work.
 attention_n_measures,master,item_count,Inputs behind attention_composite,derived,cognitive_merge.compute_cognitive_composites,qc,legacy,,,,
-attention_reduced,master,cognitive_composite,Uniform attention domain (same inputs for every subject),z-scored cognition columns,cognitive_merge.compute_cognitive_composites,covariate_component,current,,,,
-attention_reduced_n,master,item_count,Inputs behind attention_reduced,derived,cognitive_merge.compute_cognitive_composites,qc,current,,,,
+ef_reduced,master,cognitive_composite,"Uniform executive function domain: Flanker, Set Shifting and Running Dots (inhibition, shifting, updating)",z-scored cognition columns,cognitive_merge.compute_cognitive_composites,covariate_component,current,,,,"Renamed from attention_reduced 2026-09-22: its three tasks are the standard EF components (Miyake et al., 2000). Correlates .91 with the legacy ef_composite."
+ef_reduced_n,master,item_count,Inputs behind ef_reduced,derived,cognitive_merge.compute_cognitive_composites,qc,current,,,,
 memory_composite,master,cognitive_composite,Legacy memory domain (mean of available z-scores),z-scored cognition columns,cognitive_merge.compute_cognitive_composites,legacy,legacy,,,,Input count varies with age; do not use for new work.
 memory_n_measures,master,item_count,Inputs behind memory_composite,derived,cognitive_merge.compute_cognitive_composites,qc,legacy,,,,
 memory_reduced,master,cognitive_composite,Uniform memory domain (same inputs for every subject),z-scored cognition columns,cognitive_merge.compute_cognitive_composites,covariate_component,current,,,,

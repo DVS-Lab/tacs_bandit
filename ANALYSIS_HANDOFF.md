@@ -524,12 +524,14 @@ as findings:**
 
 | test | MLE | hierarchical |
 |---|---|---|
-| H1.1.1 β → lose-shifting | p = .056 (n = 58) | p = .26 (n = 54) |
+| H1.1.1 β → lose-shifting | p = .089 (n = 56) | p = .12 (n = 52) |
 | H2.2 age × Δα | r = −.26, p = .054 | r = −.03, p = .82 |
-| H1.1.2 cognition × age → α | p = .18 | p = .044 (n = 54) |
+| H1.1.2 cognition × age → α | p = .22 | p = .058 (n = 52) |
 
-The two MLE trends are carried by fits pinned at a bound. The H1.1.2 α effect is
-one of three H1.1.2 moderation tests and would not survive correction for them.
+None reaches p < .05 under the primary (hierarchical) estimates. The MLE trends
+are carried by fits pinned at a bound. H1.1.2 on α read p = .044 until the Stage
+4 education audit dropped two impossible values (10606, 11885); it is now .058.
+Nothing here should be reported as a finding.
 
 **Not started.** Posterior predictive checks; the RW_dual comparison motivated
 by the α pile-up; the moderated hierarchical model (the model already accepts a
@@ -553,17 +555,27 @@ uses 2 s Welch windows, so 0.5 Hz resolution and 26 of 55 subjects at exactly
 10.0 Hz. iTF = IAF − 5 is clipped to 4–8 Hz, which puts the 5 subjects with
 IAF < 9 Hz at exactly 4.0. Four IAFs of 12–13 Hz may not be alpha.
 
-**Recoverable, needs a REDCap export (Stage 4).** BBS needs a *raw* (numeric)
-export of the tACS BBS fields; the labels export in use has lost every 2–6
-response. Separately, 7 of its 14 bias items match no column label. SOGS can be
-scored from item responses already on disk (64 of ours) once a scoring key is
-agreed on. Both are kept as empty columns marked `unavailable` in the spec, so
-they come back in place once scored.
+**Parked, needs data access (Stage 4).** BBS needs a *raw* (numeric) REDCap
+export of the tACS BBS fields — the labels export in use blanks every 2–6
+response, and 7 of its 14 bias items match no column label. SOGS (South Oaks
+Gambling Screen) can be scored from item responses already on disk (64 of ours)
+if anyone wants it. Both are deferred (REDCap access unavailable as of
+2026-09-22) and kept as empty columns marked `unavailable` in the spec, so
+neither can be mistaken for data and both return in place once scored.
 
-**Verify in REDCap.** Education for `11885` is 2 years (RF1 and island agree;
-TabCAT says 18), and for `10590` it's 19 (RF1) against 7 (TabCAT and island).
+**Education, resolved (Stage 4).** The island screener asks for years more than
+once (10 of 20 subjects with both gave different answers) and also records the
+highest level completed, which arbitrates. `10590` keeps 19 y: their level is
+"Postgraduate degree", and the "7" that two sources appeared to agree on came
+from the screener's other year field. Values far *below* the floor a reported
+degree implies are dropped -- `10606` (10 y with a bachelor's) and `11885` (2 y
+with "some university"); years above a level are kept, since further study is
+ordinary. Education: 61 of 66.
 
-**Construct decision: EF vs attention.** Legacy `ef_composite` (Running Dots,
+**Renamed to executive function (Stage 4).** `attention_reduced` is now
+`ef_reduced`: Flanker (inhibition), Set Shifting (shifting) and Running Dots
+(updating) are the three components of the standard unity/diversity model
+(Miyake et al., 2000). The legacy `ef_composite` Legacy `ef_composite` (Running Dots,
 Flanker, Trails B−A) has the age confound (input count × age r = +.46; Trails
 only from ~56), and correlates .91 with `attention_reduced`. The uniform
 "attention" composite's three tasks — Flanker (inhibition), Set Shifting
@@ -571,9 +583,9 @@ only from ~56), and correlates .91 with `attention_reduced`. The uniform
 function (Miyake et al., 2000), so it may be better *named* EF. `ef_composite`
 is still the preregistered secondary moderator in notebook §6.1.
 
-**35 survey variables no analysis uses** (TEIQue, AQ, PANAS, IOS, Mach-IV,
-Planfulness, present bias, gullibility, GTI, PNR, RF1 CRT). Coverage 61–66 for
-most, so they could join the exploratory FDR sweep, or stay unanalysed by design.
+**35 survey variables are deliberately unanalysed** (TEIQue, AQ, PANAS, IOS,
+Mach-IV, Planfulness, present bias, gullibility, GTI, PNR, RF1 CRT). Decided
+2026-09-22: leave them out rather than widen the exploratory sweep.
 
 **FreeSurfer QC of the four outliers: all pass** (`code/fig_qc_freesurfer.py`,
 2026-09-22; two reference subjects chosen by rule for comparison). `11461` (76 y,

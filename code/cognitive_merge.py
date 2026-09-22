@@ -1155,7 +1155,12 @@ def compute_cognitive_composites(
     # defended analyses used them and must stay reproducible. Use
     # `global_reduced` for new work and say which one a result came from.
     REDUCED = {
-        'attention': ['flanker_score', 'running_dots_score', 'set_shifting_score'],
+        # Named executive function, not attention: Flanker (inhibition), Set
+        # Shifting (shifting) and Running Dots (working-memory updating) are
+        # the three components of the standard unity/diversity model of EF
+        # (Miyake et al., 2000). The legacy `ef_composite` is a different set
+        # (Running Dots, Flanker, Trails B-A) and keeps its own name.
+        'ef': ['flanker_score', 'running_dots_score', 'set_shifting_score'],
         'memory':    ['hvlt_total'],
         'speed':     ['salthouse_letter', 'salthouse_pattern'],
     }
@@ -1200,6 +1205,15 @@ def compute_cognitive_composites(
 # =============================================================================
 # Master Subject DataFrame Assembly
 # =============================================================================
+
+# Years of education implied by the island screener's "highest level completed".
+# Used to choose between its repeated year questions and to catch years that
+# fall short of the level reported on the same form. (Stage 4 audit.)
+EDUCATION_LEVEL_YEARS = {
+    'High school': 12, 'GED': 12, 'Some university': 14,
+    'Bachelor degree': 16, 'Postgraduate degree': 19,
+}
+
 
 def build_subject_df(
     study_subjects: Optional[List[str]] = None,
@@ -1286,17 +1300,31 @@ def build_subject_df(
     # age (r = +.28) while cognition falls, which masks what relationship
     # there is (controlling age: b = +.038, p = .17).
     sources = []
+    island_edu_years = {}
     if 'education_years' in rf1_neuro.columns:
         sources.append(('rf1_raw', rf1_neuro.set_index('subject_id')['education_years']))
+    # The island screener asks for years of education more than once (10 of our
+    # 20 subjects with both answered differently, 10590 by 12 years). It also
+    # records the highest level completed, which arbitrates: take the year
+    # value closest to what that level implies.
+    island_level = {}
     if Path(ISLAND_SCREENER_PATH).exists():
         island = pd.read_csv(ISLAND_SCREENER_PATH, low_memory=False)
         if 'rf1_id' in island.columns:
             island['subject_id'] = island['rf1_id'].astype(str)
-            island_edu = {}
-            for col in [c for c in island.columns if 'How many years of education' in c]:
-                for sid, value in island.loc[island[col].notna(), ['subject_id', col]].values:
-                    island_edu.setdefault(str(sid), float(value))
-            sources.append(('island_screener', pd.Series(island_edu, dtype=float)))
+            ycols = [c for c in island.columns if 'How many years of education' in c]
+            lcols = [c for c in island.columns if 'highest level of education' in c]
+            for row in island.to_dict('records'):
+                sid = str(row['subject_id'])
+                for c in lcols:
+                    if row.get(c) in EDUCATION_LEVEL_YEARS:
+                        island_level.setdefault(sid, EDUCATION_LEVEL_YEARS[row[c]])
+                cand = [float(row[c]) for c in ycols if pd.notna(row.get(c))]
+                if cand and sid not in island_edu_years:
+                    exp = island_level.get(sid)
+                    island_edu_years[sid] = (min(cand, key=lambda v: abs(v - exp))
+                                             if exp is not None else cand[0])
+            sources.append(('island_screener', pd.Series(island_edu_years, dtype=float)))
     if 'tabcat_education_years' in tabcat.columns:
         sources.append(('tabcat', pd.to_numeric(
             tabcat.set_index('subject_id')['tabcat_education_years'], errors='coerce')))
@@ -1311,6 +1339,22 @@ def build_subject_df(
         if verbose and fill.any():
             print(f'  Education: {int(fill.sum())} from {name}')
 
+    # A degree implies a floor on years of education: you cannot hold a
+    # bachelor's with 10 years of schooling. Years *above* the nominal level
+    # are ordinary (further study), so only shortfalls are treated as errors.
+    # Drops 10606 (10 y, bachelor's) and 11885 (2 y, some university); both
+    # were self-reported and contradict the level the same form records.
+    if island_level:
+        floor = subj_df['subject_id'].map(island_level) - 2
+        bad = subj_df['education_years'].notna() & floor.notna() & (subj_df['education_years'] < floor)
+        if bad.any():
+            if verbose:
+                for sid, yrs in subj_df.loc[bad, ['subject_id', 'education_years']].values:
+                    print(f'  Education: dropped {yrs:.0f} y for {sid} -- below the '
+                          f'floor implied by the level they reported')
+            subj_df.loc[bad, 'education_years'] = np.nan
+            subj_df.loc[bad, 'education_source'] = pd.NA
+
     # --- Cognitive composites ---
     cog = compute_cognitive_composites(rf1_cog, rf1_neuro, tabcat, study_subjects)
     cog_cols = ['subject_id',
@@ -1320,7 +1364,7 @@ def build_subject_df(
                 'global_composite', 'global_n_domains',
                 'ef_composite', 'ef_n_measures',
                 # Uniform family: same measures for every subject.
-                'attention_reduced', 'attention_reduced_n',
+                'ef_reduced', 'ef_reduced_n',
                 'memory_reduced', 'memory_reduced_n',
                 'speed_reduced', 'speed_reduced_n',
                 'global_reduced', 'global_reduced_n']

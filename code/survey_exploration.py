@@ -118,7 +118,7 @@ SURVEY_GROUPS = {
     },
     'Objective Cognition': {
         COG_COMPOSITE: 'Global Cognition',
-        'attention_reduced': 'Attention',
+        'ef_reduced': 'Attention',
         'memory_reduced': 'Memory',
         'speed_reduced': 'Processing Speed',
         'ef_composite': 'Executive Function',
@@ -131,7 +131,7 @@ SURVEY_GROUPS = {
 REDUNDANCY_GROUPS = [
     # Cognitive composites share items/variance
     {COG_COMPOSITE, 'global_reduced', 'attention_composite',
-     'attention_reduced', 'memory_composite', 'memory_reduced',
+     'ef_reduced', 'memory_composite', 'memory_reduced',
      'speed_composite', 'speed_reduced', 'ef_composite'},
     # Theta reactivity quantiles are the same measure at different percentiles
     {'theta_p95', 'theta_p75', 'theta_median'},
@@ -205,7 +205,7 @@ BASELINE_DVS = {
     'attention_composite': 'Attention',
     'memory_composite': 'Memory',
     'speed_composite': 'Processing Speed',
-    'attention_reduced': 'Attention',
+    'ef_reduced': 'Attention',
     'memory_reduced': 'Memory',
     'speed_reduced': 'Processing Speed',
     'ef_composite': 'Executive Function',

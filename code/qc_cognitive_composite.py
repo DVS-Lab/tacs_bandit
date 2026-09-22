@@ -52,8 +52,8 @@ RAW_LABEL = {'flanker_score': 'Flanker', 'running_dots_score': 'Running Dots',
 DOMAIN_OF = {'flanker_score': 'Attention', 'running_dots_score': 'Attention',
              'set_shifting_score': 'Attention', 'hvlt_total': 'Memory',
              'salthouse_letter': 'Speed', 'salthouse_pattern': 'Speed'}
-COMP = ['attention_reduced', 'memory_reduced', 'speed_reduced', 'global_reduced']
-COMP_LABEL = {'attention_reduced': 'Attention', 'memory_reduced': 'Memory',
+COMP = ['ef_reduced', 'memory_reduced', 'speed_reduced', 'global_reduced']
+COMP_LABEL = {'ef_reduced': 'Attention', 'memory_reduced': 'Memory',
               'speed_reduced': 'Speed', 'global_reduced': 'Global composite'}
 DOMAIN_COLOR = {'Attention': '#1565C0', 'Memory': '#2E7D32', 'Speed': '#E64A19',
                 'Global composite': '#4A148C'}
