@@ -760,10 +760,22 @@ rev_window = trials[trials['in_rev_window'] &
 # rejects. Coerce once here rather than casting at every use.
 rev_window['correct_num'] = pd.to_numeric(rev_window['correct'], errors='coerce')
 
-curves = (rev_window.groupby(['condition', 'trial_from_rev'])['correct_num']
-                    .agg(['mean', 'sem', 'count']).reset_index())
+# Average within participant first, then across participants. Aggregating
+# trials directly treats trials within a participant as independent, which
+# they are not. The practical difference here is small -- participant-level
+# bands are only about 1.07x wider, because the trial-level binomial noise
+# happens to be large relative to the between-participant variance -- but the
+# participant is the unit of replication, so it is the unit the error bars
+# should describe. Correctness, not appearance.
+per_subject = (rev_window.groupby(['subject_id', 'condition', 'trial_from_rev'])
+                         ['correct_num'].mean().reset_index())
+curves = (per_subject.groupby(['condition', 'trial_from_rev'])['correct_num']
+                     .agg(['mean', 'sem', 'count']).reset_index())
 for col in ['mean', 'sem']:
     curves[col] = curves[col].astype(float)
+print(f'Reversal-locked accuracy: {per_subject.subject_id.nunique()} participants; '
+      f'error bars are SEM across participants '
+      f'(n per point: {int(curves["count"].min())}-{int(curves["count"].max())})')
 
 fig, ax = plt.subplots(figsize=(WIDTH_1_5COL, WIDTH_1COL * 0.8))
 
