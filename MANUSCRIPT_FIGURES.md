@@ -200,15 +200,10 @@ failure. The exclusion rests on the CSF and field differences.
 
 ## Housekeeping
 
-**Two files in `data/figures/paper/` have no current producer** and appear to
-date from a single exploratory commit (`7bce5b0`, "testing cortical distance &
-mechanism figure"):
-
-- `fig_mechanism.png` / `.svg`
-- `fig_thickness_distance.png` / `.svg`
-
-No script in `code/` writes them and no document references them. They are
-recoverable from git history. **Left in place — deletion is your call.**
+**Removed 2026-09-23:** `fig_mechanism` and `fig_thickness_distance` (both
+`.png` and `.svg`). They were leftover output from two scripts retired on
+2026-08-20 as superseded by Figures 2 and 3 — see `code/archive/README.md`.
+The scripts remain archived and the images remain in git history.
 
 **`fig_age_x_efield.png`** is the notebook's own version of Figure 1b, kept for
 the executed notebook. Do not submit both it and `fig_efield_age_compact.png`.

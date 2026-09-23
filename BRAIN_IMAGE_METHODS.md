@@ -222,7 +222,7 @@ CSF fraction is closest to their age tertile's mean.
 | `fig_age_effect_maps` | a | A | FreeSurfer thickness → fsaverage | vertexwise r with age |
 | | b | A | fsavg E-field overlays | vertexwise r with age |
 | `fig_distance_anatomy` | a, b | B | T1 + `final_tissues` | superior-oriented oblique |
-| `fig_mechanism` | a, b | B | as above | same sections, panel-matched crop |
+| ~~`fig_mechanism`~~ | a, b | B | as above | **retired 2026-08-20**, superseded by `fig_atrophy_vs_geometry`; script in `code/archive/`, output deleted 2026-09-23 |
 
 ---
 
