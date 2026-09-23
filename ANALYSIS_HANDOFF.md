@@ -652,6 +652,13 @@ analysis at once; the `compare_*` scripts run both settings.
 
 ## 9. Open items
 
+**Draft manuscript prose lives in `MANUSCRIPT_METHODS.md`** (Methods and
+Limitations, with the producing script named for every number). It is prose, so
+nothing regenerates it: if a number changes, re-run the named script and edit
+that file by hand.
+
+
+
 **Decided 2026-09-22: hierarchical estimates are primary**
 (`config.RL_ESTIMATES = 'hb'`; every analysis reads α/β through `rl()`). Under
 MLE, α sits on a bound for 17 of 61 sham fits and 19 of 57 active fits, and β
