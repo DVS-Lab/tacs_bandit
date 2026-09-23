@@ -1,14 +1,16 @@
 """
 individual_theta.py — Individualized theta frequency (iTF) per subject
 
-!! THE OUTPUT OF THIS SCRIPT IS NOT USABLE AS A MEASURE OF ANYONE'S ALPHA OR
-!! THETA FREQUENCY. Verified 2026-09-22: the posterior spectrum of every
-!! subject peaks at exactly 9.750 Hz in the raw, unfiltered .easy file, the
-!! line is present on the EXT channel, and the three recording channels
-!! correlate at median r = .998 across the sample. IAF here is a common-mode
-!! recording artifact. The script is kept because the estimation logic is
-!! sound and would work on clean data; fix the referencing first. See
-!! ANALYSIS_HANDOFF.md section 9.
+**Peak frequencies here are fitted with `specparam`, not taken as the tallest
+point in the band.** That distinction is the whole measure. These recordings
+carry a stationary harmonic comb at 9.767 Hz (see ANALYSIS_HANDOFF.md section
+9), and the old argmax rule picked that needle for almost everyone -- 30 of 57
+subjects returned exactly 9.750 Hz. A needle is not an alpha rhythm: real alpha
+is a hill 1-3 Hz wide, because oscillations wander in frequency, while a clock
+does not. `specparam` fits a 1/f background plus Gaussians with a **minimum
+bandwidth of 1 Hz**, so the comb cannot be fit as a peak and the alpha
+underneath it is recovered. The recovered values behave like a trait
+(test-retest r = .63 across independent runs) rather than like an artifact.
 
 Every participant was stimulated at a fixed 6.0 Hz — all 237 stimulation runs,
 no exceptions. So iTF is not a delivered parameter here; it is a *moderator*.
@@ -32,10 +34,21 @@ non-stimulation runs for the later subjects. It therefore covers a subset — bu
 on that subset it provides an empirical check on the offset assumed above,
 rather than taking 5 Hz on faith.
 
-Estimation uses run 1 only by default. Run 1 is the only run that precedes any
-stimulation for every subject: run 5 follows the first stimulation block, which
-is active for counterbalance A and sham for counterbalance B, so including it
-would introduce an asymmetry between the counterbalance groups.
+Estimation uses **all four non-stimulation runs (1, 4, 5, 8)**. The original
+rationale for run 1 alone was that run 5 follows the first stimulation block --
+active for counterbalance A, sham for B -- so including it might introduce an
+asymmetry between the groups. That was a reasonable worry and it was tested
+(2026-09-22): the A-vs-B difference in IAF is present *on run 1*, before any
+stimulation, and is the same size on every run (d = 0.60, 0.56, 0.49, 0.61 for
+runs 1, 4, 5, 8). It is a baseline imbalance between the counterbalance groups,
+not something stimulation causes, so later runs carry no extra contamination.
+
+Averaging four runs instead of one is worth it: coverage 55 -> 59 subjects,
+distinct values 48 -> 54, SD 1.12 -> 0.98, and the correlation with age --
+the one external check available, since IAF is known to decline with age --
+goes from r = -.17 (p = .24) to **r = -.287 (p = .032)**, in line with the
+published slope. A noisier measure attenuates a real effect; this is what
+un-attenuating one looks like.
 
 Usage
 -----
@@ -226,15 +239,60 @@ def compute_psd(x: np.ndarray, fs: int = FS,
     return freqs, np.average(np.vstack(psds), axis=0, weights=weights)
 
 
+# A genuine oscillation is a broad bump; a clock line is a needle. Requiring at
+# least PEAK_MIN_BW_HZ of width is what separates them, and it is the reason
+# this file no longer returns 9.75 Hz for everybody.
+PEAK_MIN_BW_HZ = 1.0
+PEAK_MAX_BW_HZ = 8.0
+PEAK_MIN_HEIGHT = 0.05
+FIT_RANGE_HZ = (2.0, 40.0)
+
+
 def band_peak(freqs: np.ndarray, psd: np.ndarray,
               band: Tuple[float, float]) -> Optional[float]:
     """
-    Peak frequency within a band, after removing the 1/f background.
+    Centre frequency of the strongest fitted oscillation inside `band`.
 
-    The aperiodic component is subtracted by fitting a line to log-log power,
-    because otherwise the peak of a band nearly always lands at its lower edge
-    — the 1/f slope dominates any genuine oscillation. Returns None when the
-    maximum sits on a band edge, since that indicates no resolved peak.
+    Fits `specparam` (1/f background + Gaussian peaks) and returns the centre
+    of the highest-power peak whose centre falls in the band. Returns None when
+    the model finds no peak there.
+
+    **Not an argmax.** Taking the tallest point in the band is what this used to
+    do, and with a narrowband artifact present it returns the artifact for every
+    subject regardless of their physiology. Fitting peaks with a minimum
+    bandwidth makes the artifact unfittable and leaves the rhythm.
+    """
+    from specparam import SpectralModel
+
+    if len(freqs) == 0:
+        return None
+    m = (freqs >= FIT_RANGE_HZ[0]) & (freqs <= FIT_RANGE_HZ[1])
+    if m.sum() < 20:
+        return None
+    model = SpectralModel(peak_width_limits=[PEAK_MIN_BW_HZ, PEAK_MAX_BW_HZ],
+                         max_n_peaks=6, min_peak_height=PEAK_MIN_HEIGHT,
+                         verbose=False)
+    try:
+        model.fit(freqs[m], psd[m])
+        peaks = model.results.params.periodic.params
+    except Exception:
+        return None
+    if peaks is None:
+        return None
+    peaks = np.atleast_2d(peaks)
+    if peaks.size == 0:
+        return None
+    in_band = peaks[(peaks[:, 0] >= band[0]) & (peaks[:, 0] <= band[1])]
+    if len(in_band) == 0:
+        return None
+    return float(in_band[np.argmax(in_band[:, 1]), 0])
+
+
+def _legacy_band_peak(freqs: np.ndarray, psd: np.ndarray,
+                      band: Tuple[float, float]) -> Optional[float]:
+    """
+    The superseded argmax rule, kept only so the failure is reproducible.
+    Returns the artifact frequency for most subjects; do not use.
     """
     if len(freqs) == 0:
         return None
@@ -355,8 +413,9 @@ def estimate_all(runs: List[int] = [1], subjects: Optional[List[str]] = None,
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     global PSD_SEGMENT_SEC
-    parser.add_argument('--runs', type=int, nargs='+', default=[1],
-                        help='baseline runs to estimate from (default: 1 only)')
+    parser.add_argument('--runs', type=int, nargs='+', default=[1, 4, 5, 8],
+                        help='non-stimulation runs to estimate from '
+                             '(default: all four)')
     parser.add_argument('--output-dir', default=str(OUTPUT_DIR))
     parser.add_argument('--quiet', action='store_true')
     parser.add_argument('--segment-sec', type=float, default=PSD_SEGMENT_SEC,

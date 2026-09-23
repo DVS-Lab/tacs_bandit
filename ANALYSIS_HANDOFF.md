@@ -726,64 +726,54 @@ sham: dz = +0.12, **p = .38**, N = 58, with no age difference in discrimination
 (r = +.105, p = .43). This matters for how the H2 null reads — a null under
 intact blinding is a different claim from a null under broken blinding.
 
-**STOP: the IAF/iTF measure is a recording artifact, not a rhythm
-(2026-09-22).** Reprocessing at longer Welch segments to improve resolution
-(below) exposed this instead. In the **raw, unfiltered** `.easy` files for run
-1:
+**CORRECTED 2026-09-22: alpha is recoverable; the measure was, the data are
+not.** An earlier entry here said the IAF/iTF measure was an irrecoverable
+recording artifact. That was wrong, and the error is worth keeping because of
+how it happened.
 
-- Every subject's posterior spectrum peaks at **exactly 9.750 Hz** (30 of 57 at
-  8 s resolution; the same line appears at 10.0 Hz when binned at 0.5 Hz),
-  with near-identical peak-to-median ratios across subjects whose overall
-  signal SD ranges from 30 to 28,897 uV.
-- The line is present on **EXT**, which is not a scalp EEG site.
-- The four stimulating channels (F3, Fp1, FCz, FT7) correlate at **r = 1.000**
-  with each other and are byte-identical in at least one subject.
-- The three recording channels (F4, P4, P3) correlate at **median r = .998**
-  across all 59 subjects, 39 of them above .99. Real posterior EEG at P3 and P4
-  does not do this. It is not the earclip issue: earclip subjects sit at .997
-  and no-earclip at .9996, and re-referencing is currently applied only to the
-  five no-earclip subjects.
+The recordings do carry a stationary 9.767 Hz comb (next entry), and the old
+`band_peak` returned it for almost everyone -- 30 of 57 subjects at exactly
+9.750 Hz. But the fault was the **peak-picking rule**, not the data.
+`band_peak` flattened the spectrum and took the single tallest point in
+7-14 Hz. That is winner-take-all: it cannot tell a needle from a hill, and the
+comb tooth was ~87x the background, taller than anyone's alpha.
 
-So `iaf`, `itf_klimesch` and `itf_distance` measure a common-mode line, not
-individual alpha. **Do not report them.** This also explains, without any
-appeal to biology, why iTF correlated with nothing (below) and why the
-Klimesch offset failed to validate.
+`specparam` fits a model instead -- 1/f background plus Gaussians with a
+**minimum bandwidth of 1 Hz**. A real alpha rhythm is 1-3 Hz wide because
+oscillations wander; a clock line is one bin wide and cannot be fit as a peak.
+The alpha was underneath the spike the whole time.
 
-**`theta_p95` was checked and it survives (2026-09-22).** It uses the same
-three common-mode-dominated channels, so it was flagged as at-risk; three tests
-clear it.
+| | old argmax | specparam, 4 runs |
+|---|---|---|
+| subjects | 54 | **59** |
+| distinct values | 17 | **54** |
+| mean (SD) | 10.04 (1.04) | 9.94 (0.98) |
+| at exactly 9.75 Hz | 30 | -- |
+| **IAF x age** | r = -.195, p = .17 | **r = -.287, p = .032** |
 
-1. *The artifact is filtered out.* A 9.75 Hz tone through the 4-8 Hz bandpass
-   comes out at **-33 dB** (amplitude 0.022 against 0.999 for a 6 Hz tone), so
-   the line contributes negligible power to the band.
-2. *It beats a spectrum-matched surrogate.* Phase-randomised surrogates (same
-   power spectrum, bursting destroyed) give theta_p95 = 194% against 252% for
-   the real signal, paired t(39) = +3.58, **p = .0009**, dz = +0.57. The
-   surrogates have almost no between-subject spread (SD 5.1 vs 101.8) and
-   correlate r = -.11 with the real values, so the between-subject differences
-   come from genuine non-Gaussian bursting, not from the spectrum.
-3. *It is reliable.* Run 1 vs run 5, r = +.595, **Spearman-Brown = .746**.
+The age correlation is the external check that matters: IAF declining with age
+is among the most replicated findings in quantitative EEG, and the recovered
+measure now shows it at a literature-consistent slope. Test-retest across
+independent runs is r = +.63 (run 1 vs run 5, N = 54) -- real but noisier than
+the r > .8 the literature reports, which is why four runs are averaged.
 
-Two labelling corrections follow from reading the code rather than the
-constants around it:
+**Why four runs.** The original code used run 1 alone, to avoid an asymmetry:
+run 5 follows the first stimulation block, active for counterbalance A and sham
+for B. Tested and dismissed -- the A-vs-B difference in IAF is present on run 1,
+*before any stimulation*, and is the same size on all four runs (d = 0.60, 0.56,
+0.49, 0.61 for runs 1, 4, 5, 8). It is a **baseline imbalance between the
+counterbalance groups**, worth knowing in its own right, not a stimulation
+effect. Averaging four runs is what lifts the age correlation from p = .24 to
+p = .032.
 
-- **It is not "reactivity".** `compute_theta_reactivity_run` does not use
-  `extract_epochs`, `align_timestamps`, `EPOCH_PRE/POST` or `BASELINE_WIN`,
-  though all of those exist in the module. It bandpasses 4-8 Hz, takes the
-  Hilbert envelope, normalises by the **whole-run mean**, and reports the 95th
-  percentile. That is the burstiness of theta power relative to the run's own
-  mean, not a response locked to feedback. Rename it in the manuscript.
-- **The spatial claim does not hold.** F4/P4/P3 correlate at median r = .998 in
-  the raw recording, so "frontal theta at F4" is not supportable. The measure
-  does differentiate the channels (r = .70-.85 between them, mean absolute
-  difference 44-52%) because normalising by the run mean removes the shared
-  amplitude, but they are not independent sensors. Report it as a global
-  theta-bursting measure.
-
-**Why theta survives and iTF does not:** theta_p95 is a *band-power ratio*
-normalised within run, in a band the artifact is filtered out of. iTF is a
-*peak-frequency* measure in the alpha band, which is exactly where the line
-sits, with no normalisation that could protect it.
+**With a working measure, frequency matching is still null -- and now that
+means something.** 45 tests of iTF, IAF and |iTF - 6 Hz| against age,
+cognition, theta, |E|, every baseline measure and every change score: **1 at
+p < .05 against 2.2 expected, 0 survive FDR**, and the single hit is the
+IAF-age validity check itself. `itf_distance` now takes 45 distinct values
+across 59 subjects rather than a handful. So the hypothesis that stimulation
+worked better for people whose endogenous theta sat closer to the delivered
+6 Hz is **tested and unsupported**, rather than untestable.
 
 **What the 9.767 Hz line is (2026-09-22).** Characterised, not guessed:
 
@@ -809,11 +799,11 @@ common reference signal. `NO_EARCLIP_SUBJECTS` lists five subjects; the pattern
 is sample-wide.
 
 **Remediation.** For theta, nothing is needed (-33 dB rejection). For alpha,
-the comb sits in the middle of the band being searched, so a notch punches a
-hole where the measurement is: after a narrow notch (Q = 200) the recovered
-"alpha peaks" are 7.375, 7.500 and 12.750 Hz in three subjects, which is
-noise-peak-picking rather than recovered alpha. **IAF is not recoverable from
-these recordings.** For future collection: record to SD card rather than
+notching the comb was tried and is the wrong approach -- it punches a hole in
+the middle of the band being measured, and the "recovered" peaks (7.375, 7.500,
+12.750 Hz in three subjects) were noise. Fitting peaks by bandwidth instead
+leaves the comb unfittable and recovers the alpha underneath; see the entry
+above. For future collection: record to SD card rather than
 streaming over WiFi, verify the earclip/reference connection per session, and
 run a spectral QC for harmonic combs before the first analysis.
 
@@ -829,22 +819,100 @@ differences in theta_p95 are genuine bursting, not spectral shape. Check
 `theta_p95_excess` before trusting any theta result; near zero would mean the
 measure has started reporting the spectrum.
 
-**iTF related to nothing, which is now explained (2026-09-22).** iTF is IAF
-(posterior P3/P4 alpha peak, 7-14 Hz search) minus a fixed 5 Hz Klimesch
-offset, clipped to 4-8 Hz, from run 1 only; `itf_distance` is |iTF - 6 Hz|,
-the distance from the frequency everyone actually received. Tested against 18
-targets (age, cognition, theta reactivity, |E|, every baseline measure and
-every change score), for iTF, IAF and itf_distance: **54 tests, 1 at p < .05
-against 2.7 expected by chance, 0 survive FDR** — fewer hits than chance. The
-measure has three known weaknesses that make this unsurprising: 2 s Welch
-windows give 0.5 Hz resolution, so 26 of 55 IAFs land on exactly 10.0 Hz; 11 of
-55 iTF values (20%) sit on the 4 or 8 Hz clip bound; and the validation against
-the direct FCz theta peak rests on **N = 6** (r = +.73, p = .10), which is not
-a validation. Treat iTF as unusable for individual-differences work in this
-dataset rather than as a tested-and-null moderator. The 8 s reprocessing
-raised validation coverage from 6 to 14 subjects and the correlation with the
-direct FCz theta peak fell to **r = +.01** -- consistent with both estimates
-being dominated by the artifact above rather than by anything individual.
+**Theta could use twice the data it does (2026-09-22, not yet applied).**
+`compute_theta_reactivity_all` defaults to `baseline_runs = [1, 5]`, but runs 4
+and 8 are also non-stimulation and give the same measure: means 251.6-258.6%
+across runs 1/4/5/8 with surrogate excess 59.9-66.1 in all four. Inter-run
+correlations are .61-.80 (mean r = .735), so a **4-run average would have
+reliability .92 against .85 for the current 2-run average** (Spearman-Brown),
+on 49 subjects with all four runs.
+
+Run 5 was the thing to check, because it *follows* stimulation block 1, which is
+active for counterbalance A and sham for B -- which is exactly why
+`individual_theta.py` restricts itself to run 1. It is clean: theta_p95 by
+counterbalance is p = .996 on run 1 and **p = .899 on run 5**, and run 5 does
+not differ from run 1 within subject (paired t = +0.02, p = .98). Stimulation
+leaves no detectable trace on theta bursting, so runs 4 and 8 are usable too.
+
+**The 7-channel subjects show what the montage costs us (2026-09-22).** 22 of
+the 59 already have 7 usable channels on run 1 (F3, Fp1, FCz, FT7, F4, P4, P3);
+the other 37 have 3. In those 22, an average reference across all 7 collapses
+the common mode -- corr(P3, P4) goes .9979 -> .807, .9993 -> .383,
+.9996 -> -.719 -- which a 3-channel montage cannot do, because averaging three
+near-identical channels removes the signal along with the artifact. And **FCz
+carries different information**: theta_p95 at FCz is 238.5% against a posterior
+mean of 290%, t(21) = -4.28, **p = .0003**, and FCz vs F4 correlate at only
+r = +.27. The 9.767 Hz comb, by contrast, **survives average referencing**
+(12.3 -> 16.2, 10.1 -> 19.7 relative to the spectral median), so it is not a
+shared reference signal but per-channel, and re-referencing will not remove it.
+
+**Superseded history of the iTF measure, kept as a record.** Before the
+specparam fix, iTF was IAF minus a fixed 5 Hz Klimesch offset, clipped to
+4-8 Hz, from run 1 only, with the peak taken as the tallest point in 7-14 Hz.
+That version had 2 s Welch windows (0.5 Hz resolution, 26 of 55 IAFs at exactly
+10.0 Hz) and 20% of iTF values on a clip bound. Reprocessing at 8 s segments
+fixed the resolution but not the measure, because the argmax rule kept
+returning the comb; validation against the direct FCz theta peak went from
+r = +.73 (n = 6) to **r = +.01 (n = 14)** as coverage improved, which was the
+clue that the estimate was not individual. Both failures trace to the same
+peak-picking rule, now replaced.
+
+### Limits of the negative claims (audit, 2026-09-22)
+
+The iTF failure had a specific shape: a conclusion of "no signal" drawn from a
+method that could not have found signal if it were there. That prompted an
+audit of every other hard conclusion in this document for the same shape. The
+positive findings held. **Three negative or dismissive claims were overstated
+and are corrected here.**
+
+**1. "Age effects are group differences, not gradients" — overstated.** The
+between-band contrast is established. The *absence* of a within-band gradient
+is not: with 26-30 per band, those tests have **32-36% power for r = .30** and
+need r > .50 for 80% power. Correct statement: the group contrast is what this
+design estimates well; within-band gradients are unresolved in either
+direction. This does not change the recommendation to report age effects as
+group contrasts — it changes the reason, from "there is no gradient" to "this
+design cannot measure one."
+
+**2. "The dose mechanism is female-specific" — partly wrong.** It rested on
+stratified correlations (F +.51 vs M +.00), which is the difference-between-
+significant-and-non-significant fallacy. The formal age x sex interactions:
+
+| link | r female | r male | interaction p | |
+|---|---|---|---|---|
+| age → skull | +.67 | −.01 | **.005** | supported |
+| age → distance | +.51 | +.00 | .060 | marginal |
+| **age → \|E\|** | −.37 | −.15 | **.34** | **not supported** |
+| age → CSF | +.44 | +.81 | .002 | supported, **males steeper** |
+| age → DLPFC thickness | −.60 | −.71 | .034 | supported, **males steeper** |
+
+So the sex moderation is real for **skull thickness** and marginal for
+distance, runs the **other way** for CSF and cortical thickness, and is **not
+established for the delivered field itself** — which is exactly the claim that
+had been promoted to a headline. Defensible version: *age-related skull
+thickening at F3 is female-specific; whether that propagates to a sex
+difference in delivered field is not resolved at this n.*
+
+**3. "Nothing survives FDR, so there is no moderator" — overstated.** Across
+1,290 tests at median n = 57, surviving BH at rank 1 needs |r| > .51. Power at
+that threshold is **3% for a true r = .30** and 16% for r = .40. Correct
+statement: no *large* moderator exists; moderate ones cannot be excluded. The
+sweep is strong evidence against a big effect hiding in the battery, and weak
+evidence about anything subtler.
+
+**What held up unchanged**, all resting on positive evidence rather than a
+failure to find something: the TTC survivorship bias (censoring made the effect
+vanish), theta_p95's validity (three independent positive tests), the 9.767 Hz
+comb as an artifact (exact harmonics, zero drift, present on EXT), the
+committed figures being the wrong sample (marker count), and the Δ reach-rate
+baseline dependency (r = −.574 construction correlation). **RT × age got
+stronger**: session-to-session reliability is r = .72 (Spearman-Brown .83), so
+r = +.40 with age is not noise-attenuated.
+
+**The pattern worth carrying forward:** claims *for* something were tested
+harder than claims *against* something. When this document says a thing is
+absent, check what effect size the test could have detected before believing
+it.
 
 **Not started.** The moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW

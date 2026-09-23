@@ -260,9 +260,13 @@ def main(argv=None) -> int:
         rec(B, f'{g}: older - younger tertile skull (mm)', diff, n)
     rec(B, 'women in the older tertile', int(((s.age >= hi_t) & (s.gender == 'Female')).sum()), len(s))
 
-    # The whole dose mechanism is sex-moderated, so report the chain by sex
-    # rather than only the skull link. In women every step is present; in men
-    # the age->distance step is absent (r = .00) and the mediated path is zero.
+    # Sex moderation of the chain. Read the INTERACTION p values below, not the
+    # gap between the two stratified correlations: "significant in women,
+    # not in men" is not a sex difference. Audited 2026-09-22 -- the
+    # interaction is supported for skull (p = .005), marginal for distance
+    # (p = .060) and NOT supported for the field itself (p = .34), and it runs
+    # the other way (men steeper) for CSF and cortical thickness. The
+    # stratified mediations below are descriptive; they are not a test.
     #
     # What this does NOT support: a menopause-timed onset. Women in this sample
     # are 23-32 and 56-76 with two people in between, so a "step at 50" is the
@@ -283,6 +287,21 @@ def main(argv=None) -> int:
         sig = 'CI excludes 0' if (mv['hi'] < 0 or mv['lo'] > 0) else 'CI includes 0'
         rec(B, f'{g}: % of age->|E| mediated by distance', 100 * mv['prop'], mv['n'],
             f"[{mv['lo']:+.5f}, {mv['hi']:+.5f}] {sig}")
+    # The formal test. Reported for every link so the stratified correlations
+    # above are never read as a sex difference on their own.
+    for col, lab in [('layer_skull', 'skull'), (DIST, 'distance'), (FIELD, '|E|'),
+                     ('csf_charm', 'CSF'), ('lh_dlpfc_thickness', 'DLPFC thickness')]:
+        if col not in sm_.columns:
+            continue
+        t = sm_[['age', col]].join((sm_.gender == 'Female').astype(float)
+                                   .rename('female')).dropna()
+        t['age_x_f'] = t.age * t.female
+        fit = sm.OLS(t[col], sm.add_constant(t[['age', 'female', 'age_x_f']])).fit()
+        pv = fit.pvalues['age_x_f']
+        verdict = ('sex moderation supported' if pv < .05 else
+                   'marginal' if pv < .10 else 'NOT supported')
+        rec(B, f'age x sex INTERACTION on {lab}, p', pv, len(t), verdict)
+
     t = sm_[['age', 'layer_skull', 'icv_charm']].join(
         (sm_.gender == 'Female').astype(float).rename('female')).dropna()
     t['age_x_f'] = t.age * t.female
