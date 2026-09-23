@@ -65,7 +65,7 @@ ROWS: List[Tuple[str, str, str]] = [
     ('spsrq_sr', 'SPSRQ reward sensitivity', 'cont'),
     ('spsrq_sp', 'SPSRQ punishment sensitivity', 'cont'),
     ('__sep__Physiology and anatomy', '', 'sep'),
-    ('theta_p95', 'Frontal theta reactivity (p95)', 'cont'),
+    ('theta_p95', 'Theta bursting (p95)', 'cont'),
     # 'dose' rows drop the seven T1-only head models, as every E-field
     # analysis does. Reporting them over the whole sample would describe a
     # sample no result uses.

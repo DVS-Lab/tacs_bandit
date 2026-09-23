@@ -1,8 +1,20 @@
 """
 eeg_theta.py — EEG theta analysis for tACS Bandit study
 
-Analyzes task-related theta (4-8 Hz) oscillations from baseline runs.
-Extracts theta reactivity as an individual difference measure.
+Extracts a theta (4-8 Hz) **burstiness** measure from the non-stimulation runs.
+
+**Naming.** The functions are called `compute_theta_reactivity_*` for
+historical reasons and the name is kept so callers do not break, but the
+measure is NOT reactivity: nothing here is locked to feedback or to any other
+event. `extract_epochs`, `align_timestamps`, `EPOCH_PRE/POST` and
+`BASELINE_WIN` exist in this module and this measure does not use any of them.
+What is computed is the 4-8 Hz Hilbert envelope normalised by the **whole
+run's own mean**, summarised at the 95th percentile -- i.e. how peaky a
+subject's theta power is relative to their own average.
+
+**Not localisable either.** F4, P4 and P3 correlate at median r = .998 in the
+raw recording, so this is a global theta measure, not frontal theta, whatever
+`channel_idx` is set to.
 
 Key methodological notes:
 - Behavioral task and EEG run on separate computers without hardware sync
@@ -11,7 +23,8 @@ Key methodological notes:
 - Only 3 EEG channels available: F4, P4, P3 (stimulation channels blanked)
 - Subjects without earclip use software average re-reference
 
-Primary metric: theta_p95 = 95th percentile of theta power (% change)
+Primary metric: theta_p95 = 95th percentile of theta power, as % of the run mean.
+Validity control: theta_p95_excess (see phase_randomised).
 """
 
 import numpy as np
@@ -372,7 +385,7 @@ def compute_theta_reactivity_run(
     artifact_thresh_uv: float = ARTIFACT_THRESH_UV,
     skip_first_sec: float = SKIP_FIRST_SEC
 ) -> Optional[Dict]:
-    """Compute theta reactivity for a single run."""
+    """Theta burstiness for a single run (see the module docstring on naming)."""
     if eeg_dir is None:
         eeg_dir = EEG_DIR
     if behav_dir is None:
@@ -478,7 +491,7 @@ def compute_theta_reactivity_all(
     channel_idx: int = 0,
     verbose: bool = True
 ) -> pd.DataFrame:
-    """Compute theta reactivity for all subjects and baseline runs."""
+    """Theta burstiness for all subjects and non-stimulation runs."""
     if subject_info is None:
         subject_info = SUBJECT_INFO
     
@@ -511,7 +524,7 @@ def apply_theta_qc(
 
 
 def compute_subject_theta_average(clean_theta_df: pd.DataFrame) -> pd.DataFrame:
-    """Compute subject-level average theta reactivity from clean runs."""
+    """Subject-level average theta burstiness over clean runs."""
     spec = {
         'theta_p95': 'mean',
         'theta_p75': 'mean',

@@ -31,7 +31,7 @@ Reward sensitivity,,,,,,,
 ,SPSRQ reward sensitivity,57,25.23 (5.99),26.07 (5.52),24.41 (6.39),t(54) = +1.05,0.299
 ,SPSRQ punishment sensitivity,57,27.09 (8.50),30.29 (8.18),24.00 (7.73),t(55) = +2.98,0.004
 Physiology and anatomy,,,,,,,
-,Frontal theta reactivity (p95),56,259.69 (62.27),263.73 (62.36),255.94 (63.05),t(54) = +0.46,0.644
+,Theta bursting (p95),56,259.69 (62.27),263.73 (62.36),255.94 (63.05),t(54) = +0.46,0.644
 ,Modelled |E| in DLPFC (V/m) [FLAIR head models],54,0.11 (0.03),0.12 (0.03),0.10 (0.02),t(47) = +2.19,0.033
 ,Scalp-to-cortex distance (mm) [FLAIR head models],54,16.94 (1.97),16.38 (2.13),17.54 (1.62),t(50) = -2.26,0.028
 ,Skull thickness at F3 (mm) [FLAIR head models],54,7.90 (1.70),7.38 (1.58),8.47 (1.68),t(51) = -2.47,0.017

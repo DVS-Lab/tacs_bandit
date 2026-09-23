@@ -133,7 +133,7 @@ REDUNDANCY_GROUPS = [
     {COG_COMPOSITE, 'global_reduced', 'attention_composite',
      'ef_reduced', 'memory_composite', 'memory_reduced',
      'speed_composite', 'speed_reduced', 'ef_composite'},
-    # Theta reactivity quantiles are the same measure at different percentiles
+    # Theta bursting quantiles are the same measure at different percentiles
     {'theta_p95', 'theta_p75', 'theta_median'},
     # SCAARED subscales sum to total
     {'scaared_total', 'scaared_somatic', 'scaared_gad',

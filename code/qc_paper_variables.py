@@ -70,7 +70,7 @@ GROUPS: Dict[str, List[Tuple[str, str]]] = {
     'Surveys': [('spsrq_sr', 'SPSRQ reward'), ('spsrq_sp', 'SPSRQ punishment'),
                 ('bpsqi_global', 'Sleep (B-PSQI)'), ('ffmq_total', 'FFMQ'),
                 ('crt_total', 'CRT')],
-    'Physiology and anatomy': [('theta_p95', 'Theta reactivity'), ('mean_magnE', '|E| DLPFC'),
+    'Physiology and anatomy': [('theta_p95', 'Theta bursting'), ('mean_magnE', '|E| DLPFC'),
                                ('dist_pial_dlpfc_p1', 'Scalp-cortex distance'),
                                ('layer_skull', 'Skull thickness'), ('csf_charm', 'CSF volume'),
                                ('lh_dlpfc_thickness', 'DLPFC thickness')],

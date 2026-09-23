@@ -1040,13 +1040,31 @@ if len(age_mod_df) and FIG_AGE_MOD_DV in set(age_mod_df['dv']):
 def section_theta() -> List[nbf.NotebookNode]:
     return [
         md("""
-## 5. Endogenous theta and electric field
+## 5. Endogenous theta bursting and electric field
 
-Baseline theta power as a moderator of the stimulation response, and the
+Baseline theta bursting as a moderator of the stimulation response, and the
 modelled electric field as a dose proxy.
 
-`theta_p95` is the 95th percentile of theta power during the baseline runs,
-averaged over clean runs. Coverage rose from 34 subjects at the defense to 59
+**`theta_p95` measures theta *burstiness*, not reactivity.** It bandpasses
+4–8 Hz, takes the Hilbert envelope, normalises by the **whole run's own mean**,
+and reports the 95th percentile — so it asks how peaky a subject's theta power
+is relative to their own average. Nothing is locked to feedback or to any other
+event; the epoching machinery in `eeg_theta.py` exists but this measure does
+not use it. Earlier drafts called it "theta reactivity", which claims a
+task-evoked response that was never computed.
+
+**It is also not localisable.** F4, P4 and P3 correlate at median r = .998 in
+the raw recording, so "frontal theta" cannot be supported — the three channels
+are not independent sensors. Report it as a global theta-bursting measure.
+
+**It is valid, and checked per run.** The 9.767 Hz instrument artifact (see
+7.6) is rejected by the 4–8 Hz bandpass at −33 dB. Every run also carries a
+phase-randomised surrogate with its own power spectrum and its bursting
+destroyed: real 260.6% vs surrogate 193.2%, paired t(118) = +9.18, p = 2e-15,
+positive in 92% of runs, and the surrogates correlate with the real values at
+only r = +.09 — so the between-subject differences reflect genuine bursting
+rather than spectral shape. Run-to-run reliability is r = +.60
+(Spearman-Brown .75). The check travels with the data as `theta_p95_excess`. Coverage rose from 34 subjects at the defense to 59
 here — partly the larger sample, but mostly because `eeg_theta.find_eeg_run`
 globbed only one of the NIC naming conventions, so subjects whose recordings
 were saved as `Bandit-{id}_Run N` or `{id} TACS_Run N` returned no theta at
@@ -1054,7 +1072,7 @@ all. That is fixed in `nic_files.py` and both consumers now share it.
 """),
         code("""
 # ============================================================================
-# 5.1 Theta as a moderator of the stimulation response
+# 5.1 Theta bursting as a moderator of the stimulation response
 # ============================================================================
 
 theta_targets = [c for c in ['delta_ttc', rl('delta_alpha'), 'delta_accuracy',
@@ -1090,7 +1108,7 @@ if 'delta_ttc' in subj.columns:
                                d['delta_ttc'].astype(float).values,
                                d['age'].astype(float).values,
                                zero_line=True)
-        style_ax(ax, xlabel='Baseline theta power (p95, % change)',
+        style_ax(ax, xlabel='Theta bursting (p95, % of run mean)',
                  ylabel='Delta trials-to-criterion (active - sham)')
         savefig(fig, 'fig_theta_x_delta_ttc')
         plt.show()
@@ -1099,7 +1117,7 @@ if 'delta_ttc' in subj.columns:
 """),
         code("""
 # ============================================================================
-# 5.3 Theta x cognition moderation of the stimulation response
+# 5.3 Theta bursting x cognition moderation of the stimulation response
 # ============================================================================
 # Mean-centered predictors, so the lower-order terms read at the sample mean.
 
@@ -1775,35 +1793,56 @@ def section_itf() -> List[nbf.NotebookNode]:
         md("""
 ## 7.6 Individualized theta frequency
 
-Every participant received stimulation at a fixed 6.0 Hz — all 237
-stimulation runs, without exception. Individualized theta is therefore not a
+Every participant received stimulation at a fixed 6.0 Hz — all 237 stimulation
+runs, without exception. Individualized theta (iTF) is therefore not a
 delivered parameter but a **moderator**: did stimulation work better for people
 whose endogenous theta already sat near the frequency delivered?
 
-Estimated by the Klimesch anchor — individual alpha frequency from posterior
-channels, minus a fixed offset. Alpha is the most reliably detectable scalp
-rhythm and P3/P4 recorded for every subject, so this covers the whole sample,
-unlike a direct frontal-midline theta peak (FCz stimulates during stimulation
-runs and only records for the later protocol).
+**Answer: no.** Across 45 tests of iTF, IAF and |iTF − 6 Hz| against age,
+cognition, theta bursting, modelled field, every baseline measure and every
+change score, **1 reached p < .05 against 2.2 expected by chance, and none
+survived FDR** — and the single hit is the IAF-with-age correlation, which is a
+validity check rather than a hypothesis test. Frequency matching is not
+supported in this sample.
 
-**Limitations, stated plainly.** Klimesch's transition frequency is properly
-defined from how theta and alpha shift in opposite directions between rest and
-task; this study has no resting block, so the fixed 5 Hz offset is an
-approximation rather than a measurement. It does get modest empirical support
-here — among the few subjects with both estimators the observed IAF-minus-theta
-gap is close to the assumed offset and the two measures correlate positively,
-as the anchor predicts — but that check rests on a handful of subjects and
-should not be leaned on.
+**That null is only worth reporting because the measure was fixed first.**
+Until 2026-09-22 it was measuring an artifact. These recordings carry a
+stationary harmonic comb at 9.767 Hz — exact integer harmonics, zero frequency
+drift across a six-minute run, present on the non-scalp EXT channel, so an
+instrument rather than a brain. The old estimator flattened the spectrum and
+took the **tallest point** between 7 and 14 Hz, and the comb tooth was roughly
+87x the background, taller than anyone's alpha. It won for almost everybody:
+30 of 57 subjects returned exactly 9.750 Hz.
 
-Preprocessing matters more than it might appear for this measure. An earlier
-version of this pipeline resolved alpha for only 44 of 59 subjects, and every
-failure traced to preprocessing rather than to absent alpha: slow drift that
-linear detrending left in place, so a fixed amplitude threshold rejected nearly
-all data for the drifty recordings, and no software average re-reference for
-the participants run without the earclip. With both fixed, coverage is 55 of
-59. The lesson generalizes — a subject silently dropped for a technical reason
-is indistinguishable, downstream, from a subject who genuinely lacks the
-rhythm.
+The fix is to fit peaks rather than rank them. `specparam` models the spectrum
+as a 1/f background plus Gaussians with a **minimum bandwidth of 1 Hz**. A real
+alpha rhythm is a hill 1–3 Hz wide, because oscillations wander in frequency; a
+clock line is one bin wide and cannot be fit as a peak at all. The alpha was
+underneath the spike the whole time.
+
+| | old (argmax) | current (specparam, 4 runs) |
+|---|---|---|
+| subjects resolved | 54 | **59** |
+| distinct values | 17 | **54** |
+| at exactly 9.75 Hz | 30 | — |
+| **IAF x age** | r = −.195, p = .17 | **r = −.287, p = .032** |
+
+The age correlation is the external validity check: declining IAF with age is
+among the most replicated findings in quantitative EEG, and the recovered
+measure now shows it at a literature-consistent slope. Test-retest across
+independent runs is r = +.63, which is real but noisier than the r > .8 the
+literature reports — hence averaging all four non-stimulation runs (1, 4, 5, 8)
+rather than run 1 alone.
+
+**Remaining limitations, stated plainly.** Klimesch's transition frequency is
+properly defined from how theta and alpha shift in opposite directions between
+rest and task; this study has no resting block, so the fixed 5 Hz offset is an
+approximation rather than a measurement, and the direct FCz check covers only a
+minority of subjects. The counterbalance groups also differ in IAF by d ≈ 0.6 —
+present on run 1, before any stimulation, so a baseline imbalance rather than a
+stimulation effect, but worth knowing. And because the measure is noisy, this
+null is evidence against a large frequency-matching effect, not against a
+subtle one.
 
 Generated by `individual_theta.py`.
 """),

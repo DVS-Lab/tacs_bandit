@@ -29,7 +29,9 @@ Defined in `code/samples.py`; `python code/samples.py` checks them. Every analys
 
 ## Findings
 
-No unexplained missingness patterns.
+**Missingness the spec does not explain, or explains wrongly**
+
+- `theta_peak_fcz` (11/60): presence is leans enrollment (later present), which the spec does not explain
 
 **85 variables no analysis script references by name.** Either unused, or reached only through a runtime-built name (see the builder docstring). Worth a decision each: analyse, or stop carrying.
 
@@ -79,7 +81,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `subject_id` | 59/59 | Participant ID | 1.037e+04 – 1.192e+04 | <sub>individual_theta.py -> estimate_subject</sub> | identifier |  | **0** |
+| `subject_id` | 60/60 | Participant ID | 1.037e+04 – 1.192e+04 | <sub>individual_theta.py -> estimate_subject</sub> | identifier |  | **0** |
 
 ## exclusion  ·  `efield`
 
@@ -192,20 +194,20 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `itf_distance` | 55/59 | |iTF - 6 Hz|: distance from the stimulation frequency<br><sub>Inherits the clipping above: clipped subjects all get 2.0.</sub> | 0 – 2 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>10608 10896 11492 11920</sub> | 3 |
-| `iaf` | 55/59 | Individual alpha frequency, posterior channels, 1/f removed (Hz)<br><sub>0.5 Hz resolution (2 s Welch windows): 26 of 55 at exactly 10.0 Hz. Four at 12-13 Hz, where the peak may not be alpha.</sub> | 7.5 – 13 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / scattered<br><sub>10608 10896 11492 11920</sub> | 3 |
-| `theta_peak_fcz` | 7/59 | Direct frontal-midline theta peak, where recorded (Hz) | 4.5 – 7.5 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / scattered<br><sub>nan</sub> | 3 |
-| `itf_klimesch` | 55/59 | Individual theta frequency = IAF - 5 Hz, clipped to 4-8 Hz<br><sub>Clipping: the 5 subjects with IAF < 9 Hz sit at exactly 4.0; the two with IAF 13 Hz at 8.0. Inherits IAF resolution.</sub> | 4 – 8 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>10608 10896 11492 11920</sub> | 3 |
+| `itf_distance` | 59/60 | |iTF - 6 Hz|: distance from the stimulation frequency<br><sub>Inherits the clipping above: clipped subjects all get 2.0.</sub> | 0.0157 – 2 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>11885</sub> | 3 |
+| `iaf` | 59/60 | Individual alpha frequency, posterior channels, 1/f removed (Hz)<br><sub>0.5 Hz resolution (2 s Welch windows): 26 of 55 at exactly 10.0 Hz. Four at 12-13 Hz, where the peak may not be alpha.</sub> | 7.67 – 12.9 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / scattered<br><sub>11885</sub> | 3 |
+| `theta_peak_fcz` | 11/60 | Direct frontal-midline theta peak, where recorded (Hz) | 4.25 – 7.92 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / leans enrollment (later present)<br><sub>nan</sub> | 3 |
+| `itf_klimesch` | 59/60 | Individual theta frequency = IAF - 5 Hz, clipped to 4-8 Hz<br><sub>Clipping: the 5 subjects with IAF < 9 Hz sit at exactly 4.0; the two with IAF 13 Hz at 8.0. Inherits IAF resolution.</sub> | 4 – 7.87 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>11885</sub> | 3 |
 
 ## eeg  ·  `master`
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `theta_p95` | 59/66 | Frontal theta reactivity, 95th percentile<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub> | 154 – 430 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | moderator<br><sub>H2.3 (theta models)</sub> | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 12 |
-| `theta_p75` | 59/66 | Frontal theta reactivity, 75th percentile<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub> | -30.3 – 48.9 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | secondary | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 4 |
+| `theta_p95` | 59/66 | Theta bursting, 95th percentile of the within-run normalised 4-8 Hz envelope<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub><br><sub> Not "reactivity": nothing is locked to feedback. Power is normalised by the whole run mean, so this is burstiness relative to the subject’s own average. Not localisable either — F4/P4/P3 correlate at median r = .998 raw, so it is a global measure, not frontal. Validity control: theta_p95_excess.</sub> | 154 – 430 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | moderator<br><sub>H2.3 (theta models)</sub> | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 12 |
+| `theta_p75` | 59/66 | Theta bursting, 75th percentile of the within-run normalised 4-8 Hz envelope<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub><br><sub> Not "reactivity": nothing is locked to feedback. Power is normalised by the whole run mean, so this is burstiness relative to the subject’s own average. Not localisable either — F4/P4/P3 correlate at median r = .998 raw, so it is a global measure, not frontal. Validity control: theta_p95_excess.</sub> | -30.3 – 48.9 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | secondary | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 4 |
 | `theta_p95_excess` | 59/66 | theta_p95 minus its surrogate: theta bursting beyond what the run’s own power spectrum produces<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub><br><sub>Positive in 92% of runs (t(118) = +9.18, p = 2e-15). Near zero would mean theta_p95 is reporting the spectrum, not bursting.</sub> | -42.9 – 237 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | qc<br><sub>validity control</sub> | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 1 |
 | `theta_p95_surrogate` | 59/66 | theta_p95 recomputed on a phase-randomised surrogate of the same run (identical power spectrum, bursting destroyed)<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub><br><sub>See eeg_theta.phase_randomised. The recordings carry a stationary 9.767 Hz device comb; this check demonstrates per run that theta_p95 reflects bursting rather than the spectrum.</sub> | 183 – 203 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | qc<br><sub>validity control</sub> | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 1 |
-| `theta_median` | 59/66 | Frontal theta reactivity, median<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub> | -88.6 – -32.2 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | secondary | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 5 |
+| `theta_median` | 59/66 | Theta bursting, median of the within-run normalised 4-8 Hz envelope<br><sub>Missing 7: no EEG recorded for 11030, 11066, 11316, 11433, 11542, 11861; 11606 has EEG but both baseline runs exceed the 10% artifact threshold (32%, 57%).</sub><br><sub> Not "reactivity": nothing is locked to feedback. Power is normalised by the whole run mean, so this is burstiness relative to the subject’s own average. Not localisable either — F4/P4/P3 correlate at median r = .998 raw, so it is a global measure, not frontal. Validity control: theta_p95_excess.</sub> | -88.6 – -32.2 | <sub>run_theta_metrics.py -> eeg_theta.run_theta_analysis -> build_master_data.load_theta</sub> | secondary | individual / scattered<br><sub>11030 11066 11316 11433 11542 11606 11861</sub> | 5 |
 
 ## efield  ·  `efield`
 
@@ -470,11 +472,11 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 
 | variable | n | description | range | produced by | role | missing: declared / detected | used by |
 |---|---|---|---|---|---|---|---|
-| `runs_used` | 59/59 | Runs requested | 1 – 1 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
-| `in_dissertation` | 59/59 | In the defended N = 39 sample | 0 – 1 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 3 |
-| `max_channels` | 59/59 | Channels available | 3 – 7 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
-| `n_iaf_runs` | 59/59 | Runs contributing an IAF | 0 – 1 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
-| `n_theta_runs` | 59/59 | Runs contributing a direct theta peak | 0 – 1 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
+| `runs_used` | 60/60 | Runs requested | 2 values | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
+| `in_dissertation` | 60/60 | In the defended N = 39 sample | 0 – 1 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 3 |
+| `max_channels` | 60/60 | Channels available | 3 – 7 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
+| `n_iaf_runs` | 60/60 | Runs contributing an IAF | 0 – 4 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
+| `n_theta_runs` | 60/60 | Runs contributing a direct theta peak | 0 – 4 | <sub>individual_theta.py -> estimate_subject</sub> | qc |  | 1 |
 
 ## behaviour derived  ·  `master`
 

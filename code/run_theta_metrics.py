@@ -1,5 +1,5 @@
 """
-run_theta_metrics.py — Extract subject-level theta reactivity for the master CSV
+run_theta_metrics.py — Extract subject-level theta bursting for the master CSV
 
 Thin driver around eeg_theta.run_theta_analysis(). That pipeline computes theta
 power across the baseline runs, applies the QC thresholds, and averages to one

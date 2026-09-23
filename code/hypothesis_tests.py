@@ -885,7 +885,7 @@ def test_theta_moderation(
     verbose: bool = True
 ) -> Dict:
     """
-    Exploratory: Theta reactivity as predictor/moderator of tACS effect.
+    Exploratory: Theta bursting as predictor/moderator of tACS effect.
     
     Models:
     1. Bivariate correlations: theta_p95 with change scores
@@ -1021,7 +1021,7 @@ def test_theta_baseline_predictors(
     verbose: bool = True
 ) -> Dict:
     """
-    Exploratory: Theta reactivity predicting baseline learning.
+    Exploratory: Theta bursting predicting baseline learning.
     
     Adds theta_p95 to H1-style models to test whether neural measure
     predicts task performance independent of cognitive composites.

@@ -1593,7 +1593,7 @@ def build_subject_df(
         ddm_cols = ['subject_id'] + [c for c in ddm_params.columns if c.startswith('ddm_')]
         subj_df = subj_df.merge(ddm_params[ddm_cols], on='subject_id', how='left')
 
-    # --- Theta reactivity ---
+    # --- Theta bursting (not reactivity; see eeg_theta.py) ---
     if theta_subject is not None and len(theta_subject) > 0:
         # theta_p95_excess is the surrogate validity control (see
         # eeg_theta.phase_randomised); it travels with the measure so a
@@ -1605,7 +1605,7 @@ def build_subject_df(
             subj_df = subj_df.merge(theta_subject[available_cols], on='subject_id', how='left')
             if verbose:
                 n_theta = subj_df['theta_p95'].notna().sum() if 'theta_p95' in subj_df.columns else 0
-                print(f'  Theta reactivity: {n_theta}')
+                print(f'  Theta bursting: {n_theta}')
 
     if verbose:
         print(f'\nSubject DataFrame assembled: {len(subj_df)} subjects, {len(subj_df.columns)} variables')
