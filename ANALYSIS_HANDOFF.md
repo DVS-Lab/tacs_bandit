@@ -213,6 +213,7 @@ effect.
 | `compare_composites.py` | preregistered tests under both cognitive composites |
 | `compare_rl_estimates.py` | learning-parameter tests under both RL estimators |
 | `qc_cognitive_composite.py` | two-page validation report for `global_reduced` |
+| `sweep_moderators.py` | every subject-level measure against age (`--target age`) or against each change score (`--target stim`), with FDR, band contrasts and a baseline-dependency check |
 | `qc_paper_variables.py` | distributions, baseline correlations, VIF, split-half reliability and the age-band check, for every variable the paper reports |
 | `table1.py` | Table 1 (sample characteristics, split at the median age) → `derivatives/table1.{csv,md}` |
 | `ppc_within.py` | posterior predictive checks for the hierarchical RL fit (`--model rw|rw_dual`) |
@@ -335,6 +336,7 @@ Every one had the same signature: **no error raised, data silently degraded.**
 | BBS scored from a *labels* export | `cognitive_merge.score_bbs` | the labels export blanks every 2–6 response, so scores (-6/-1/0) used endpoint answers only. Scorer now refuses a labels export; needs a raw export |
 | Education ranked TabCAT above the island screener | `cognitive_merge.build_subject_df` | TabCAT agrees with RF1 at r = .35, the island screener at .88. Reordered; 2 values changed; `education_source` added |
 | Notebook sweep used legacy domain composites | `build_results_paper_nb.py` §6.2, `survey_exploration.py` | the age-confounded `attention/memory/speed_composite`. Swapped for `*_reduced` |
+| Trials-to-criterion averaged only the reversals a subject solved | `reversal_analysis.compute_trials_to_criterion` | NaN when criterion is never reached, and the subject mean skipped those — survivorship bias. Older adults solved 82% of sham reversals against 90% for younger, so their mean was computed over an easier subset and they looked *faster*: **age × sham_ttc r = −.359, p = .0045**, the strongest baseline behavioural age effect in the paper and the top hit in the exploratory sweep. Censoring unsolved reversals at the trials available gives **r = −.057, p = .66**. Also flipped H2.2: age × Δttc was r = +.233, p = .081 (the H2.2 figure) and is r = −.138, p = .31 censored. Found 2026-09-22 |
 | Every sample wrote to one notebook and one figure directory | `build_results_paper_nb.py` | `--sample dissertation` is the *last* step in the documented reproduction order, so the N = 39 reproduction check silently overwrote both the notebook and the manuscript figures in `data/figures/paper/` — and that is what had been committed. Found 2026-09-22 by a marker count: the committed `fig_age_x_efield.svg` had 159 markers, the full-sample version 184. Each sample now writes `results_paper_<sample>.ipynb` and `figures/paper_<sample>/`; only `--sample all` touches `figures/paper/` |
 
 Also corrected: `dz` and TOST used the population SD (`ddof=0`), making the
@@ -620,6 +622,8 @@ python qc_cognitive_composite.py
 # 8. table 1 and the QC sweep
 python table1.py                  # derivatives/table1.{csv,md}
 python qc_paper_variables.py      # distributions, correlations, VIF, reliability, age bands
+python sweep_moderators.py --target age    # all 86 measures vs age, FDR + bands
+python sweep_moderators.py --target stim   # all 86 vs 8 change scores, FDR
 
 # 9. model checking. Step 3 fits the single-rate model only, so fit the dual
 #    one first; the comparison loads both posteriors.
@@ -634,7 +638,11 @@ specparam 2.0.0rc6. No MNE — EEG code is custom scipy.
 InferenceData is pickled, not NetCDF (h5py/NumPy conflict in this environment).
 
 **Switches**, all in `config.py`: `COG_COMPOSITE` (cognitive composite),
-`RL_ESTIMATES` (`'hb'` or `'mle'`), `TTC_CRITERION` and the reversal windows.
+`RL_ESTIMATES` (`'hb'` or `'mle'`), `TTC_CRITERION` and the reversal windows,
+`TTC_CENSORING` (`'censored'` or `'raw'`, read through `ttc()`),
+and `AGE_BAND_YOUNG_MAX` / `AGE_BAND_OLD_MIN` (the recruitment-band edges, read
+by `efield_results.py`, `qc_paper_variables.py`, `fig_efield_age.py` and the
+notebook, so all four cut at the same place).
 Each is read everywhere through one accessor, so changing it changes every
 analysis at once; the `compare_*` scripts run both settings.
 
@@ -662,6 +670,36 @@ None reaches p < .05 under the primary (hierarchical) estimates. The MLE trends
 are carried by fits pinned at a bound. H1.1.2 on α read p = .044 until the Stage
 4 education audit dropped two impossible values (10606, 11885); it is now .058.
 Nothing here should be reported as a finding.
+
+**Exploratory sweeps, done 2026-09-22 (`sweep_moderators.py`).** The notebook's
+section 6.2 swept 17 hand-picked moderators; the master table holds 86, so most
+of the questionnaire battery had never been tested. Both exhaustive sweeps are
+now run:
+
+- **Age (86 tests, H1).** 27 survive FDR. Most are cognitive. A second,
+  non-cognitive cluster also survives and points one way: SCAARED anxiety
+  −.50, SPSRQ punishment sensitivity −.36, EROS intrinsic worsening +.46,
+  MSPSS social support +.29, IOS investment in a stranger +.49. All hold after
+  adjusting for education and cognition (PANAS positive does not, p = .52, and
+  should be dropped). This is the socioemotional-ageing/positivity pattern
+  across five independent instruments. **It is entirely a between-band group
+  difference** (within-band |r| ≤ .18 for every one), and it does not connect
+  to the task: 3 of 36 affect × behaviour tests at p < .05 against 1.8
+  expected. Report as sample characterization in the Discussion, not a result.
+- **Stimulation response (688 tests, H2, 8 change scores).** 56 at p < .05
+  against 34.4 expected, **0 survive FDR**. The top of the list is dominated by
+  `delta_ttc_reach_rate` against cognitive measures, all negative, which is
+  baseline dependency rather than a response to stimulation.
+
+**Δ P(reached criterion) is not a finding, despite p = .007.** Age × Δ reach
+rate is r = +.351, and the crossover looks clean (older: .808 → .913 under
+active, t(25) = 2.52, p = .019; younger: .898 → .848, n.s.). It does not hold
+up: the change score correlates with its own baseline at r = −.574, and older
+subjects start lowest; holding the sham rate constant drops age to p = .046;
+cognition predicts it as well as age does and neither survives when both are
+entered (age p = .27, cognition p = .069); and the correlation with delivered
+field is **negative** (r = −.24), which no real dose effect could produce. The
+notebook prints all three checks under the result.
 
 **Not started.** The moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW

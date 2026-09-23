@@ -280,7 +280,31 @@ def compute_trials_to_criterion(
     Returns
     -------
     DataFrame
-        One row per reversal with trials_to_criterion and reached_criterion
+        One row per reversal with trials_to_criterion, reached_criterion,
+        n_post_trials and trials_to_criterion_censored.
+
+    Notes
+    -----
+    **`trials_to_criterion` is NaN when criterion is never reached, and
+    averaging it therefore averages only the reversals a subject solved.**
+    That is survivorship bias, and it is not small here: subjects who solve
+    fewer reversals have their remaining, easier ones averaged, so they look
+    *faster*. In this sample it manufactured an age effect out of nothing --
+    older adults reached criterion on 82% of sham reversals against 90% for
+    younger adults, which made their mean TTC 3.20 against 4.75 (r = -.36 with
+    age, p = .0045). Censoring removes it entirely (r = -.07, p = .58).
+
+    `trials_to_criterion_censored` fills an unreached reversal with the number
+    of post-reversal trials that were actually available (`n_post_trials`),
+    which is a *lower bound* on the unobserved value: the subject had at least
+    that many trials and had not reached criterion. It is the observed window
+    rather than a fixed constant because reversals late in a run are short.
+    Being a lower bound, it is conservative -- it understates the true
+    difference rather than inventing one.
+
+    Use the censored column for any between-subject comparison. The raw column
+    is kept because it is the preregistered quantity and both are reported; see
+    `TTC_CENSORING` in config.py.
     """
     results = []
     
@@ -322,12 +346,17 @@ def compute_trials_to_criterion(
             else:
                 consecutive = 0
         
+        n_post = len(correct_vals)
         results.append({
             'reversal_id': rev_id,
             'subject_id': sub_id,
             'condition': condition,
             'trials_to_criterion': ttc,
             'reached_criterion': not np.isnan(ttc),
+            'n_post_trials': n_post,
+            # Lower bound when criterion was never reached: the subject used
+            # every available trial without solving it.
+            'trials_to_criterion_censored': ttc if not np.isnan(ttc) else float(n_post),
         })
     
     return pd.DataFrame(results)

@@ -76,7 +76,8 @@ SAMPLES: Dict[str, dict] = {
         used_for='H2.1 paired tests and equivalence; H2.2 age moderation',
         requires=['age', COG_COMPOSITE, 'delta_p_stay_win', 'delta_p_shift_lose',
                   'delta_alpha', 'delta_beta', 'delta_accuracy', 'delta_win_rate',
-                  'delta_ttc', 'delta_alpha_hb', 'delta_beta_hb'],
+                  'delta_ttc', 'delta_ttc_censored', 'delta_ttc_reach_rate',
+                  'delta_alpha_hb', 'delta_beta_hb'],
     ),
     'Dose': dict(
         rule='FLAIR head model (T1-only excluded); has age',

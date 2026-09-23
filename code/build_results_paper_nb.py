@@ -98,9 +98,10 @@ import seaborn as sns
 warnings.filterwarnings('ignore')
 
 from config import (
-    rl, RL_ESTIMATES,
+    rl, ttc, RL_ESTIMATES,
     DATA_DIR, DISSERTATION_SUBJECTS, SUBJECT_INFO,
     NO_EARCLIP_SUBJECTS, EFIELD_CSV_PATH,
+    AGE_BAND_YOUNG_MAX as BAND_YOUNG, AGE_BAND_OLD_MIN as BAND_OLD,
 )
 from data_loading import load_all_subjects
 from exclusions import apply_all_exclusions
@@ -677,10 +678,13 @@ from config import (TTC_CRITERION as CRITERION, REVERSAL_WINDOW_PRE as WINDOW_PR
 trials = identify_reversals(trials, window_pre=WINDOW_PRE,
                             window_post=WINDOW_POST, verbose=True)
 
-ttc = compute_trials_to_criterion(trials, criterion=CRITERION)
-print(f'\\nTrials-to-criterion: {len(ttc)} reversals, '
-      f'{ttc["subject_id"].nunique()} subjects')
-print(ttc.groupby('condition')['trials_to_criterion']
+# Named ttc_rev, not ttc: `ttc` is the config accessor imported above, and a
+# notebook shares one namespace across cells, so reusing the name would
+# shadow the function for every later cell.
+ttc_rev = compute_trials_to_criterion(trials, criterion=CRITERION)
+print(f'\\nTrials-to-criterion: {len(ttc_rev)} reversals, '
+      f'{ttc_rev["subject_id"].nunique()} subjects')
+print(ttc_rev.groupby('condition')['trials_to_criterion']
         .agg(['count', 'mean', 'std']).round(3).to_string())
 """),
         code("""
@@ -694,36 +698,54 @@ print(ttc.groupby('condition')['trials_to_criterion']
 # restriction, which gave 11773 (whose "active" runs were sham) a delta_ttc.
 # Recompute from the trials above and require agreement, so the two can
 # never silently diverge.
-ttc_subj = (ttc.groupby(['subject_id', 'condition'])['trials_to_criterion']
-              .mean().unstack())
-for cond in ['sham', 'active']:
-    if cond not in ttc_subj.columns:
-        continue
-    here = subj['subject_id'].map(ttc_subj[cond])
-    if cond == 'active':
-        here = here.where(subj['subject_id'].isin(h2_eligible))
-    master = pd.to_numeric(subj[f'{cond}_ttc'], errors='coerce')
-    mismatch = ~(((here - master).abs() < 1e-9) | (here.isna() & master.isna()))
-    if mismatch.any():
-        raise AssertionError(
-            f'{cond}_ttc in the master CSV disagrees with the notebook for '
-            f'{sorted(subj.loc[mismatch, "subject_id"])}. Rebuild the master CSV.')
-print('TTC recomputed here matches the master CSV for every subject.')
+for src, suffix in [('trials_to_criterion', ''),
+                    ('trials_to_criterion_censored', '_censored'),
+                    ('reached_criterion', '_reach_rate')]:
+    here_all = ttc_rev.groupby(['subject_id', 'condition'])[src].mean().unstack()
+    for cond in ['sham', 'active']:
+        if cond not in here_all.columns:
+            continue
+        here = subj['subject_id'].map(here_all[cond])
+        if cond == 'active':
+            here = here.where(subj['subject_id'].isin(h2_eligible))
+        master = pd.to_numeric(subj[f'{cond}_ttc{suffix}'], errors='coerce')
+        mismatch = ~(((here - master).abs() < 1e-9) | (here.isna() & master.isna()))
+        if mismatch.any():
+            raise AssertionError(
+                f'{cond}_ttc{suffix} in the master CSV disagrees with the notebook '
+                f'for {sorted(subj.loc[mismatch, "subject_id"])}. Rebuild it.')
+print('TTC (raw, censored and reach rate) matches the master CSV for every subject.')
 
-paired = subj[subj['subject_id'].isin(h2_eligible)][['sham_ttc', 'active_ttc']].dropna()
-if len(paired) > 2:
-    t, p = stats.ttest_rel(paired['active_ttc'], paired['sham_ttc'])
-    diff = paired['active_ttc'] - paired['sham_ttc']
-    dz = diff.mean() / diff.std(ddof=1)
-    print(f'Trials-to-criterion, active vs sham (H2-eligible):')
-    print(f'  N  = {len(paired)}')
-    print(f'  sham   M = {paired["sham_ttc"].mean():.3f} '
-          f'(SD {paired["sham_ttc"].std():.3f})')
-    print(f'  active M = {paired["active_ttc"].mean():.3f} '
-          f'(SD {paired["active_ttc"].std():.3f})')
-    print(f'  t({len(paired)-1}) = {t:.3f}, p = {p:.3f}, dz = {dz:+.3f}')
-else:
-    print('Insufficient paired TTC data.')
+# The raw mean averages only the reversals a subject solved, so subjects who
+# solve fewer have their easier ones averaged and look faster. Quantify it
+# here rather than asserting it in prose.
+_reach = ttc_rev.reached_criterion.mean()
+print(f'\\nCriterion reached on {100 * _reach:.1f}% of {len(ttc_rev)} reversals, '
+      f'so {100 * (1 - _reach):.1f}% are missing from the raw mean.')
+_a = pd.to_numeric(subj['age'], errors='coerce')
+for _c, _lab in [('sham_ttc', 'raw (solved reversals only)'),
+                 ('sham_ttc_censored', 'censored (unsolved filled in)'),
+                 ('sham_ttc_reach_rate', 'P(reached criterion)')]:
+    _m = pd.concat([_a, pd.to_numeric(subj[_c], errors='coerce')], axis=1).dropna()
+    _r, _p = stats.pearsonr(_m.iloc[:, 0], _m.iloc[:, 1])
+    print(f'  age x {_lab:30s} r = {_r:+.3f}, p = {_p:.4f}, N = {len(_m)}')
+print('  -> the raw age effect is survivorship bias; it does not survive censoring.')
+
+# The paired test is within subject, so both conditions carry the same
+# survivorship bias and it largely cancels -- but report both rules anyway,
+# since the primary DV is now the censored one (TTC_CENSORING).
+print('Trials-to-criterion, active vs sham (H2-eligible):')
+for _suffix, _lab in [('', 'raw'), ('_censored', 'censored'), ('_reach_rate', 'reach rate')]:
+    _p2 = subj[subj['subject_id'].isin(h2_eligible)][
+        [f'sham_ttc{_suffix}', f'active_ttc{_suffix}']].dropna()
+    if len(_p2) <= 2:
+        continue
+    _t, _pv = stats.ttest_rel(_p2.iloc[:, 1], _p2.iloc[:, 0])
+    _d = _p2.iloc[:, 1] - _p2.iloc[:, 0]
+    print(f'  {_lab:11s} N = {len(_p2)}  sham {_p2.iloc[:, 0].mean():.3f}  '
+          f'active {_p2.iloc[:, 1].mean():.3f}  '
+          f't({len(_p2)-1}) = {_t:+.3f}, p = {_pv:.3f}, '
+          f'dz = {_d.mean() / _d.std(ddof=1):+.3f}')
 """),
         code("""
 # ============================================================================
@@ -800,7 +822,7 @@ h2_dvs = [
     (rl('sham_beta'), rl('active_beta'), 'Inverse temperature (beta)'),
     ('sham_accuracy', 'active_accuracy', 'Accuracy'),
     ('sham_win_rate', 'active_win_rate', 'Win rate'),
-    ('sham_ttc', 'active_ttc', 'Trials-to-criterion'),
+    (ttc('sham_ttc'), ttc('active_ttc'), 'Trials-to-criterion'),
 ]
 
 # Every DV uses the same sample, so the rows of the table are comparable.
@@ -905,7 +927,8 @@ delta_dvs = [
     (rl('delta_alpha'), 'Delta alpha'),
     (rl('delta_beta'), 'Delta beta'),
     ('delta_accuracy', 'Delta accuracy'),
-    ('delta_ttc', 'Delta trials-to-criterion'),
+    (ttc('delta_ttc'), 'Delta trials-to-criterion'),
+    ('delta_ttc_reach_rate', 'Delta P(reached criterion)'),
 ]
 
 print('Age moderation of stimulation change scores (H2-eligible)\\n')
@@ -925,14 +948,68 @@ for col, label in delta_dvs:
     age_moderation.append({'dv': col, 'label': label, 'r': r, 'p': p, 'n': len(d)})
 
 age_mod_df = pd.DataFrame(age_moderation)
+
+# A change score is negatively correlated with its own baseline by
+# construction, so any variable tracking baseline performance will look like a
+# moderator. For the reach rate that is the whole story: older subjects solve
+# fewer reversals under sham, so they have the most room to improve. Three
+# checks, printed so the asterisk above is never read on its own.
+if 'delta_ttc_reach_rate' in h2_subj_df.columns:
+    _d = h2_subj_df[['age', 'sham_ttc_reach_rate', 'active_ttc_reach_rate',
+                     'delta_ttc_reach_rate', COG_COMPOSITE]].apply(
+        pd.to_numeric, errors='coerce').dropna(subset=['age', 'delta_ttc_reach_rate'])
+    _r, _p = stats.pearsonr(_d.sham_ttc_reach_rate, _d.delta_ttc_reach_rate)
+    print(f'\\nDelta P(reached criterion) -- why it is not a finding:')
+    print(f'  1. baseline dependency: sham rate x delta r = {_r:+.3f}, p = {_p:.4f}')
+    _f = sm.OLS(_d.delta_ttc_reach_rate,
+                sm.add_constant(_d[['age', 'sham_ttc_reach_rate']])).fit()
+    print(f'     age, holding the sham rate constant: p = {_f.pvalues["age"]:.4f} '
+          f'(was {age_mod_df.set_index("dv").loc["delta_ttc_reach_rate", "p"]:.4f})')
+    _c = _d.dropna(subset=[COG_COMPOSITE])
+    _rc, _pc = stats.pearsonr(_c[COG_COMPOSITE], _c.delta_ttc_reach_rate)
+    _f2 = sm.OLS(_c.delta_ttc_reach_rate,
+                 sm.add_constant(_c[['age', COG_COMPOSITE]])).fit()
+    print(f'  2. cognition does it too: r = {_rc:+.3f}, p = {_pc:.4f}; entering both, '
+          f'age p = {_f2.pvalues["age"]:.3f}, cognition p = {_f2.pvalues[COG_COMPOSITE]:.3f}')
+    print('     -> collinear with age (r = -.59); neither is attributable on its own.')
+    # The field lives in the E-field table, not the master CSV, so join it the
+    # same way section 5.4 does rather than assuming it is on h2_subj_df.
+    import samples as _s
+    _joined = _s.load()
+    _e = (_joined[_joined['t1_only'].eq(False)][['subject_id', 'mean_magnE']]
+          .merge(h2_subj_df[['subject_id', 'delta_ttc_reach_rate']], on='subject_id'))
+    if len(_e) >= 20:
+        _e = _e[['mean_magnE', 'delta_ttc_reach_rate']].apply(
+            pd.to_numeric, errors='coerce').dropna()
+        _re, _pe = stats.pearsonr(_e.mean_magnE, _e.delta_ttc_reach_rate)
+        print(f'  3. dose relation runs negative: |E| x delta r = {_re:+.3f}, '
+              f'p = {_pe:.4f}, N = {len(_e)}')
+        print('     A negative sign is NOT disqualifying on its own -- if tACS '
+              'disrupts the process,')
+        print('     more field means more disruption, which is exactly this sign. '
+              'What rules that')
+        print('     out here is that the sign is not consistent across DVs '
+              '(2 of 5 negative once')
+        print('     signed so positive = better, mean r = -.01), and that |E| drops '
+              'to p = .96 once')
+        print('     age and the sham baseline are controlled. See '
+              'sweep_moderators.py --target stim.')
 """),
         code("""
 # ============================================================================
 # 4.4 Figure — Age x change score, for whichever DV shows the strongest relation
 # ============================================================================
 
-if len(age_mod_df):
-    best = age_mod_df.loc[age_mod_df['p'].idxmin()]
+# Pinned to delta accuracy rather than selected by smallest p. The
+# smallest-p rule would now pick Delta P(reached criterion), whose three
+# robustness checks above all fail -- so the rule would put the least
+# defensible number in a manuscript figure. Accuracy is the preregistered
+# primary outcome, which is the right thing to show whatever its p-value.
+FIG_AGE_MOD_DV = 'delta_accuracy'
+if len(age_mod_df) and FIG_AGE_MOD_DV in set(age_mod_df['dv']):
+    best = age_mod_df.set_index('dv').loc[FIG_AGE_MOD_DV]
+    best = {'dv': FIG_AGE_MOD_DV, 'label': best['label'], 'r': best['r'],
+            'p': best['p'], 'n': best['n']}
     d = h2_subj_df[[best['dv'], 'age']].dropna()
 
     fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
@@ -945,10 +1022,13 @@ if len(age_mod_df):
     savefig(fig, 'fig_h2_age_moderation')
     plt.show()
 
-    print(f"Strongest age relation: {best['label']} "
-          f"(r = {best['r']:+.3f}, p = {best['p']:.3f}, N = {best['n']})")
-    print('Selected by smallest p across the change scores above, so this is '
-          'a display choice, not an independent test.')
+    print(f"Age x {best['label']} (preregistered primary outcome): "
+          f"r = {best['r']:+.3f}, p = {best['p']:.3f}, N = {best['n']}")
+    _top = age_mod_df.loc[age_mod_df['p'].idxmin()]
+    if _top['dv'] != FIG_AGE_MOD_DV:
+        print(f"  (the smallest p in the table is {_top['label']}, "
+              f"p = {_top['p']:.3f}; not plotted -- see the robustness "
+              f"checks above)")
 """),
     ]
 
@@ -1153,10 +1233,10 @@ else:
         # distribution is close to a two-group contrast. Report both: the
         # within-band correlation is the gradient, the between-band d is the
         # group effect. Same 40/55 cut as efield_results.py.
-        _yb, _ob = d[d.age < 40], d[d.age >= 55]
-        print(f'\\n  age bands: {len(_yb)} under 40, '
-              f'{int(((d.age >= 40) & (d.age < 55)).sum())} in 40-54, '
-              f'{len(_ob)} at 55+')
+        _yb, _ob = d[d.age < BAND_YOUNG], d[d.age >= BAND_OLD]
+        print(f'\\n  age bands: {len(_yb)} under {BAND_YOUNG}, '
+              f'{int(((d.age >= BAND_YOUNG) & (d.age < BAND_OLD)).sum())} in '
+              f'{BAND_YOUNG}-{BAND_OLD - 1}, {len(_ob)} at {BAND_OLD}+')
         if len(_yb) > 5 and len(_ob) > 5:
             for _band, _lab in [(_yb, 'within younger band'), (_ob, 'within older band')]:
                 _r, _p = stats.pearsonr(_band['age'], _band[EFIELD_METRIC])
@@ -1175,6 +1255,11 @@ else:
         fig, ax = plt.subplots(figsize=(WIDTH_1COL, WIDTH_1COL * 0.85))
         scatter_regression_mpl(ax, d['age'].values, d[EFIELD_METRIC].values,
                                d['age'].values)
+        # Shade the recruitment gap, so the regression line is not read as a
+        # gradient through a region almost nobody occupies. Same treatment as
+        # the manuscript figure (fig_efield_age.py).
+        ax.axvspan(BAND_YOUNG, BAND_OLD, color='#9E9E9E', alpha=0.09,
+                   linewidth=0, zorder=0)
         style_ax(ax, xlabel='Age (years)',
                  ylabel='Mean |E| in DLPFC ROI (V/m)')
         savefig(fig, 'fig_age_x_efield')

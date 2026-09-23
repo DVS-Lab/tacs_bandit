@@ -41,7 +41,8 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy import stats
 
-from config import REPO_ROOT, FREESURFER_PARCELS_PATH
+from config import (REPO_ROOT, FREESURFER_PARCELS_PATH,
+                    AGE_BAND_YOUNG_MAX, AGE_BAND_OLD_MIN)
 import fig_atrophy_vs_geometry as fav
 from samples import assert_sample
 
@@ -138,19 +139,18 @@ def main(argv=None) -> int:
     # under 40 or over 55, and only a handful fall in between (the band n are
     # printed below; they differ by sample). A Pearson r over that distribution
     # is arithmetically close to a two-group contrast, so "|E| declines with
-    # age" claims a gradient the design cannot
-    # show. This block separates the two: the correlation *within* each band is
-    # the gradient, the standardised difference *between* bands is the group
-    # effect. An effect carried entirely by the between-band term should be
+    # age" claims a gradient the design cannot show. This block separates the
+    # two: the correlation *within* each band is the gradient, the standardised
+    # difference *between* bands is the group effect. An effect carried entirely by the between-band term should be
     # reported as a group difference (Welch t, Cohen's d) with the correlation
     # alongside it, not instead of it.
     print('\nAge bands: gradient within vs difference between')
     B = 'age_bands'
-    YOUNG, OLD = 40, 55
+    YOUNG, OLD = AGE_BAND_YOUNG_MAX, AGE_BAND_OLD_MIN
     yb_all, ob_all = d[d.age < YOUNG], d[d.age >= OLD]
-    rec(B, 'band n, younger than 40', len(yb_all), len(d))
-    rec(B, 'band n, 55 and over', len(ob_all), len(d))
-    rec(B, 'band n, 40-54 (excluded from the contrast)',
+    rec(B, f'band n, younger than {YOUNG}', len(yb_all), len(d))
+    rec(B, f'band n, {OLD} and over', len(ob_all), len(d))
+    rec(B, f'band n, {YOUNG}-{OLD - 1} (excluded from the contrast)',
         int(((d.age >= YOUNG) & (d.age < OLD)).sum()), len(d))
     for col, lab in [(FIELD, '|E| DLPFC'), (DIST, 'scalp-cortex dist'),
                      ('layer_skull', 'skull thickness'),

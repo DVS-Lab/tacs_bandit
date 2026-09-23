@@ -1504,15 +1504,29 @@ def build_subject_df(
     # the notebook computed it without that restriction, and 11773 -- whose
     # "active" runs both delivered sham -- got a delta_ttc comparing sham with
     # sham.
+    # The censored variant and the reach rate come across alongside the raw
+    # mean, because the raw mean conditions on having solved the reversal and
+    # so is biased for any between-subject comparison (see
+    # compute_trials_to_criterion).
     if ttc is not None and len(ttc) > 0:
+        ttc_cols = {'trials_to_criterion': '{cond}_ttc',
+                    'ttc_censored': '{cond}_ttc_censored',
+                    'ttc_reach_rate': '{cond}_ttc_reach_rate'}
         for cond in ['sham', 'active']:
             rows = ttc[ttc['condition'] == cond]
             if cond == 'active' and h2_subjects is not None:
                 rows = rows[rows['subject_id'].isin(h2_subjects)]
-            col = rows.set_index('subject_id')['trials_to_criterion'].rename(f'{cond}_ttc')
-            subj_df = subj_df.merge(col, left_on='subject_id', right_index=True, how='left')
-        if {'sham_ttc', 'active_ttc'} <= set(subj_df.columns):
-            subj_df['delta_ttc'] = subj_df['active_ttc'] - subj_df['sham_ttc']
+            for src, tmpl in ttc_cols.items():
+                if src not in rows.columns:
+                    continue
+                col = rows.set_index('subject_id')[src].rename(tmpl.format(cond=cond))
+                subj_df = subj_df.merge(col, left_on='subject_id', right_index=True,
+                                        how='left')
+        for base in ['ttc', 'ttc_censored', 'ttc_reach_rate']:
+            pair = {f'sham_{base}', f'active_{base}'}
+            if pair <= set(subj_df.columns):
+                subj_df[f'delta_{base}'] = (subj_df[f'active_{base}']
+                                            - subj_df[f'sham_{base}'])
 
     # --- Accuracy and win rate ---
     # Takes the subject x condition frame from

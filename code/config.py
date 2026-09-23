@@ -334,6 +334,38 @@ TTC_CRITERION = 3
 REVERSAL_WINDOW_PRE = 5
 REVERSAL_WINDOW_POST = 15
 
+# Age was recruited in two bands rather than sampled uniformly: in the H1
+# sample 27 people are under 40 and 30 are 55 or over, with 4 in between (Dose:
+# 28 / 26 / 5). A Pearson r over that distribution is arithmetically close to a
+# two-group contrast, so every age effect is reported both ways -- the
+# correlation *within* a band is the gradient, the standardised difference
+# *between* bands is the group effect.
+#
+# These are the band edges. Subjects between them belong to neither band and
+# are dropped from the contrast, which is the point: they are the few people
+# who would have to carry a claim about the middle of the range.
+#
+# Read by efield_results.py (block `age_bands`), qc_paper_variables.py,
+# fig_efield_age.py and the paper notebook, so all four cut at the same place.
+AGE_BAND_YOUNG_MAX = 40
+AGE_BAND_OLD_MIN = 55
+
+# Trials-to-criterion is NaN when criterion is never reached, so a subject's
+# raw mean averages only the reversals they solved. That is survivorship bias
+# and it manufactured an age effect here (r = -.36, p = .0045 raw; r = -.07,
+# p = .58 censored -- see compute_trials_to_criterion in reversal_analysis.py).
+#
+#   'censored'  fill an unsolved reversal with the trials that were available,
+#               a conservative lower bound. Correct for between-subject work.
+#   'raw'       the preregistered quantity: mean over solved reversals only.
+#
+# `ttc()` in this module resolves the column name, exactly as `rl()` does for
+# the RL estimator, so switching this switches every analysis at once. The
+# paired within-subject H2 test is unaffected either way (both conditions carry
+# the same bias), and both are reported.
+TTC_CENSORING = 'censored'
+TTC_CENSORING_LEGACY = 'raw'
+
 
 # =============================================================================
 # Plotting Constants
@@ -484,6 +516,25 @@ def rl(name: str, estimates: str = None) -> str:
     if est not in ('hb', 'mle'):
         raise ValueError(f"RL estimates must be 'hb' or 'mle', got {est!r}")
     return f'{name}_hb' if est == 'hb' else name
+
+
+TTC_COLUMNS = ('sham_ttc', 'active_ttc', 'delta_ttc')
+
+
+def ttc(name: str, censoring: str = None) -> str:
+    """
+    The trials-to-criterion column under the chosen censoring rule.
+
+    ttc('sham_ttc') -> 'sham_ttc_censored' when TTC_CENSORING == 'censored',
+    else 'sham_ttc'. The same contract as `rl()`: analyses ask through this so
+    the choice lives in one place and `compare_*` scripts can run both ways.
+    """
+    if name not in TTC_COLUMNS:
+        raise KeyError(f'{name!r} is not a TTC column; expected one of {TTC_COLUMNS}')
+    mode = TTC_CENSORING if censoring is None else censoring
+    if mode not in ('censored', 'raw'):
+        raise ValueError(f"TTC censoring must be 'censored' or 'raw', got {mode!r}")
+    return f'{name}_censored' if mode == 'censored' else name
 
 
 # =============================================================================

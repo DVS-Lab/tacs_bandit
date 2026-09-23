@@ -42,7 +42,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from config import REPO_ROOT, COG_COMPOSITE, rl
+from config import (REPO_ROOT, COG_COMPOSITE, rl,
+                    AGE_BAND_YOUNG_MAX as BAND_YOUNG,
+                    AGE_BAND_OLD_MIN as BAND_OLD)
 from paper_style import (WIDTH_2COL, FONT_AXIS_TITLE, FONT_TICK, ACCENT_RED,
                          NEUTRAL_GRAY, REGRESSION_COLOR)
 import samples
@@ -207,8 +209,9 @@ def main() -> int:
     gaps = a.diff().dropna()
     big = gaps[gaps > 4]
     print(f'\nAge distribution: range {a.min():.0f}-{a.max():.0f}, median {a.median():.0f}; '
-          f'{(a < 40).sum()} under 40, {((a >= 40) & (a < 55)).sum()} 40-54, '
-          f'{(a >= 55).sum()} 55+')
+          f'{(a < BAND_YOUNG).sum()} under {BAND_YOUNG}, '
+          f'{((a >= BAND_YOUNG) & (a < BAND_OLD)).sum()} {BAND_YOUNG}-{BAND_OLD - 1}, '
+          f'{(a >= BAND_OLD).sum()} {BAND_OLD}+')
     if len(big):
         for i, g in big.items():
             lo = a.loc[:i].iloc[-2]
@@ -251,14 +254,14 @@ def main() -> int:
                 print(f'  {la:22} x {lb:22} r = {r:+.2f}  p = {p:.4f}  n = {n}')
 
     # ---- 2b. is each age effect a gradient or a group difference? ---------
-    # Age was recruited in two bands (27 under 40, 4 in between, 30 over 55),
+    # Age was recruited in two bands (see AGE_BAND_* in config.py),
     # so a linear age correlation is close to a two-group contrast. An effect
     # that also appears *within* a band is a gradient; one that appears only
     # between bands is a group difference and should be described as such.
     print('\nAge effects: overall, within band, and between bands')
     print(f"  {'measure':26}{'overall r':>11}{'young r':>10}{'old r':>9}"
           f"{'between-band d':>16}")
-    young_b, old_b = d[d.age < 40], d[d.age >= 55]
+    young_b, old_b = d[d.age < BAND_YOUNG], d[d.age >= BAND_OLD]
     for col, lab in [(COG_COMPOSITE, 'Global cognition'), ('ef_reduced', 'Executive function'),
                      ('mean_magnE', '|E| DLPFC'), ('dist_pial_dlpfc_p1', 'Scalp-cortex dist'),
                      ('layer_skull', 'Skull thickness'), ('sham_ttc', 'Trials to criterion')]:
@@ -270,12 +273,12 @@ def main() -> int:
         def r_of(frame):
             m = frame[['age', col]].apply(pd.to_numeric, errors='coerce').dropna()
             return stats.pearsonr(m.age, m[col])[0] if len(m) > 5 else np.nan
-        yb = use[use.age < 40][col].pipe(pd.to_numeric, errors='coerce').dropna()
-        ob = use[use.age >= 55][col].pipe(pd.to_numeric, errors='coerce').dropna()
+        yb = use[use.age < BAND_YOUNG][col].pipe(pd.to_numeric, errors='coerce').dropna()
+        ob = use[use.age >= BAND_OLD][col].pipe(pd.to_numeric, errors='coerce').dropna()
         pooled = np.sqrt((yb.var(ddof=1) + ob.var(ddof=1)) / 2)
         dd = (ob.mean() - yb.mean()) / pooled if pooled > 0 else np.nan
-        print(f'  {lab:24}{r_of(use):>11.2f}{r_of(use[use.age < 40]):>10.2f}'
-              f'{r_of(use[use.age >= 55]):>9.2f}{dd:>16.2f}')
+        print(f'  {lab:24}{r_of(use):>11.2f}{r_of(use[use.age < BAND_YOUNG]):>10.2f}'
+              f'{r_of(use[use.age >= BAND_OLD]):>9.2f}{dd:>16.2f}')
         rows.append(dict(group='age_bands', variable=col, label=lab,
                          n=len(yb) + len(ob), mean=dd))
 

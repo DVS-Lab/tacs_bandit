@@ -63,7 +63,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from config import REPO_ROOT, EFIELD_CSV_PATH
+from config import (REPO_ROOT, EFIELD_CSV_PATH,
+                    AGE_BAND_YOUNG_MAX as BAND_YOUNG,
+                    AGE_BAND_OLD_MIN as BAND_OLD)
 from samples import assert_sample
 
 SIMNIBS_DIR = Path.home() / 'Desktop' / 'projects' / 'tacs_bandit' / 'simNIBS'
@@ -227,13 +229,34 @@ def scatter_panel(ax, d: pd.DataFrame, lo: float, hi: float) -> Tuple[float, flo
     for bound in (lo, hi):
         ax.axvline(bound, color='#BDBDBD', ls=':', lw=0.7, zorder=0)
 
+    # Recruitment gap. Age was sampled in two bands, so the regression line
+    # crosses a region almost nobody occupies and the correlation is close to
+    # a two-group contrast. Shading it stops the reader from reading a
+    # gradient off a line that is interpolating through empty space. Drawn
+    # rather than described because the scatter alone already shows two
+    # clouds; this names why.
+    n_gap = int(((x >= BAND_YOUNG) & (x < BAND_OLD)).sum())
+    ax.axvspan(BAND_YOUNG, BAND_OLD, color='#9E9E9E', alpha=0.09,
+               linewidth=0, zorder=0)
+    ax.text((BAND_YOUNG + BAND_OLD) / 2, ax.get_ylim()[1], f'n = {n_gap}',
+            ha='center', va='top', fontsize=FONT_TICK - 1.5, color='#757575',
+            zorder=4)
+
     ax.set_xlabel('Age (years)', fontsize=FONT_AXIS_TITLE, labelpad=2)
     ax.set_ylabel('Mean |E| in DLPFC ROI (V/m)', fontsize=FONT_AXIS_TITLE, labelpad=2)
     ax.tick_params(labelsize=FONT_TICK, pad=1.5)
     for spine in ('top', 'right'):
         ax.spines[spine].set_visible(False)
+    # The between-band contrast is the estimate this design actually supports,
+    # so it goes on the figure next to the correlation rather than only in the
+    # text. Pooled-SD Cohen's d, matching efield_results.py.
+    y_young, y_old = y[x < BAND_YOUNG], y[x >= BAND_OLD]
+    pooled = np.sqrt((y_young.var(ddof=1) + y_old.var(ddof=1)) / 2)
+    band_d = (y_old.mean() - y_young.mean()) / pooled
+
     ax.text(0.985, 0.96,
-            f'$r$ = {r:.3f}, $p$ = {p:.3f}\n$N$ = {len(x)}',
+            f'$r$ = {r:.3f}, $p$ = {p:.3f}\n$N$ = {len(x)}\n'
+            f'$d$ = {band_d:.2f} (bands)',
             transform=ax.transAxes, ha='right', va='top', fontsize=FONT_TICK,
             linespacing=1.4,
             bbox=dict(boxstyle='round,pad=0.3', facecolor='white',

@@ -107,11 +107,23 @@ def build(
     # CSV with the same H2 restriction as every other active-session measure.
     reversals = identify_reversals(data_clean, window_pre=REVERSAL_WINDOW_PRE,
                                    window_post=REVERSAL_WINDOW_POST, verbose=False)
-    ttc = (compute_trials_to_criterion(reversals, criterion=TTC_CRITERION)
-           .groupby(['subject_id', 'condition'])['trials_to_criterion'].mean()
+    # Three columns per subject-condition, not one. `ttc` is the preregistered
+    # mean over solved reversals; `ttc_censored` fills unsolved reversals with
+    # the trials that were available, which removes the survivorship bias that
+    # otherwise makes subjects who solve fewer reversals look faster; and
+    # `ttc_reach_rate` is the proportion solved, which is the thing the raw
+    # mean was silently conditioning on and is worth analysing in its own
+    # right. See compute_trials_to_criterion's docstring and TTC_CENSORING.
+    ttc_rev = compute_trials_to_criterion(reversals, criterion=TTC_CRITERION)
+    ttc = (ttc_rev.groupby(['subject_id', 'condition'])
+           .agg(trials_to_criterion=('trials_to_criterion', 'mean'),
+                ttc_censored=('trials_to_criterion_censored', 'mean'),
+                ttc_reach_rate=('reached_criterion', 'mean'))
            .reset_index())
     ttc['subject_id'] = ttc['subject_id'].astype(str)
-    print(f'  Trials-to-criterion: {len(ttc)} subject-conditions')
+    print(f'  Trials-to-criterion: {len(ttc)} subject-conditions '
+          f'(reached criterion on {100 * ttc_rev.reached_criterion.mean():.1f}% '
+          f'of {len(ttc_rev)} reversals)')
 
     theta_subject = load_theta(verbose=verbose)
 
