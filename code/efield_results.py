@@ -302,6 +302,47 @@ def main(argv=None) -> int:
                    'marginal' if pv < .10 else 'NOT supported')
         rec(B, f'age x sex INTERACTION on {lab}, p', pv, len(t), verdict)
 
+    # The direct age x sex interaction on |E| is the *least* powerful test of a
+    # mediated chain: |E| carries variance from every other source, so the
+    # interaction lands on a noisy outcome. At the observed effect size it
+    # would need roughly n = 503 for 80% power (we have 59), so its
+    # non-significance says nothing either way. The test that matches the claim
+    # is whether the *indirect* path differs by sex: a and b are estimated
+    # separately within each sex (no common-path assumption, which matters
+    # because distance -> |E| is itself slightly sex-dependent, p = .038) and
+    # the difference is bootstrapped.
+    s_med = sm_[['age', DIST, FIELD]].join(
+        (sm_.gender == 'Female').astype(float).rename('female')).dropna()
+
+    def _indirect(x):
+        out = {}
+        for k in (1, 0):
+            g = x[x.female == k]
+            if len(g) < 10:
+                return None
+            a = sm.OLS(g[DIST], sm.add_constant(g[['age']])).fit().params['age']
+            b = sm.OLS(g[FIELD], sm.add_constant(g[[DIST, 'age']])).fit().params[DIST]
+            out[k] = a * b
+        return out
+
+    obs = _indirect(s_med)
+    if obs is not None:
+        boots = []
+        for _ in range(2000):
+            bs = pd.concat([g.sample(frac=1, replace=True,
+                                     random_state=int(rng.integers(1e9)))
+                            for _, g in s_med.groupby('female')])
+            r_ = _indirect(bs)
+            if r_:
+                boots.append(r_[1] - r_[0])
+        boots = np.array(boots)
+        lo_b, hi_b = np.percentile(boots, [2.5, 97.5])
+        rec(B, 'indirect age->dist->|E|, women', obs[1], int((s_med.female == 1).sum()))
+        rec(B, 'indirect age->dist->|E|, men', obs[0], int((s_med.female == 0).sum()))
+        rec(B, 'difference in indirect effect (F - M)', obs[1] - obs[0], len(s_med),
+            f'95% CI [{lo_b:+.6f}, {hi_b:+.6f}] '
+            f'{"excludes 0: sex moderation supported" if (hi_b < 0 or lo_b > 0) else "includes 0"}')
+
     t = sm_[['age', 'layer_skull', 'icv_charm']].join(
         (sm_.gender == 'Female').astype(float).rename('female')).dropna()
     t['age_x_f'] = t.age * t.female

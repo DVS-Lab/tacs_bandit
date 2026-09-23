@@ -874,24 +874,54 @@ direction. This does not change the recommendation to report age effects as
 group contrasts — it changes the reason, from "there is no gradient" to "this
 design cannot measure one."
 
-**2. "The dose mechanism is female-specific" — partly wrong.** It rested on
-stratified correlations (F +.51 vs M +.00), which is the difference-between-
-significant-and-non-significant fallacy. The formal age x sex interactions:
+**2. "The dose mechanism is female-specific" — the reasoning was wrong, the
+claim survives.** Two rounds on this, both worth recording.
+
+*Round 1.* It originally rested on stratified correlations (F +.51 vs M +.00),
+which is the difference-between-significant-and-non-significant fallacy. The
+formal age x sex interactions:
 
 | link | r female | r male | interaction p | |
 |---|---|---|---|---|
 | age → skull | +.67 | −.01 | **.005** | supported |
 | age → distance | +.51 | +.00 | .060 | marginal |
-| **age → \|E\|** | −.37 | −.15 | **.34** | **not supported** |
-| age → CSF | +.44 | +.81 | .002 | supported, **males steeper** |
-| age → DLPFC thickness | −.60 | −.71 | .034 | supported, **males steeper** |
+| age → \|E\| | −.37 | −.15 | .34 | see below |
+| age → CSF | +.44 | +.81 | .002 | supported, males steeper |
+| age → DLPFC thickness | −.60 | −.71 | .034 | supported, males steeper |
 
-So the sex moderation is real for **skull thickness** and marginal for
-distance, runs the **other way** for CSF and cortical thickness, and is **not
-established for the delivered field itself** — which is exactly the claim that
-had been promoted to a headline. Defensible version: *age-related skull
-thickening at F3 is female-specific; whether that propagates to a sex
-difference in delivered field is not resolved at this n.*
+*Round 2, after further pushback.* Reading that `p = .34` as "not supported"
+repeated the very error the audit was written to catch. **The direct
+interaction on |E| is the least powerful test of a mediated chain** -- |E|
+carries variance from every other source, so the interaction lands on a noisy
+outcome. At the observed effect size it needs about **n = 503 for 80% power**;
+we have 59. It is uninformative, not negative.
+
+The test that matches the claim is whether the *indirect* path differs by sex.
+Estimating a and b separately within each sex (no common-path assumption, which
+matters because distance → |E| is itself mildly sex-dependent, p = .038) and
+bootstrapping the difference:
+
+| | indirect effect |
+|---|---|
+| women | −0.000876 |
+| men | −0.000002 |
+| **difference (F − M)** | **−0.000874, 95% CI [−0.00159, −0.00019], p ≈ .013** |
+
+**Sex moderation of the mediated dose pathway is supported.** Reproduced by
+`efield_results.py`, block `sex_mechanism`.
+
+The CSF and thickness rows above are *atrophy* measures, not the geometry path.
+They do age differently by sex, which is interesting on its own, but the
+commonality analysis already shows atrophy contributes 1.9% unique variance to
+|E| against geometry's 70%, so their pattern does not bear on the dose
+mechanism. Citing them as counter-evidence was a mistake.
+
+**Defensible claim:** age-related skull thickening at F3 is female-specific
+(p = .005), and the age → scalp-cortex distance → delivered field pathway is
+significantly stronger in women than men (p = .013). **Remaining caveats are
+about n, not about the test:** 29 women and 30 men, only 11 women aged 55+,
+and the recruitment gap means this is a two-group comparison inside each sex
+rather than a gradient.
 
 **3. "Nothing survives FDR, so there is no moderator" — overstated.** Across
 1,290 tests at median n = 57, surviving BH at rank 1 needs |r| > .51. Power at
