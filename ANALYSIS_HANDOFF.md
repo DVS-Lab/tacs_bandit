@@ -726,7 +726,110 @@ sham: dz = +0.12, **p = .38**, N = 58, with no age difference in discrimination
 (r = +.105, p = .43). This matters for how the H2 null reads — a null under
 intact blinding is a different claim from a null under broken blinding.
 
-**iTF relates to nothing, and is a weak measure (2026-09-22).** iTF is IAF
+**STOP: the IAF/iTF measure is a recording artifact, not a rhythm
+(2026-09-22).** Reprocessing at longer Welch segments to improve resolution
+(below) exposed this instead. In the **raw, unfiltered** `.easy` files for run
+1:
+
+- Every subject's posterior spectrum peaks at **exactly 9.750 Hz** (30 of 57 at
+  8 s resolution; the same line appears at 10.0 Hz when binned at 0.5 Hz),
+  with near-identical peak-to-median ratios across subjects whose overall
+  signal SD ranges from 30 to 28,897 uV.
+- The line is present on **EXT**, which is not a scalp EEG site.
+- The four stimulating channels (F3, Fp1, FCz, FT7) correlate at **r = 1.000**
+  with each other and are byte-identical in at least one subject.
+- The three recording channels (F4, P4, P3) correlate at **median r = .998**
+  across all 59 subjects, 39 of them above .99. Real posterior EEG at P3 and P4
+  does not do this. It is not the earclip issue: earclip subjects sit at .997
+  and no-earclip at .9996, and re-referencing is currently applied only to the
+  five no-earclip subjects.
+
+So `iaf`, `itf_klimesch` and `itf_distance` measure a common-mode line, not
+individual alpha. **Do not report them.** This also explains, without any
+appeal to biology, why iTF correlated with nothing (below) and why the
+Klimesch offset failed to validate.
+
+**`theta_p95` was checked and it survives (2026-09-22).** It uses the same
+three common-mode-dominated channels, so it was flagged as at-risk; three tests
+clear it.
+
+1. *The artifact is filtered out.* A 9.75 Hz tone through the 4-8 Hz bandpass
+   comes out at **-33 dB** (amplitude 0.022 against 0.999 for a 6 Hz tone), so
+   the line contributes negligible power to the band.
+2. *It beats a spectrum-matched surrogate.* Phase-randomised surrogates (same
+   power spectrum, bursting destroyed) give theta_p95 = 194% against 252% for
+   the real signal, paired t(39) = +3.58, **p = .0009**, dz = +0.57. The
+   surrogates have almost no between-subject spread (SD 5.1 vs 101.8) and
+   correlate r = -.11 with the real values, so the between-subject differences
+   come from genuine non-Gaussian bursting, not from the spectrum.
+3. *It is reliable.* Run 1 vs run 5, r = +.595, **Spearman-Brown = .746**.
+
+Two labelling corrections follow from reading the code rather than the
+constants around it:
+
+- **It is not "reactivity".** `compute_theta_reactivity_run` does not use
+  `extract_epochs`, `align_timestamps`, `EPOCH_PRE/POST` or `BASELINE_WIN`,
+  though all of those exist in the module. It bandpasses 4-8 Hz, takes the
+  Hilbert envelope, normalises by the **whole-run mean**, and reports the 95th
+  percentile. That is the burstiness of theta power relative to the run's own
+  mean, not a response locked to feedback. Rename it in the manuscript.
+- **The spatial claim does not hold.** F4/P4/P3 correlate at median r = .998 in
+  the raw recording, so "frontal theta at F4" is not supportable. The measure
+  does differentiate the channels (r = .70-.85 between them, mean absolute
+  difference 44-52%) because normalising by the run mean removes the shared
+  amplitude, but they are not independent sensors. Report it as a global
+  theta-bursting measure.
+
+**Why theta survives and iTF does not:** theta_p95 is a *band-power ratio*
+normalised within run, in a band the artifact is filtered out of. iTF is a
+*peak-frequency* measure in the alpha band, which is exactly where the line
+sits, with no normalisation that could protect it.
+
+**What the 9.767 Hz line is (2026-09-22).** Characterised, not guessed:
+
+- It is a **harmonic comb** — 9.767, 19.533, 29.300, 39.067 and 58.600 Hz, exact
+  integer multiples (measured ratios 1.002, 2.003, 3.005, 4.007, 6.010).
+- It is **perfectly stationary**: the peak sits at 9.767 Hz in every quarter of
+  a six-minute run, spread 0.000 Hz, in every subject checked.
+- It is on **EXT**, which is not a scalp site.
+
+Exact harmonics plus zero frequency drift is a digital clock, not a brain. The
+`.info` metadata says the device streamed over **WiFi** (`Communication type:
+WiFi`, `SDCard Filename: NONE`) at 500 Hz. 5000/512 = 9.7656 Hz is close to the
+measured value, which points at a fixed-size buffer or packet period, though
+subtracting a sinusoid at exactly 5000/512 does *not* remove it, so the true
+fundamental is a little different and was not pinned down further.
+
+**This is not an electrode-placement or impedance error.** All acquisition
+filters were off, which is correct practice. The one thing in the setup that
+looks genuinely wrong is separate and arguably worse: **the reference**. F4, P4
+and P3 correlate at median r = .998 across all 59 subjects and EXT
+anti-correlates with them at -.72 to -.87, so the recordings are dominated by a
+common reference signal. `NO_EARCLIP_SUBJECTS` lists five subjects; the pattern
+is sample-wide.
+
+**Remediation.** For theta, nothing is needed (-33 dB rejection). For alpha,
+the comb sits in the middle of the band being searched, so a notch punches a
+hole where the measurement is: after a narrow notch (Q = 200) the recovered
+"alpha peaks" are 7.375, 7.500 and 12.750 Hz in three subjects, which is
+noise-peak-picking rather than recovered alpha. **IAF is not recoverable from
+these recordings.** For future collection: record to SD card rather than
+streaming over WiFi, verify the earclip/reference connection per session, and
+run a spectral QC for harmonic combs before the first analysis.
+
+**The surrogate control is now part of the theta pipeline (2026-09-22).**
+`eeg_theta.phase_randomised` builds a surrogate with each run's exact power
+spectrum and randomised phases, and `compute_theta_reactivity_run` scores it
+with the same code path, producing `theta_p95_surrogate` and
+`theta_p95_excess` at run and subject level and in the master CSV. Over 119
+runs: real 260.6% vs surrogate 193.2%, paired **t(118) = +9.18, p = 2e-15**,
+excess positive in 92% of runs, surrogate SD 6.0 against real SD 80.4 and
+correlated with the real values at only r = +.09. So the between-subject
+differences in theta_p95 are genuine bursting, not spectral shape. Check
+`theta_p95_excess` before trusting any theta result; near zero would mean the
+measure has started reporting the spectrum.
+
+**iTF related to nothing, which is now explained (2026-09-22).** iTF is IAF
 (posterior P3/P4 alpha peak, 7-14 Hz search) minus a fixed 5 Hz Klimesch
 offset, clipped to 4-8 Hz, from run 1 only; `itf_distance` is |iTF - 6 Hz|,
 the distance from the frequency everyone actually received. Tested against 18
@@ -738,7 +841,10 @@ windows give 0.5 Hz resolution, so 26 of 55 IAFs land on exactly 10.0 Hz; 11 of
 55 iTF values (20%) sit on the 4 or 8 Hz clip bound; and the validation against
 the direct FCz theta peak rests on **N = 6** (r = +.73, p = .10), which is not
 a validation. Treat iTF as unusable for individual-differences work in this
-dataset rather than as a tested-and-null moderator.
+dataset rather than as a tested-and-null moderator. The 8 s reprocessing
+raised validation coverage from 6 to 14 subjects and the correlation with the
+direct FCz theta peak fell to **r = +.01** -- consistent with both estimates
+being dominated by the artifact above rather than by anything individual.
 
 **Not started.** The moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW

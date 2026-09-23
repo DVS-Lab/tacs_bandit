@@ -1,6 +1,15 @@
 """
 individual_theta.py — Individualized theta frequency (iTF) per subject
 
+!! THE OUTPUT OF THIS SCRIPT IS NOT USABLE AS A MEASURE OF ANYONE'S ALPHA OR
+!! THETA FREQUENCY. Verified 2026-09-22: the posterior spectrum of every
+!! subject peaks at exactly 9.750 Hz in the raw, unfiltered .easy file, the
+!! line is present on the EXT channel, and the three recording channels
+!! correlate at median r = .998 across the sample. IAF here is a common-mode
+!! recording artifact. The script is kept because the estimation logic is
+!! sound and would work on clean data; fix the referencing first. See
+!! ANALYSIS_HANDOFF.md section 9.
+
 Every participant was stimulated at a fixed 6.0 Hz — all 237 stimulation runs,
 no exceptions. So iTF is not a delivered parameter here; it is a *moderator*.
 The question the paper can ask is whether stimulation worked better for people
@@ -76,6 +85,15 @@ STIM_FREQ_HZ = 6.0
 KLIMESCH_OFFSET_HZ = 5.0
 ITF_BOUNDS = (4.0, 8.0)
 
+# Artifacts are rejected in short windows (little data lost per rejection);
+# the spectrum is computed over runs of consecutive clean windows at
+# PSD_SEGMENT_SEC, which sets the frequency resolution (1 / seconds). The
+# original 2.0 s gave 0.5 Hz, too coarse for a measure whose whole point is
+# where a subject's peak sits relative to the 6 Hz delivered. 8.0 s gives
+# 0.125 Hz. Overridable with --segment-sec so the two can be compared.
+ARTIFACT_WIN_SEC = 2.0
+PSD_SEGMENT_SEC = 8.0
+
 SKIP_FIRST_SEC = 10
 ARTIFACT_THRESH_UV = 150
 HIGHPASS_HZ = 1.0     # removes the slow drift that dominates raw amplitude
@@ -138,7 +156,8 @@ def usable_channels(easy_path: Path, info_path: Optional[Path]) -> List[str]:
     return ['F4', 'P4', 'P3']
 
 
-def compute_psd(x: np.ndarray, fs: int = FS) -> Tuple[np.ndarray, np.ndarray]:
+def compute_psd(x: np.ndarray, fs: int = FS,
+                segment_sec: float = None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Welch PSD after dropping the startup transient, slow drift, and artifacts.
 
@@ -155,6 +174,7 @@ def compute_psd(x: np.ndarray, fs: int = FS) -> Tuple[np.ndarray, np.ndarray]:
     signal, which spreads broadband power and corrupts the spectrum being
     measured.
     """
+    segment_sec = PSD_SEGMENT_SEC if segment_sec is None else segment_sec
     x = x[int(SKIP_FIRST_SEC * fs):]
     if len(x) < fs * 20:
         return np.array([]), np.array([])
@@ -166,25 +186,44 @@ def compute_psd(x: np.ndarray, fs: int = FS) -> Tuple[np.ndarray, np.ndarray]:
 
     # Reject whole windows containing an artifact, keeping each retained
     # segment contiguous.
-    win = int(2 * fs)
+    win = int(ARTIFACT_WIN_SEC * fs)
     n_win = len(x) // win
     if n_win < 10:
         return np.array([]), np.array([])
 
     windows = x[:n_win * win].reshape(n_win, win)
-    clean = windows[np.abs(windows).max(axis=1) < ARTIFACT_THRESH_UV]
-    if len(clean) < 10:
+    ok = np.abs(windows).max(axis=1) < ARTIFACT_THRESH_UV
+    if ok.sum() < 10:
         return np.array([]), np.array([])
 
-    # Welch per clean window, then average — avoids splicing artifacts.
-    freqs, psds = None, []
-    for w in clean:
-        f, p = signal.welch(w, fs=fs, nperseg=min(len(w), int(2 * fs)),
-                            scaling='density')
-        freqs = f
-        psds.append(p)
-
-    return freqs, np.mean(psds, axis=0)
+    # Frequency resolution is 1 / segment length, so a 2 s segment resolves
+    # 0.5 Hz -- which is why 26 of 55 IAFs landed on exactly 10.0 Hz and why
+    # iTF (IAF - 5, clipped to 4-8) took only a handful of distinct values.
+    # Longer segments fix that, but rejecting artifacts in longer windows would
+    # throw away far more data. So artifacts are still rejected in short
+    # windows, and the spectrum is then computed over *runs of consecutive
+    # clean windows* -- concatenating only windows that were already adjacent
+    # in the recording, so nothing is spliced across a rejected gap.
+    seg = int(segment_sec * fs)
+    freqs, psds, weights = None, [], []
+    start = None
+    for i in range(len(ok) + 1):
+        if i < len(ok) and ok[i]:
+            start = i if start is None else start
+            continue
+        if start is not None:
+            run = windows[start:i].reshape(-1)
+            if len(run) >= seg:
+                f, pxx = signal.welch(run, fs=fs, nperseg=seg, scaling='density')
+                freqs = f
+                psds.append(pxx)
+                weights.append(len(run))
+            start = None
+    if not psds:
+        return np.array([]), np.array([])
+    # Weight by the samples each run contributed, so a long clean stretch
+    # counts for more than a barely-eligible one.
+    return freqs, np.average(np.vstack(psds), axis=0, weights=weights)
 
 
 def band_peak(freqs: np.ndarray, psd: np.ndarray,
@@ -315,11 +354,19 @@ def estimate_all(runs: List[int] = [1], subjects: Optional[List[str]] = None,
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[1])
+    global PSD_SEGMENT_SEC
     parser.add_argument('--runs', type=int, nargs='+', default=[1],
                         help='baseline runs to estimate from (default: 1 only)')
     parser.add_argument('--output-dir', default=str(OUTPUT_DIR))
     parser.add_argument('--quiet', action='store_true')
+    parser.add_argument('--segment-sec', type=float, default=PSD_SEGMENT_SEC,
+                        help='Welch segment length in seconds; frequency '
+                             'resolution is 1/this (default %(default)s)')
+    parser.add_argument('--suffix', default='',
+                        help='appended to the output filename, for comparing '
+                             'segment lengths side by side')
     args = parser.parse_args(argv)
+    PSD_SEGMENT_SEC = args.segment_sec
 
     df = estimate_all(runs=args.runs, verbose=not args.quiet)
 
@@ -355,7 +402,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / 'individual_theta_frequency.csv'
+    path = out_dir / f'individual_theta_frequency{args.suffix}.csv'
     df.to_csv(path, index=False)
     print(f'\nWrote {path}')
     return 0

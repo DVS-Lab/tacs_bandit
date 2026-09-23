@@ -260,6 +260,39 @@ def main(argv=None) -> int:
         rec(B, f'{g}: older - younger tertile skull (mm)', diff, n)
     rec(B, 'women in the older tertile', int(((s.age >= hi_t) & (s.gender == 'Female')).sum()), len(s))
 
+    # The whole dose mechanism is sex-moderated, so report the chain by sex
+    # rather than only the skull link. In women every step is present; in men
+    # the age->distance step is absent (r = .00) and the mediated path is zero.
+    #
+    # What this does NOT support: a menopause-timed onset. Women in this sample
+    # are 23-32 and 56-76 with two people in between, so a "step at 50" is the
+    # recruitment gap, and no within-band gradient is resolvable (older women
+    # n = 11, all within-band p > .17). The defensible claim is a group one:
+    # the age-related skull and distance difference is present in women and
+    # absent in men.
+    print('\nDose mechanism by sex')
+    B = 'sex_mechanism'
+    sm_ = d.dropna(subset=['gender']).copy()
+    for g in ['Female', 'Male']:
+        t = sm_[sm_.gender == g]
+        for col, lab in [(DIST, 'age x distance'), (FIELD, 'age x |E|'),
+                         ('layer_skull', 'age x skull')]:
+            r, p, n = r_p(t.age, t[col])
+            rec(B, f'{g}: {lab}', r, n, f'p = {p:.4f}')
+        mv = mediation(t, 'age', DIST, FIELD, rng, n_boot=2000)
+        sig = 'CI excludes 0' if (mv['hi'] < 0 or mv['lo'] > 0) else 'CI includes 0'
+        rec(B, f'{g}: % of age->|E| mediated by distance', 100 * mv['prop'], mv['n'],
+            f"[{mv['lo']:+.5f}, {mv['hi']:+.5f}] {sig}")
+    t = sm_[['age', 'layer_skull', 'icv_charm']].join(
+        (sm_.gender == 'Female').astype(float).rename('female')).dropna()
+    t['age_x_f'] = t.age * t.female
+    fit = sm.OLS(t.layer_skull, sm.add_constant(t[['age', 'female', 'age_x_f', 'icv_charm']])).fit()
+    rec(B, 'age x sex on skull, controlling ICV, p', fit.pvalues['age_x_f'], len(t),
+        'women have smaller heads (ICV d = -1.33), so ICV is controlled')
+    rec(B, 'older women (55+) in the FLAIR sample',
+        int(((sm_.age >= OLD) & (sm_.gender == 'Female')).sum()), len(sm_),
+        'the whole female age effect rests on these')
+
     print('\nT1-only head models, controlling for age and sex')
     B = 't1_only'
     t = allh.dropna(subset=['gender']).copy()

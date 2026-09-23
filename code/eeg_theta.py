@@ -331,6 +331,38 @@ def compute_ersp(epochs: np.ndarray, times: np.ndarray,
 # Theta Reactivity Metric
 # =============================================================================
 
+# =============================================================================
+# Surrogate validity control
+# =============================================================================
+
+# The recordings carry a stationary harmonic comb at 9.767 Hz (and 2x, 3x, 4x,
+# 6x) that is a device artifact, not physiology -- it is identical across
+# subjects, sits on the non-scalp EXT channel, and does not move by a single
+# frequency bin across a six-minute run. It destroyed the alpha-peak measure in
+# individual_theta.py. theta_p95 survives it (the 4-8 Hz bandpass rejects
+# 9.767 Hz by -33 dB), but "survives" should be demonstrated per run rather
+# than argued once, so every run now carries its own surrogate control.
+#
+# The surrogate keeps each run's exact power spectrum and destroys everything
+# else by randomising the Fourier phases. Any measure that reflects only the
+# spectrum -- including a narrowband artifact's contribution -- scores the same
+# on the surrogate as on the real signal. A measure of genuine, non-Gaussian
+# bursting scores higher on the real signal. `theta_p95_excess` is that
+# difference, and it is the number to check before trusting a theta result.
+
+SURROGATE_SEED = 20260922
+
+
+def phase_randomised(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Same power spectrum, phases randomised: bursting destroyed."""
+    spec = np.fft.rfft(x)
+    phases = rng.uniform(0, 2 * np.pi, len(spec))
+    phases[0] = 0.0
+    if len(x) % 2 == 0:
+        phases[-1] = 0.0
+    return np.fft.irfft(np.abs(spec) * np.exp(1j * phases), n=len(x))
+
+
 def compute_theta_reactivity_run(
     subject_id: str,
     run_num: int,
@@ -401,7 +433,24 @@ def compute_theta_reactivity_run(
     
     if len(clean_vals) == 0:
         return None
-    
+
+    # Same measure on a phase-randomised surrogate of this run's own signal.
+    # Seeded per subject and run so the value is reproducible.
+    rng = np.random.default_rng(
+        (SURROGATE_SEED + hash((str(subject_id), int(run_num)))) % (2 ** 32))
+    surr = phase_randomised(raw_signal, rng)
+    s_theta = np.abs(signal.hilbert(bandpass_filter(surr, THETA_BAND, FS))) ** 2
+    s_smooth = np.convolve(s_theta, np.ones(window_samples) / window_samples,
+                           mode='same')
+    s_smooth[combined_mask] = np.nan
+    s_mean = np.nanmean(s_smooth)
+    if np.isfinite(s_mean) and s_mean > 0:
+        s_vals = ((s_smooth / s_mean - 1) * 100)
+        s_vals = s_vals[~np.isnan(s_vals)]
+        surrogate_p95 = float(np.percentile(s_vals, 95)) if len(s_vals) else np.nan
+    else:
+        surrogate_p95 = np.nan
+
     return {
         'subject_id': str(subject_id),
         'run': run_num,
@@ -410,6 +459,11 @@ def compute_theta_reactivity_run(
         'theta_median': np.median(clean_vals),
         'theta_p75': np.percentile(clean_vals, 75),
         'theta_p95': np.percentile(clean_vals, 95),
+        'theta_p95_surrogate': surrogate_p95,
+        # Positive means the run has more theta bursting than its own power
+        # spectrum alone would produce. Near zero means the measure is
+        # reporting the spectrum (or an artifact in it), not bursting.
+        'theta_p95_excess': np.percentile(clean_vals, 95) - surrogate_p95,
         'theta_p99': np.percentile(clean_vals, 99),
         'theta_max': np.max(clean_vals),
         'artifact_pct': 100 * combined_mask.sum() / len(combined_mask),
@@ -458,14 +512,21 @@ def apply_theta_qc(
 
 def compute_subject_theta_average(clean_theta_df: pd.DataFrame) -> pd.DataFrame:
     """Compute subject-level average theta reactivity from clean runs."""
-    subj_avg = clean_theta_df.groupby('subject_id').agg({
+    spec = {
         'theta_p95': 'mean',
         'theta_p75': 'mean',
         'theta_median': 'mean',
         'age': 'first',
         'earclip': 'first',
-        'run': 'count'
-    }).rename(columns={'run': 'n_clean_runs'})
+        'run': 'count',
+    }
+    # Carry the surrogate control through to the subject level when present,
+    # so a downstream user sees the validity check next to the measure.
+    for c in ('theta_p95_surrogate', 'theta_p95_excess'):
+        if c in clean_theta_df.columns:
+            spec[c] = 'mean'
+    subj_avg = clean_theta_df.groupby('subject_id').agg(spec).rename(
+        columns={'run': 'n_clean_runs'})
     
     return subj_avg.reset_index()
 
