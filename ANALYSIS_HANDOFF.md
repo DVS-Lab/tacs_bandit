@@ -213,6 +213,7 @@ effect.
 | `compare_composites.py` | preregistered tests under both cognitive composites |
 | `compare_rl_estimates.py` | learning-parameter tests under both RL estimators |
 | `qc_cognitive_composite.py` | two-page validation report for `global_reduced` |
+| `derived_behaviour.py` | response times, post-error/post-loss slowing, switch and lapse rate, perseverative errors, asymptotic accuracy, and the blinding check — all from trial columns unused until 2026-09-22 |
 | `sweep_moderators.py` | every subject-level measure against age (`--target age`) or against each change score (`--target stim`), with FDR, band contrasts and a baseline-dependency check |
 | `qc_paper_variables.py` | distributions, baseline correlations, VIF, split-half reliability and the age-band check, for every variable the paper reports |
 | `table1.py` | Table 1 (sample characteristics, split at the median age) → `derivatives/table1.{csv,md}` |
@@ -623,7 +624,8 @@ python qc_cognitive_composite.py
 python table1.py                  # derivatives/table1.{csv,md}
 python qc_paper_variables.py      # distributions, correlations, VIF, reliability, age bands
 python sweep_moderators.py --target age    # all 86 measures vs age, FDR + bands
-python sweep_moderators.py --target stim   # all 86 vs 8 change scores, FDR
+python sweep_moderators.py --target stim   # all 86 vs 15 change scores, FDR
+python derived_behaviour.py       # RT, choice dynamics, blinding (summary)
 
 # 9. model checking. Step 3 fits the single-rate model only, so fit the dual
 #    one first; the comparison loads both posteriors.
@@ -700,6 +702,43 @@ cognition predicts it as well as age does and neither survives when both are
 entered (age p = .27, cognition p = .069); and the correlation with delivered
 field is **negative** (r = −.24), which no real dose effect could produce. The
 notebook prints all three checks under the result.
+
+**Response time is the one task-based age effect (2026-09-22).** `rt` was
+recorded on all 34,319 clean trials and no measure in the pipeline read it
+until `derived_behaviour.py`. Mean RT under sham correlates with age at
+**r = +.397, p = .0016** (Spearman .527; q = .009 in the age sweep): 624 ms in
+the younger band, 748 ms in the older. Unusually for this sample it is a real
+gradient, not only a group difference — the within-older-band correlation is
+r = +.41. It converges with the processing-speed composite (r = -.47, and age
+falls to p = .18 once speed is controlled: the same construct measured twice)
+and is **independent of accuracy** (age p = .0014 controlling sham accuracy,
+and accuracy itself is unrelated to age, r = +.008). The claim it supports is a
+dissociation: *older participants are slower without being less accurate —
+the age effect is on responding, not on learning.* Nine other derived measures
+(RT SD and CV, post-error and post-loss slowing, switch rate, lapse rate,
+perseverative errors, asymptotic accuracy) show no age effect and no
+stimulation effect; the largest stimulation contrast is post-error slowing at
+dz = -0.23, p = .094.
+
+**Blinding held (2026-09-22).** `stim_guess` was also unread. Participants said
+they believed they were being stimulated on 69% of active runs against 64% of
+sham: dz = +0.12, **p = .38**, N = 58, with no age difference in discrimination
+(r = +.105, p = .43). This matters for how the H2 null reads — a null under
+intact blinding is a different claim from a null under broken blinding.
+
+**iTF relates to nothing, and is a weak measure (2026-09-22).** iTF is IAF
+(posterior P3/P4 alpha peak, 7-14 Hz search) minus a fixed 5 Hz Klimesch
+offset, clipped to 4-8 Hz, from run 1 only; `itf_distance` is |iTF - 6 Hz|,
+the distance from the frequency everyone actually received. Tested against 18
+targets (age, cognition, theta reactivity, |E|, every baseline measure and
+every change score), for iTF, IAF and itf_distance: **54 tests, 1 at p < .05
+against 2.7 expected by chance, 0 survive FDR** — fewer hits than chance. The
+measure has three known weaknesses that make this unsurprising: 2 s Welch
+windows give 0.5 Hz resolution, so 26 of 55 IAFs land on exactly 10.0 Hz; 11 of
+55 iTF values (20%) sit on the 4 or 8 Hz clip bound; and the validation against
+the direct FCz theta peak rests on **N = 6** (r = +.73, p = .10), which is not
+a validation. Treat iTF as unusable for individual-differences work in this
+dataset rather than as a tested-and-null moderator.
 
 **Not started.** The moderated hierarchical model (the model already accepts a
 moderator matrix, so this is a data change); `best_model` and the extended-RW

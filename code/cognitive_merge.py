@@ -1224,6 +1224,8 @@ def build_subject_df(
     theta_subject: Optional[pd.DataFrame] = None,
     accuracy: Optional[pd.DataFrame] = None,
     ttc: Optional[pd.DataFrame] = None,
+    derived: Optional[pd.DataFrame] = None,
+    blinding: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     verbose: bool = True
@@ -1528,6 +1530,29 @@ def build_subject_df(
                 subj_df[f'delta_{base}'] = (subj_df[f'active_{base}']
                                             - subj_df[f'sham_{base}'])
 
+    # --- Derived behaviour (RT, choice dynamics) and the blinding check ---
+    # Same H2 restriction as every other active-session measure. These come
+    # from trial columns (`rt`, `stim_guess`) that were recorded from the first
+    # session and unused until 2026-09-22; see derived_behaviour.py.
+    for frame, cols in ((derived, None), (blinding, ['guess_stim_rate'])):
+        if frame is None or len(frame) == 0:
+            continue
+        value_cols = cols or [c for c in frame.columns
+                              if c not in ('subject_id', 'condition')]
+        for cond in ['sham', 'active']:
+            rows = frame[frame['condition'] == cond]
+            if cond == 'active' and h2_subjects is not None:
+                rows = rows[rows['subject_id'].isin(h2_subjects)]
+            if len(rows) == 0:
+                continue
+            block = rows.set_index('subject_id')[value_cols]
+            block.columns = [f'{cond}_{c}' for c in value_cols]
+            subj_df = subj_df.merge(block, left_on='subject_id',
+                                    right_index=True, how='left')
+        for c in value_cols:
+            if {f'sham_{c}', f'active_{c}'} <= set(subj_df.columns):
+                subj_df[f'delta_{c}'] = subj_df[f'active_{c}'] - subj_df[f'sham_{c}']
+
     # --- Accuracy and win rate ---
     # Takes the subject x condition frame from
     # accuracy_analysis.compute_condition_level_accuracy() and pivots it into
@@ -1815,6 +1840,8 @@ def run_cognitive_merge(
     theta_subject: Optional[pd.DataFrame] = None,
     accuracy: Optional[pd.DataFrame] = None,
     ttc: Optional[pd.DataFrame] = None,
+    derived: Optional[pd.DataFrame] = None,
+    blinding: Optional[pd.DataFrame] = None,
     h2_subjects: Optional[List[str]] = None,
     include_exploratory: bool = False,
     export_csv: bool = True,
@@ -1916,6 +1943,8 @@ def run_cognitive_merge(
         theta_subject=theta_subject,
         accuracy=accuracy,
         ttc=ttc,
+        derived=derived,
+        blinding=blinding,
         h2_subjects=h2_subjects,
         include_exploratory=include_exploratory,
         verbose=verbose

@@ -34,6 +34,7 @@ from wsls import compute_wsls_h1_h2
 from rescorla_wagner import fit_rw_by_condition
 from accuracy_analysis import compute_condition_level_accuracy
 from reversal_analysis import identify_reversals, compute_trials_to_criterion
+from derived_behaviour import compute_derived_behaviour, score_blinding
 from config import TTC_CRITERION, REVERSAL_WINDOW_PRE, REVERSAL_WINDOW_POST
 from cognitive_merge import run_cognitive_merge
 
@@ -125,6 +126,12 @@ def build(
           f'(reached criterion on {100 * ttc_rev.reached_criterion.mean():.1f}% '
           f'of {len(ttc_rev)} reversals)')
 
+    # RT, choice dynamics and the blinding check, from trial columns that were
+    # recorded from the start and unused until 2026-09-22. `reversals` (not
+    # data_clean) so the perseveration and asymptote windows are available.
+    derived = compute_derived_behaviour(reversals, verbose=True)
+    blinding = score_blinding(reversals, verbose=True)
+
     theta_subject = load_theta(verbose=verbose)
 
     print('\n' + '=' * 70)
@@ -136,6 +143,8 @@ def build(
         rw_mle=rw_mle,
         accuracy=accuracy,
         ttc=ttc,
+        derived=derived,
+        blinding=blinding,
         theta_subject=theta_subject,
         h2_subjects=h2_eligible,
         include_exploratory=include_exploratory,
@@ -151,6 +160,8 @@ def build(
         'rw_mle': rw_mle,
         'accuracy': accuracy,
         'ttc': ttc,
+        'derived': derived,
+        'blinding': blinding,
         'theta_subject': theta_subject,
     })
     return results

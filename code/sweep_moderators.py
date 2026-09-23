@@ -34,9 +34,12 @@ hypothesis for another dataset, not a finding in this one.
    each hit, the partial correlation holding the sham value constant. This is
    not a nuisance control: for the reach-rate change score it is the whole
    effect. Older and lower-scoring subjects start lower, have more room to
-   improve, and so appear to benefit -- while the correlation with the
-   *delivered field* runs the wrong way (r = -.24), which a real dose effect
-   could not do.
+   improve, and so appear to benefit. (The correlation with the delivered
+   field is negative, r = -.24. That sign is *not* disqualifying on its own --
+   if tACS disrupts the process, more field means more disruption, which is
+   this sign. What rules it out is that the sign is inconsistent across DVs
+   once they are oriented so positive means better, and that |E| drops to
+   p = .96 once age and the sham baseline are held constant.)
 
 Usage
 -----
@@ -112,8 +115,20 @@ def bands(d: pd.DataFrame, col: str) -> dict:
 
 
 def sweep_age(d: pd.DataFrame) -> pd.DataFrame:
+    # Baseline behaviour belongs in this sweep: `sham_*` columns are skipped
+    # as *moderators* (they are outcomes, not predictors) but they are
+    # perfectly good targets for age. Leaving them out is how the age effect on
+    # response time went unnoticed until RT was derived by hand.
+    # The non-primary TTC variant is dropped: under TTC_CENSORING = 'censored'
+    # the raw `sham_ttc` is the survivorship-biased one, and it clears FDR here
+    # (q = .02) purely on that bias. Reporting both would put a known artifact
+    # in a list of survivors.
+    ttc_drop = {c for c in ('sham_ttc', 'sham_ttc_censored') if c != ttc('sham_ttc')}
+    behaviour = [c for c in d.columns if c.startswith('sham_') and c not in ttc_drop
+                 and pd.to_numeric(d[c], errors='coerce').notna().sum() >= MIN_N
+                 and pd.to_numeric(d[c], errors='coerce').nunique() >= MIN_UNIQUE]
     rows = []
-    for c in moderators(d, drop=['age']):
+    for c in moderators(d, drop=['age']) + behaviour:
         m = d[['age', c]].apply(pd.to_numeric, errors='coerce').dropna()
         if len(m) < MIN_N:
             continue
@@ -166,9 +181,16 @@ def main(argv=None) -> int:
     else:
         d = samples.frame('H2')
         d['age'] = pd.to_numeric(d['age'], errors='coerce')
+        # The seven preregistered DVs, plus the reach rate and the derived
+        # behaviour measures (RT and choice dynamics). Widening the DV set
+        # widens the multiplicity correction too, which is the honest trade:
+        # looking in more places should make each hit harder to believe.
         dvs = [c for c in ['delta_p_stay_win', 'delta_p_shift_lose',
                            rl('delta_alpha'), rl('delta_beta'), 'delta_accuracy',
-                           'delta_win_rate', ttc('delta_ttc'), 'delta_ttc_reach_rate']
+                           'delta_win_rate', ttc('delta_ttc'), 'delta_ttc_reach_rate',
+                           'delta_rt_mean', 'delta_rt_cv', 'delta_rt_post_error',
+                           'delta_rt_post_loss', 'delta_switch_rate',
+                           'delta_persev_errors', 'delta_asymptotic_acc']
                if c in d.columns]
         t = sweep_stim(d, dvs)
         label = f'the stimulation response (H2 sample, N = {len(d)}; {len(dvs)} DVs)'
