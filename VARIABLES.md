@@ -29,9 +29,7 @@ Defined in `code/samples.py`; `python code/samples.py` checks them. Every analys
 
 ## Findings
 
-**Missingness the spec does not explain, or explains wrongly**
-
-- `theta_peak_fcz` (11/60): presence is leans enrollment (later present), which the spec does not explain
+No unexplained missingness patterns.
 
 **85 variables no analysis script references by name.** Either unused, or reached only through a runtime-built name (see the builder docstring). Worth a decision each: analyse, or stop carrying.
 
@@ -196,7 +194,7 @@ The SimNIBS-side file therefore holds only the step-1 columns; the repo copy is 
 |---|---|---|---|---|---|---|---|
 | `itf_distance` | 59/60 | |iTF - 6 Hz|: distance from the stimulation frequency<br><sub>Inherits the clipping above: clipped subjects all get 2.0.</sub> | 0.0157 – 2 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>11885</sub> | 3 |
 | `iaf` | 59/60 | Individual alpha frequency, posterior channels, 1/f removed (Hz)<br><sub>0.5 Hz resolution (2 s Welch windows): 26 of 55 at exactly 10.0 Hz. Four at 12-13 Hz, where the peak may not be alpha.</sub> | 7.67 – 12.9 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / scattered<br><sub>11885</sub> | 3 |
-| `theta_peak_fcz` | 11/60 | Direct frontal-midline theta peak, where recorded (Hz) | 4.25 – 7.92 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | — / leans enrollment (later present)<br><sub>nan</sub> | 3 |
+| `theta_peak_fcz` | 11/60 | Direct frontal-midline theta peak, where recorded (Hz)<br><sub>Coverage (11/60) skews to later-enrolled subjects by design, not by chance. FCz is one of the four stimulating electrodes, so it records EEG only under the post-defense protocol and only on non-stimulation runs; dissertation-era subjects have 3 usable channels (F4, P4, P3) throughout. This is a validation-only measure for the Klimesch offset and is not used in any reported test.</sub> | 4.25 – 7.92 | <sub>individual_theta.py -> estimate_subject</sub> | secondary | enrollment-gated / leans enrollment (later present)<br><sub>nan</sub> | 3 |
 | `itf_klimesch` | 59/60 | Individual theta frequency = IAF - 5 Hz, clipped to 4-8 Hz<br><sub>Clipping: the 5 subjects with IAF < 9 Hz sit at exactly 4.0; the two with IAF 13 Hz at 8.0. Inherits IAF resolution.</sub> | 4 – 7.87 | <sub>individual_theta.py -> estimate_subject</sub> | moderator<br><sub>7.6 (exploratory)</sub> | — / scattered<br><sub>11885</sub> | 3 |
 
 ## eeg  ·  `master`

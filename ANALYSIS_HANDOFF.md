@@ -214,6 +214,7 @@ effect.
 | `compare_rl_estimates.py` | learning-parameter tests under both RL estimators |
 | `qc_cognitive_composite.py` | two-page validation report for `global_reduced` |
 | `derived_behaviour.py` | response times, post-error/post-loss slowing, switch and lapse rate, perseverative errors, asymptotic accuracy, and the blinding check — all from trial columns unused until 2026-09-22 |
+| `check_manuscript_numbers.py` | re-verifies every load-bearing number quoted in the manuscript prose against the data, and fails if a guarded sentence was rewritten; **exits non-zero on any mismatch** |
 | `sweep_moderators.py` | every subject-level measure against age (`--target age`) or against each change score (`--target stim`), with FDR, band contrasts and a baseline-dependency check |
 | `qc_paper_variables.py` | distributions, baseline correlations, VIF, split-half reliability and the age-band check, for every variable the paper reports |
 | `table1.py` | Table 1 (sample characteristics, split at the median age) → `derivatives/table1.{csv,md}` |
@@ -625,6 +626,7 @@ python table1.py                  # derivatives/table1.{csv,md}
 python qc_paper_variables.py      # distributions, correlations, VIF, reliability, age bands
 python sweep_moderators.py --target age    # all 86 measures vs age, FDR + bands
 python sweep_moderators.py --target stim   # all 86 vs 15 change scores, FDR
+python check_manuscript_numbers.py # prose vs data; run before circulating a draft
 python derived_behaviour.py       # RT, choice dynamics, blinding (summary)
 
 # 9. model checking. Step 3 fits the single-rate model only, so fit the dual
@@ -970,10 +972,13 @@ a sound fallback. Four of the six are in H2 (`11030`, `11316`, `11542`,
 and age × Δα is p = .054 with or without them (2026-09-22). `11030` was
 undocumented until the Stage 2 audit.
 
-**iTF (exploratory, §7.6) has method limits worth stating or fixing.** The IAF
-uses 2 s Welch windows, so 0.5 Hz resolution and 26 of 55 subjects at exactly
-10.0 Hz. iTF = IAF − 5 is clipped to 4–8 Hz, which puts the 5 subjects with
-IAF < 9 Hz at exactly 4.0. Four IAFs of 12–13 Hz may not be alpha.
+**iTF method limits — resolved 2026-09-22, see the corrected entry above.**
+This item used to describe 2 s Welch windows, 0.5 Hz resolution and 26 of 55
+subjects at exactly 10.0 Hz. All of that was the argmax peak rule picking up
+the 9.767 Hz instrument comb; it is fixed by spectral-model fitting over 8 s
+segments across four runs. What remains is that the estimate is noisier than
+published IAF (test-retest r = .63 against a norm above .8) and that the 5 Hz
+Klimesch offset is an assumption, not a measurement.
 
 **Parked, needs data access (Stage 4).** BBS needs a *raw* (numeric) REDCap
 export of the tACS BBS fields — the labels export in use blanks every 2–6

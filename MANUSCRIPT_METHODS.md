@@ -3,9 +3,11 @@
 Draft manuscript prose for the analysis decisions made during the September
 2026 audit. Every number here is produced by a script in `code/`; the source is
 named in square brackets so a reviewer's question can be answered by re-running
-one command rather than by searching. **If a number changes, re-run the named
-script and update this file** — it is prose, so nothing regenerates it
-automatically.
+one command rather than by searching. **If a number changes, re-run the named script and update this file** — it is
+prose, so nothing regenerates it. `python code/check_manuscript_numbers.py`
+re-verifies every load-bearing number here against the data and fails if one
+has drifted or if a guarded sentence was rewritten; run it before circulating
+a draft.
 
 Companion documents: `ANALYSIS_HANDOFF.md` (full reasoning and the bug record),
 `VARIABLES.md` (provenance for every variable).

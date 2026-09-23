@@ -2,8 +2,9 @@
 
 Draft captions for every figure in `data/figures/paper/`. Each entry names the
 producing script and the numbers quoted, so a caption can be re-checked by
-re-running one command. **Prose: nothing regenerates this file.** If a figure
-is rebuilt and a number moves, edit here by hand.
+re-running one command. **Prose: nothing regenerates this file.** If a figure is rebuilt and a number
+moves, edit here by hand — `python code/check_manuscript_numbers.py` will tell
+you which ones moved.
 
 Figure numbering below is a proposal, not a decision — the main-text set is
 five figures, with the rest offered as supplementary.
