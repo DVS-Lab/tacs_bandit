@@ -1,14 +1,18 @@
+# macOS
 .DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
-data/.DS_Store
-code/.DS_Store
-.DS_Store
-code/.DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
-data/.DS_Store
-stimuli/.DS_Store
-.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Jupyter autosaves. The notebooks themselves are tracked; these are the
+# editor's shadow copies and they go stale the moment a notebook is rebuilt,
+# which makes them actively misleading in a repo where the notebook is
+# generated (see code/build_results_paper_nb.py).
+.ipynb_checkpoints/
+
+# Scratch. Analysis outputs belong in derivatives/ and are tracked.
+*.tmp
+.~lock.*
