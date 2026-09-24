@@ -170,9 +170,9 @@ and is reported as a global rather than a regional measure because the three
 recording channels correlate at median r = .998. Every run carries a
 **phase-randomised surrogate control** — a signal with the same power spectrum
 and its temporal structure destroyed — scored by the identical pipeline. Real
-values exceed surrogates (260.6% vs 193.2%; paired t(118) = 9.18, p = 2 × 10⁻¹⁵;
+values exceed surrogates (260.6% vs 191.9%; paired t(118) = 9.24, p = 1 × 10⁻¹⁵;
 positive in 92% of runs), and surrogate values correlate with real values at
-only r = .09, establishing that between-participant differences reflect genuine
+only r = −.08, establishing that between-participant differences reflect genuine
 bursting rather than spectral shape. Run-to-run reliability is r = .60
 (Spearman-Brown .75). [`code/eeg_theta.py`]
 

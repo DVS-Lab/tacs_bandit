@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 import glob
 import os
+import zlib
 import warnings
 
 from config import (
@@ -447,10 +448,17 @@ def compute_theta_reactivity_run(
     if len(clean_vals) == 0:
         return None
 
-    # Same measure on a phase-randomised surrogate of this run's own signal.
-    # Seeded per subject and run so the value is reproducible.
-    rng = np.random.default_rng(
-        (SURROGATE_SEED + hash((str(subject_id), int(run_num)))) % (2 ** 32))
+    # Same measure on a phase-randomised surrogate of this run's own signal,
+    # seeded per subject and run.
+    #
+    # zlib.crc32, not hash(). Python salts string hashing per interpreter
+    # process, so `hash(('11773', 1))` returns a different value on every run
+    # and the surrogate would be irreproducible -- which is how this was first
+    # written, and what `check_manuscript_numbers.py` caught when the quoted
+    # surrogate mean moved between rebuilds. crc32 is stable across processes
+    # and versions.
+    key = f'{subject_id}|{int(run_num)}'.encode()
+    rng = np.random.default_rng((SURROGATE_SEED + zlib.crc32(key)) % (2 ** 32))
     surr = phase_randomised(raw_signal, rng)
     s_theta = np.abs(signal.hilbert(bandpass_filter(surr, THETA_BAND, FS))) ** 2
     s_smooth = np.convolve(s_theta, np.ones(window_samples) / window_samples,
@@ -540,7 +548,20 @@ def compute_subject_theta_average(clean_theta_df: pd.DataFrame) -> pd.DataFrame:
             spec[c] = 'mean'
     subj_avg = clean_theta_df.groupby('subject_id').agg(spec).rename(
         columns={'run': 'n_clean_runs'})
-    
+
+    # Run 1 alone, as a sensitivity measure. Run 1 is the ONLY run that
+    # precedes any stimulation: run 5 is labelled baseline but follows the
+    # first stimulation block, and runs 4 and 8 follow one too. Averaging runs
+    # 1 and 5 stays primary -- it is more reliable (Spearman-Brown .85 against
+    # .74 for a single run) and the practical cost of the extra run is small.
+    # But theta is used as a *baseline* moderator of the stimulation response,
+    # so a reviewer is entitled to ask what the result looks like using only
+    # data collected before any stimulation. This column answers that without
+    # anyone having to recompute it.
+    run1 = (clean_theta_df[clean_theta_df['run'] == 1]
+            .set_index('subject_id')['theta_p95'].rename('theta_p95_run1'))
+    subj_avg = subj_avg.join(run1)
+
     return subj_avg.reset_index()
 
 

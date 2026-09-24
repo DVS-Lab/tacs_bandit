@@ -1072,9 +1072,9 @@ are not independent sensors. Report it as a global theta-bursting measure.
 **It is valid, and checked per run.** The 9.767 Hz instrument artifact (see
 7.6) is rejected by the 4–8 Hz bandpass at −33 dB. Every run also carries a
 phase-randomised surrogate with its own power spectrum and its bursting
-destroyed: real 260.6% vs surrogate 193.2%, paired t(118) = +9.18, p = 2e-15,
+destroyed: real 260.6% vs surrogate 191.9%, paired t(118) = +9.24, p = 1e-15,
 positive in 92% of runs, and the surrogates correlate with the real values at
-only r = +.09 — so the between-subject differences reflect genuine bursting
+only r = -.08 — so the between-subject differences reflect genuine bursting
 rather than spectral shape. Run-to-run reliability is r = +.60
 (Spearman-Brown .75). The check travels with the data as `theta_p95_excess`. Coverage rose from 34 subjects at the defense to 59
 here — partly the larger sample, but mostly because `eeg_theta.find_eeg_run`
@@ -1087,23 +1087,50 @@ all. That is fixed in `nic_files.py` and both consumers now share it.
 # 5.1 Theta bursting as a moderator of the stimulation response
 # ============================================================================
 
-theta_targets = [c for c in ['delta_ttc', rl('delta_alpha'), 'delta_accuracy',
+theta_targets = [c for c in [ttc('delta_ttc'), rl('delta_alpha'), 'delta_accuracy',
                              'delta_p_shift_lose'] if c in subj.columns]
 
-print(f'theta_p95 available for {subj["theta_p95"].notna().sum()}/{len(subj)} subjects\\n')
-print(f'{"Change score":28s} {"N":>4s} {"r":>8s} {"p":>8s}')
-print('-' * 52)
+# Primary measure averages runs 1 and 5. Run 5 is labelled baseline but
+# *follows* the first stimulation block, and only run 1 precedes any
+# stimulation at all -- so a baseline moderator built from runs 1 and 5 is
+# partly measured after the intervention whose effect it predicts. Averaging
+# both stays primary because it is more reliable (Spearman-Brown .85 against
+# .74 for one run), but every moderator is reported beside its run-1-only
+# value so the circularity question is answered in the table rather than in a
+# rebuttal letter.
+print(f'theta_p95 (runs 1+5) available for {subj["theta_p95"].notna().sum()}'
+      f'/{len(subj)} subjects; run-1-only for '
+      f'{subj["theta_p95_run1"].notna().sum()}\\n')
+print(f'{"Change score":28s} {"N":>4s} {"r":>8s} {"p":>8s}   '
+      f'{"N":>4s} {"r (run 1)":>10s} {"p":>8s}')
+print('-' * 76)
 
 theta_rows = []
 for col in theta_targets:
-    d = subj[subj['subject_id'].isin(h2_eligible)][['theta_p95', col]].dropna()
+    h2d = subj[subj['subject_id'].isin(h2_eligible)]
+    d = h2d[['theta_p95', col]].dropna()
     if len(d) < 5:
         continue
     r, p = stats.pearsonr(d['theta_p95'].astype(float), d[col].astype(float))
-    print(f'{col:28s} {len(d):4d} {r:+8.3f} {p:8.3f}{" *" if p < .05 else ""}')
-    theta_rows.append({'dv': col, 'r': r, 'p': p, 'n': len(d)})
+    d1 = h2d[['theta_p95_run1', col]].dropna()
+    if len(d1) >= 5:
+        r1, p1 = stats.pearsonr(d1['theta_p95_run1'].astype(float),
+                                d1[col].astype(float))
+        sens = f'{len(d1):4d} {r1:+10.3f} {p1:8.3f}'
+    else:
+        r1, p1, sens = float('nan'), float('nan'), ' ' * 24
+    print(f'{col:28s} {len(d):4d} {r:+8.3f} {p:8.3f}{" *" if p < .05 else "  "} {sens}')
+    theta_rows.append({'dv': col, 'r': r, 'p': p, 'n': len(d),
+                       'r_run1': r1, 'p_run1': p1, 'n_run1': len(d1)})
 
 theta_df = pd.DataFrame(theta_rows)
+_flip = theta_df[(theta_df.p < .05) != (theta_df.p_run1 < .05)]
+if len(_flip):
+    print('\\n  NOTE: significance differs between the primary and run-1-only '
+          'measure for:\\n    ' + ', '.join(_flip.dv))
+else:
+    print('\\n  No moderator changes its verdict under the run-1-only measure, so '
+          'the theta\\n  results do not depend on the post-stimulation run.')
 """),
         code("""
 # ============================================================================

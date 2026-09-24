@@ -1599,7 +1599,7 @@ def build_subject_df(
         # eeg_theta.phase_randomised); it travels with the measure so a
         # downstream user cannot read theta_p95 without it.
         theta_cols = ['subject_id', 'theta_p95', 'theta_p75', 'theta_median',
-                      'theta_p95_surrogate', 'theta_p95_excess']
+                      'theta_p95_surrogate', 'theta_p95_excess', 'theta_p95_run1']
         available_cols = [c for c in theta_cols if c in theta_subject.columns]
         if 'subject_id' in available_cols:
             subj_df = subj_df.merge(theta_subject[available_cols], on='subject_id', how='left')

@@ -821,27 +821,49 @@ run a spectral QC for harmonic combs before the first analysis.
 spectrum and randomised phases, and `compute_theta_reactivity_run` scores it
 with the same code path, producing `theta_p95_surrogate` and
 `theta_p95_excess` at run and subject level and in the master CSV. Over 119
-runs: real 260.6% vs surrogate 193.2%, paired **t(118) = +9.18, p = 2e-15**,
-excess positive in 92% of runs, surrogate SD 6.0 against real SD 80.4 and
-correlated with the real values at only r = +.09. So the between-subject
+runs: real 260.6% vs surrogate 191.9%, paired **t(118) = +9.24, p = 1e-15**,
+excess positive in 92% of runs, surrogate SD 5.4 against real SD 80.4 and
+correlated with the real values at only r = -.08. So the between-subject
 differences in theta_p95 are genuine bursting, not spectral shape. Check
 `theta_p95_excess` before trusting any theta result; near zero would mean the
 measure has started reporting the spectrum.
 
-**Theta could use twice the data it does (2026-09-22, not yet applied).**
-`compute_theta_reactivity_all` defaults to `baseline_runs = [1, 5]`, but runs 4
-and 8 are also non-stimulation and give the same measure: means 251.6-258.6%
-across runs 1/4/5/8 with surrogate excess 59.9-66.1 in all four. Inter-run
-correlations are .61-.80 (mean r = .735), so a **4-run average would have
-reliability .92 against .85 for the current 2-run average** (Spearman-Brown),
-on 49 subjects with all four runs.
+**Theta stays on runs 1 and 5, with a run-1-only sensitivity column
+(decided 2026-09-23).** Runs 4 and 8 are also non-stimulation and give the same
+measure (means 251.6-258.6 across runs 1/4/5/8, surrogate excess 59.9-66.1 in
+all four; inter-run r = .61-.80, mean .735), so a four-run average would raise
+Spearman-Brown reliability from **.847 to .917**. That was costed before being
+applied, and it is not worth it:
 
-Run 5 was the thing to check, because it *follows* stimulation block 1, which is
-active for counterbalance A and sham for B -- which is exactly why
-`individual_theta.py` restricts itself to run 1. It is clean: theta_p95 by
-counterbalance is p = .996 on run 1 and **p = .899 on run 5**, and run 5 does
-not differ from run 1 within subject (paired t = +0.02, p = .98). Stimulation
-leaves no detectable trace on theta bursting, so runs 4 and 8 are usable too.
+- Reliability matters through attenuation, and the factor is sqrt(reliability):
+  a two-run measure retains 92.0% of a true effect, a four-run measure 95.8%.
+  **The gain is 4.1%.** A true r of .30 would be observed as .276 rather than
+  .287; the n needed for 80% power moves from 101 to 93.
+- Against that, **only run 1 precedes any stimulation.** Run 5 is labelled
+  baseline but follows the first stimulation block, and runs 4 and 8 follow one
+  too. Theta is used as a *baseline* moderator of the stimulation response, so
+  a four-run predictor is largely measured after the intervention whose effect
+  it predicts -- a circularity a reviewer can name in one sentence.
+- The empirical check does not clear that concern. Relating each version to the
+  response: Δ TTC gives r = +.047 from run 1 against +.188 from the
+  post-stimulation runs, and Δ alpha −.072 against −.141. Both are null and the
+  differences sit inside noise at n = 49, so this is **not** evidence of
+  contamination — but it is in the direction contamination would produce, and
+  it is not evidence against it either.
+
+So runs 1 and 5 stay primary, and `theta_p95_run1` is carried alongside as the
+fully pre-stimulation sensitivity measure (54 of 59 subjects; five have a
+usable run 5 but a run 1 that fails the artifact threshold, so the two columns
+are not a strict subset comparison). The two correlate at **r = +.942**.
+Notebook §5.1 prints every theta moderator under both and flags any verdict
+that differs. As of 2026-09-23 none does:
+
+| change score | r (runs 1+5), n = 53 | r (run 1 only), n = 49 |
+|---|---|---|
+| Δ trials-to-criterion | +.150 (p = .28) | +.047 (p = .75) |
+| Δ alpha | −.140 (p = .32) | −.072 (p = .62) |
+| Δ accuracy | −.042 (p = .76) | −.106 (p = .47) |
+| Δ lose-shift | +.005 (p = .97) | −.065 (p = .66) |
 
 **The 7-channel subjects show what the montage costs us (2026-09-22).** 22 of
 the 59 already have 7 usable channels on run 1 (F3, Fp1, FCz, FT7, F4, P4, P3);
